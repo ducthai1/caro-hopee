@@ -1,26 +1,8 @@
-// API Constants
-export const API_ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
-  },
-  // Add more endpoints as needed
-};
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001/api';
+export const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5001';
 
-// User Roles
-export const USER_ROLES = {
-  EMPLOYEE: 'EMPLOYEE',
-  MANAGER: 'MANAGER',
-  ADMIN: 'ADMIN',
-} as const;
+export const BOARD_SIZES = [15, 20, 25] as const;
+export const DEFAULT_BOARD_SIZE = 15;
 
-// Status Constants
-export const STATUS = {
-  PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
-  REJECTED: 'REJECTED',
-} as const;
-
-// Date Format
-export const DATE_FORMAT = 'DD/MM/YYYY';
+export const GUEST_ID_KEY = 'caro_guest_id';
 

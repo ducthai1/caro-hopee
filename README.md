@@ -1,183 +1,201 @@
-# SG Internship Project - December 2025
+# Cờ Caro Game
 
-A 5-week internship project with Frontend (React) and Backend (Java Spring Boot).
+A real-time multiplayer Tic-Tac-Toe (Cờ Caro) game built with React and Node.js.
 
-## 📁 Project Structure
+## Features
 
-```
-sg-intern-dec-2025/
-├── frontend/          # React + TypeScript + MUI
-├── backend/           # Spring Boot + MySQL
-└── README.md
-```
+- **Guest Play**: Play without registration (temporary games)
+- **User Accounts**: Register and track your statistics
+- **Leaderboard**: See top players ranked by score
+- **Real-time Multiplayer**: Play with others using WebSocket
+- **Configurable Rules**: 
+  - Block Two Ends rule (Chặn 2 đầu)
+  - Configurable board size (15x15, 20x20, etc.)
+  - Undo moves with opponent approval
+- **Game Features**:
+  - Surrender
+  - Leave game
+  - Request undo (with approval)
+  - Score tracking across multiple games
+  - New game in same room
 
-## 🚀 Quick Start
+## Tech Stack
 
-### Frontend Setup
+### Frontend
+- React 18 with TypeScript
+- Material-UI (MUI)
+- Socket.io-client
+- React Router
 
-```bash
-cd frontend
-npm install
-npm start
-```
+### Backend
+- Node.js with Express
+- TypeScript
+- MongoDB with Mongoose
+- Socket.io
+- JWT Authentication
+- bcryptjs for password hashing
 
-Frontend will run at: `http://localhost:3000`
+## Setup
+
+### Prerequisites
+- Node.js 16+
+- MongoDB (local or cloud)
+- npm or yarn
 
 ### Backend Setup
 
+1. Navigate to backend directory:
 ```bash
 cd backend
-mvn spring-boot:run
 ```
 
-Backend will run at: `http://localhost:8080`
+2. Install dependencies:
+```bash
+npm install
+```
 
-## 📋 System Requirements
+3. Create `.env` file:
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/caro-game
+JWT_SECRET=your-secret-key-change-in-production
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+```
 
-### Frontend
-- Node.js 16+ 
-- npm or yarn
+4. Start the server:
+```bash
+npm run dev
+```
+
+Backend will run on `http://localhost:5000`
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create `.env` file:
+```env
+REACT_APP_API_BASE_URL=http://localhost:5000/api
+REACT_APP_SOCKET_URL=http://localhost:5000
+```
+
+4. Start the development server:
+```bash
+npm start
+```
+
+Frontend will run on `http://localhost:3000`
+
+## Project Structure
+
+```
+.
+├── frontend/
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── contexts/       # Context providers
+│   │   ├── pages/          # Page components
+│   │   ├── services/       # API and socket services
+│   │   ├── types/          # TypeScript types
+│   │   └── utils/          # Utility functions
+│   └── package.json
+├── backend/
+│   ├── src/
+│   │   ├── controllers/    # Route controllers
+│   │   ├── services/       # Business logic
+│   │   ├── models/         # Database models
+│   │   ├── routes/         # Express routes
+│   │   ├── middleware/     # Express middleware
+│   │   ├── config/         # Configuration
+│   │   └── utils/          # Utility functions
+│   └── package.json
+└── README.md
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login
+- `GET /api/auth/me` - Get current user
+
+### Games
+- `POST /api/games/create` - Create new game
+- `GET /api/games/:roomId` - Get game state
+- `POST /api/games/:roomId/join` - Join game
+- `GET /api/games/user/:userId` - Get user's games
+
+### Leaderboard
+- `GET /api/leaderboard` - Get top players
+- `GET /api/leaderboard/user/:userId` - Get user rank
+
+### Users
+- `GET /api/users/:userId` - Get user profile
+- `PUT /api/users/:userId` - Update profile
+
+## WebSocket Events
+
+### Client → Server
+- `join-room` - Join a game room
+- `leave-room` - Leave a game room
+- `make-move` - Make a move
+- `request-undo` - Request to undo a move
+- `approve-undo` - Approve undo request
+- `reject-undo` - Reject undo request
+- `surrender` - Surrender the game
+- `new-game` - Start a new game in the same room
+
+### Server → Client
+- `room-joined` - Confirmed room join
+- `player-joined` - Another player joined
+- `player-left` - A player left
+- `move-made` - A move was made
+- `game-finished` - Game ended
+- `score-updated` - Score updated
+- `undo-requested` - Undo request received
+- `undo-approved` - Undo was approved
+- `undo-rejected` - Undo was rejected
+- `game-error` - Game error occurred
+
+## Game Rules
+
+### Win Condition
+- 5 in a row (horizontal, vertical, or diagonal)
+
+### Block Two Ends (Chặn 2 đầu)
+- When enabled, prevents moves that would allow opponent to have open 4 at both ends
+- This is a common rule in Cờ Caro to prevent easy wins
+
+### Undo
+- Players can request to undo their last move
+- Opponent must approve the undo
+- Limited number of undos per game (default: 3)
+
+## Development
 
 ### Backend
-- JDK 17+
-- Maven 3.6+
-- MySQL 8.0+ (or H2 for development)
-
-## 🛠️ Technologies Used
+```bash
+npm run dev    # Development with hot reload
+npm run build  # Build for production
+npm start      # Run production build
+```
 
 ### Frontend
-- **React 19** - UI Framework
-- **TypeScript** - Type Safety
-- **Material-UI (MUI)** - UI Components
-- **React Router** - Routing
-- **Axios** - HTTP Client
-- **Context API** - State Management
-- **ESLint + Prettier** - Code Quality
-
-### Backend
-- **Spring Boot 3.2** - Framework
-- **Spring Data JPA** - Database Access
-- **Spring Security** - Authentication & Authorization
-- **MySQL** - Database
-- **JWT** - Token Authentication
-- **Lombok** - Boilerplate Reduction
-
-## 📂 Detailed Structure
-
-### Frontend Structure
-```
-frontend/
-├── src/
-│   ├── components/     # Reusable components
-│   ├── contexts/       # Context API (Auth, etc.)
-│   ├── layouts/        # Layout components
-│   ├── pages/          # Page components
-│   ├── services/       # API services
-│   ├── types/          # TypeScript types
-│   ├── utils/          # Helper functions
-│   └── mockData/       # Mock data for development
-├── public/
-└── package.json
+```bash
+npm start      # Development server
+npm run build  # Build for production
+npm test       # Run tests
 ```
 
-### Backend Structure
-```
-backend/
-├── src/main/java/com/internship/backend/
-│   ├── controller/     # REST Controllers
-│   ├── service/        # Business Logic
-│   ├── repository/     # Data Access Layer
-│   ├── model/          # Entity Classes
-│   ├── dto/            # Data Transfer Objects
-│   ├── config/         # Configuration (CORS, Security)
-│   ├── exception/      # Exception Handlers
-│   └── security/       # Security Configuration
-└── src/main/resources/
-    └── application.properties
-```
+## License
 
-## 🔐 Environment Variables
-
-### Frontend
-Create `.env` file in `frontend/` directory:
-```
-REACT_APP_API_BASE_URL=http://localhost:8080/api
-```
-
-### Backend
-Configure in `backend/src/main/resources/application.properties`:
-```properties
-spring.datasource.username=root
-spring.datasource.password=your_password
-```
-
-## 📝 Git Flow
-
-1. **Create new branch:**
-   ```bash
-   git checkout -b feature/[feature-name]
-   ```
-
-2. **Commit code:**
-   ```bash
-   git commit -m "feat: description"
-   ```
-
-3. **Push branch:**
-   ```bash
-   git push origin feature/[feature-name]
-   ```
-
-4. **Create Merge Request to `develop` branch**
-
-⚠️ **Note:** Do not push directly to `main`. Must create MR and get reviewed before merging.
-
-## 📅 5-Week Roadmap
-
-### Week 1: Foundation & Setup
-- ✅ Environment setup
-- ✅ Project structure
-- ✅ Basic FE-BE connection
-- ⏳ Database Design finalization
-- ⏳ API Spec finalization
-
-### Week 2: Core Development
-- ⏳ UI Slicing
-- ⏳ CRUD APIs
-- ⏳ Mock Data
-
-### Week 3: Integration
-- ⏳ API Integration
-- ⏳ Authentication
-- ⏳ State Management
-
-### Week 4: Polish & Advanced
-- ⏳ Validation
-- ⏳ Error Handling
-- ⏳ Role-based Access
-
-### Week 5: Testing & Deploy
-- ⏳ Bug Fixing
-- ⏳ Deploy (Vercel + Render)
-- ⏳ Presentation
-
-## 📚 Reference Documentation
-
-- [React Documentation](https://react.dev/)
-- [Material-UI Documentation](https://mui.com/)
-- [Spring Boot Documentation](https://spring.io/projects/spring-boot)
-- [Spring Security Documentation](https://spring.io/projects/spring-security)
-
-## 👥 Team
-
-- **Mentor FE:** Mr. Cong Duc
-- **Mentor BE:** Mr. Toan
-- **Reviewer:** Mr. Cong Duc
-
-## 📞 Contact
-
-If you have any questions, please create an issue or contact the mentor.
-
----
-
-**Good luck with your internship! 🎉**
+ISC
