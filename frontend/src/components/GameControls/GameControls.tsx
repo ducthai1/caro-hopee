@@ -80,32 +80,32 @@ const GameControls: React.FC = () => {
   };
 
   return (
-    <Box sx={{ mt: 3, width: '100%', maxWidth: 600 }}>
-      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <Box sx={{ width: '100%' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {canStartGame && (
-          <Button variant="contained" size="large" onClick={startGame} sx={{ minWidth: 200 }}>
+          <Button variant="contained" size="medium" onClick={startGame} fullWidth>
             Start Game
           </Button>
         )}
         {game.gameStatus === 'playing' && (
           <>
             {game.rules.allowUndo && (
-              <Button variant="outlined" onClick={handleRequestUndo} disabled={!myPlayerNumber}>
+              <Button variant="outlined" size="medium" onClick={handleRequestUndo} disabled={!myPlayerNumber} fullWidth>
                 Request Undo
               </Button>
             )}
-            <Button variant="outlined" color="error" onClick={handleSurrender}>
+            <Button variant="outlined" color="error" size="medium" onClick={handleSurrender} fullWidth>
               Surrender
             </Button>
           </>
         )}
         {game.gameStatus === 'finished' && !showWinnerModal && (
-          <Button variant="contained" onClick={handleNewGame}>
+          <Button variant="contained" size="medium" onClick={handleNewGame} fullWidth>
             New Game
           </Button>
         )}
         {!showWinnerModal && (
-          <Button variant="outlined" color="secondary" onClick={leaveRoom}>
+          <Button variant="outlined" color="secondary" size="medium" onClick={leaveRoom} fullWidth>
             Leave Game
           </Button>
         )}
@@ -250,7 +250,6 @@ const GameControls: React.FC = () => {
                 borderColor: '#5ba8c7',
                 borderWidth: 2,
                 backgroundColor: 'rgba(126, 200, 227, 0.08)',
-                transform: 'translateY(-2px)',
               },
             }}
           >
@@ -273,7 +272,6 @@ const GameControls: React.FC = () => {
               '&:hover': {
                 background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
                 boxShadow: '0 6px 20px rgba(126, 200, 227, 0.5)',
-                transform: 'translateY(-2px)',
               },
             }}
           >

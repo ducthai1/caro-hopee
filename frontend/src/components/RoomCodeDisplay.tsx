@@ -36,9 +36,8 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label = 'Ro
           backgroundOrigin: 'border-box',
           backgroundClip: 'padding-box, border-box',
           boxShadow: '0 8px 24px rgba(168, 230, 207, 0.12)',
-          transition: 'all 0.3s ease',
+          transition: 'box-shadow 0.3s ease',
           '&:hover': {
-            transform: 'translateY(-2px)',
             boxShadow: '0 12px 32px rgba(168, 230, 207, 0.18)',
           },
         }}
