@@ -74,179 +74,347 @@ const HomePage: React.FC = () => {
     <>
       <AppBar 
         position="static"
+        elevation={0}
         sx={{
-          background: 'linear-gradient(135deg, #b3d9e6 0%, #d4e8f0 100%)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+          boxShadow: '0 8px 32px rgba(126, 200, 227, 0.2)',
+          backdropFilter: 'blur(10px)',
         }}
       >
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: '#1a4a5c', fontWeight: 'bold' }}>
-            Caro
+        <Toolbar sx={{ py: 1.5, px: { xs: 2, md: 4 } }}>
+          <Typography 
+            variant="h5" 
+            component="div" 
+            sx={{ 
+              flexGrow: 1, 
+              color: '#ffffff', 
+              fontWeight: 700, 
+              fontSize: { xs: '1.5rem', md: '2rem' },
+              letterSpacing: '-0.5px',
+            }}
+          >
+            🎮 Caro
           </Typography>
           {isAuthenticated ? (
-            <>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <Button 
                 component={Link} 
                 to="/profile"
-                sx={{ color: '#1a4a5c', fontWeight: 600, mr: 1 }}
+                sx={{ 
+                  color: '#ffffff', 
+                  fontWeight: 600, 
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { 
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    transform: 'translateY(-2px)',
+                  } 
+                }}
               >
                 Profile
               </Button>
               <Button 
                 component={Link} 
                 to="/leaderboard"
-                sx={{ color: '#1a4a5c', fontWeight: 600 }}
+                sx={{ 
+                  color: '#ffffff', 
+                  fontWeight: 600,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { 
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    transform: 'translateY(-2px)',
+                  } 
+                }}
               >
                 Leaderboard
               </Button>
-            </>
+            </Box>
           ) : (
             <Button 
               component={Link} 
               to="/login"
-              sx={{ color: '#1a4a5c', fontWeight: 600 }}
+              sx={{ 
+                color: '#ffffff', 
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '0.95rem',
+                transition: 'all 0.3s ease',
+                '&:hover': { 
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  transform: 'translateY(-2px)',
+                } 
+              }}
             >
               Login
             </Button>
           )}
         </Toolbar>
       </AppBar>
-      <Container maxWidth="md">
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-        <Typography 
-          variant="h3" 
-          gutterBottom
-          sx={{
-            background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            fontWeight: 'bold',
-            mb: 2,
-          }}
-        >
-          Caro Game
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 4, color: '#555' }}>
-          Welcome! Create a new game or join an existing one.
-        </Typography>
+      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+        <Box sx={{ textAlign: 'center', mb: { xs: 5, md: 7 } }}>
+          <Typography 
+            variant="h2" 
+            gutterBottom
+            sx={{
+              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontWeight: 800,
+              mb: 2,
+              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4.5rem' },
+              letterSpacing: '-1px',
+              lineHeight: 1.2,
+            }}
+          >
+            Caro Game
+          </Typography>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              color: '#5a6a7a', 
+              fontWeight: 400, 
+              fontSize: { xs: '1rem', md: '1.25rem' },
+              maxWidth: '600px',
+              mx: 'auto',
+              lineHeight: 1.6,
+            }}
+          >
+            Challenge your friends to an exciting game of strategy and skill
+          </Typography>
+        </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, mb: 4 }}>
-          <Box sx={{ flex: 1, maxWidth: { md: '500px' } }}>
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                p: 4,
-                background: 'linear-gradient(135deg, rgba(179, 217, 230, 0.25) 0%, rgba(212, 232, 240, 0.25) 100%)',
-                border: '1px solid rgba(179, 217, 230, 0.4)',
-              }}
-            >
-              <Typography variant="h6" gutterBottom sx={{ color: '#1a4a5c', fontWeight: 'bold' }}>
-                Create New Game
-              </Typography>
-
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Board Size</InputLabel>
-            <Select
-              value={boardSize}
-              onChange={(e) => setBoardSize(Number(e.target.value))}
-              label="Board Size"
-            >
-              {BOARD_SIZES.map((size) => (
-                <MenuItem key={size} value={size}>
-                  {size}x{size}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <Box sx={{ mb: 2 }}>
-            <Button
-              variant={blockTwoEnds ? 'contained' : 'outlined'}
-              onClick={() => setBlockTwoEnds(!blockTwoEnds)}
-              fullWidth
-            >
-              Block Two Ends: {blockTwoEnds ? 'ON' : 'OFF'}
-            </Button>
-          </Box>
-
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleCreateGame}
-                sx={{ mt: 2 }}
-              >
-                Create Game
-              </Button>
-            </Paper>
-          </Box>
-
-          <Box sx={{ flex: 1, maxWidth: { md: '500px' } }}>
-            <Paper 
-              elevation={3} 
-              sx={{ 
-                p: 4,
-                background: 'linear-gradient(135deg, rgba(168, 213, 226, 0.25) 0%, rgba(200, 229, 239, 0.25) 100%)',
-                border: '1px solid rgba(179, 217, 230, 0.4)',
-              }}
-            >
-              <Typography variant="h6" gutterBottom sx={{ color: '#1a4a5c', fontWeight: 'bold' }}>
-                Join Game
-              </Typography>
-              <TextField
-                fullWidth
-                label="Room Code"
-                value={joinRoomCode}
-                onChange={handleJoinCodeChange}
-                placeholder="ABC123"
-                inputProps={{
-                  maxLength: 6,
-                  style: {
-                    textAlign: 'center',
-                    fontSize: '20px',
-                    fontFamily: 'monospace',
-                    letterSpacing: 3,
-                    fontWeight: 'bold',
-                  },
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
+          gap: { xs: 3, md: 4 },
+          mb: 4,
+          maxWidth: '1200px',
+          mx: 'auto',
+        }}>
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: { xs: 3, md: 5 },
+              background: '#ffffff',
+              border: '2px solid transparent',
+              borderRadius: 3,
+              position: 'relative',
+              backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+              backgroundOrigin: 'border-box',
+              backgroundClip: 'padding-box, border-box',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: '0 20px 40px rgba(126, 200, 227, 0.15)',
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '5px',
+                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+                borderRadius: '24px 24px 0 0',
+              },
+            }}
+          >
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                sx={{ 
+                  color: '#2c3e50', 
+                  fontWeight: 700, 
+                  fontSize: { xs: '1.5rem', md: '1.75rem' },
+                  mb: 1,
                 }}
-                sx={{ mb: 2 }}
-              />
-              {joinError && (
-                <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+              >
+                ✨ Create New Game
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#5a6a7a', fontSize: '0.95rem' }}>
+                Set up your game board and invite friends
+              </Typography>
+            </Box>
+
+            <FormControl fullWidth sx={{ mb: 2.5 }}>
+              <InputLabel sx={{ fontWeight: 500 }}>Board Size</InputLabel>
+              <Select
+                value={boardSize}
+                onChange={(e) => setBoardSize(Number(e.target.value))}
+                label="Board Size"
+                sx={{ borderRadius: 2 }}
+              >
+                {BOARD_SIZES.map((size) => (
+                  <MenuItem key={size} value={size}>
+                    {size}x{size}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Box sx={{ mb: 3 }}>
+              <Button
+                variant={blockTwoEnds ? 'contained' : 'outlined'}
+                onClick={() => setBlockTwoEnds(!blockTwoEnds)}
+                fullWidth
+                sx={{ 
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                Block Two Ends: {blockTwoEnds ? 'ON' : 'OFF'}
+              </Button>
+            </Box>
+
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={handleCreateGame}
+              sx={{ 
+                py: 1.75,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '1rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 14px rgba(126, 200, 227, 0.4)',
+              }}
+            >
+              🚀 Create Game
+            </Button>
+          </Paper>
+
+          <Paper 
+            elevation={0}
+            sx={{ 
+              p: { xs: 3, md: 5 },
+              background: '#ffffff',
+              border: '2px solid transparent',
+              borderRadius: 3,
+              position: 'relative',
+              backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)',
+              backgroundOrigin: 'border-box',
+              backgroundClip: 'padding-box, border-box',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: '0 20px 40px rgba(168, 230, 207, 0.15)',
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '5px',
+                background: 'linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)',
+                borderRadius: '24px 24px 0 0',
+              },
+            }}
+          >
+            <Box sx={{ mb: 3 }}>
+              <Typography 
+                variant="h5" 
+                gutterBottom 
+                sx={{ 
+                  color: '#2c3e50', 
+                  fontWeight: 700, 
+                  fontSize: { xs: '1.5rem', md: '1.75rem' },
+                  mb: 1,
+                }}
+              >
+                🎯 Join Game
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#5a6a7a', fontSize: '0.95rem' }}>
+                Enter a room code to join an existing game
+              </Typography>
+            </Box>
+            <TextField
+              fullWidth
+              label="Room Code"
+              value={joinRoomCode}
+              onChange={handleJoinCodeChange}
+              placeholder="ABC123"
+              inputProps={{
+                maxLength: 6,
+                style: {
+                  textAlign: 'center',
+                  fontSize: '24px',
+                  fontFamily: 'monospace',
+                  letterSpacing: 4,
+                  fontWeight: 'bold',
+                },
+              }}
+              sx={{ 
+                mb: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
+            />
+            {joinError && (
+              <Box sx={{ 
+                mb: 2, 
+                p: 1.5, 
+                borderRadius: 2, 
+                bgcolor: 'rgba(255, 170, 165, 0.1)',
+                border: '1px solid rgba(255, 170, 165, 0.3)',
+              }}>
+                <Typography color="error" variant="body2" sx={{ textAlign: 'center', fontWeight: 500 }}>
                   {joinError}
                 </Typography>
-              )}
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleJoinGame}
-                disabled={joinLoading || joinRoomCode.length !== 6}
-                sx={{ mb: 1 }}
-              >
-                {joinLoading ? 'Joining...' : 'Join Game'}
-              </Button>
-              <Button
-                component={Link}
-                to="/join"
-                variant="outlined"
-                fullWidth
-                size="small"
-              >
-                Or use join page
-              </Button>
-            </Paper>
-          </Box>
+              </Box>
+            )}
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={handleJoinGame}
+              disabled={joinLoading || joinRoomCode.length !== 6}
+              sx={{ 
+                mb: 1.5,
+                py: 1.75,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '1rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 14px rgba(168, 230, 207, 0.4)',
+              }}
+            >
+              {joinLoading ? 'Joining...' : '🎮 Join Game'}
+            </Button>
+            <Button
+              component={Link}
+              to="/join"
+              variant="outlined"
+              fullWidth
+              sx={{ 
+                borderRadius: 2,
+                textTransform: 'none',
+                py: 1.25,
+              }}
+            >
+              Or use join page
+            </Button>
+          </Paper>
         </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Button component={Link} to="/leaderboard" variant="outlined" sx={{ mr: 1 }}>
-            View Leaderboard
-          </Button>
-        </Box>
-      </Box>
-    </Container>
+      </Container>
     </>
   );
 };

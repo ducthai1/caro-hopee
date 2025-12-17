@@ -16,20 +16,36 @@ import ProfilePage from './pages/ProfilePage';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#b3d9e6',
-      light: '#d4e8f0',
-      dark: '#8fc4d6',
-      contrastText: '#1a4a5c',
+      main: '#7ec8e3',
+      light: '#a8d5e2',
+      dark: '#5ba8c7',
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#a8d5e2',
-      light: '#c8e5ef',
-      dark: '#7fb8cc',
-      contrastText: '#1a4a5c',
+      main: '#a8e6cf',
+      light: '#c8f0df',
+      dark: '#88d6b7',
+      contrastText: '#2c3e50',
     },
     background: {
-      default: '#e8f4f8',
+      default: '#ffffff',
       paper: '#ffffff',
+    },
+    text: {
+      primary: '#2c3e50',
+      secondary: '#5a6a7a',
+    },
+    success: {
+      main: '#a8e6cf',
+    },
+    warning: {
+      main: '#ffb88c',
+    },
+    error: {
+      main: '#ffaaa5',
+    },
+    info: {
+      main: '#7ec8e3',
     },
   },
   components: {
@@ -40,24 +56,33 @@ const theme = createTheme({
           textTransform: 'none',
           fontWeight: 600,
           padding: '10px 24px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: '0 2px 8px rgba(126, 200, 227, 0.15)',
           '&:hover': {
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+            boxShadow: '0 4px 16px rgba(126, 200, 227, 0.25)',
           },
         },
         contained: {
-          background: 'linear-gradient(135deg, #b3d9e6 0%, #d4e8f0 100%)',
-          color: '#1a4a5c',
+          background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+          color: '#ffffff',
+          fontWeight: 700,
+          boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
           '&:hover': {
-            background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
+            background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
+            boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
+            transform: 'translateY(-2px)',
           },
         },
         outlined: {
-          borderColor: '#b3d9e6',
-          color: '#1a4a5c',
+          borderColor: '#7ec8e3',
+          borderWidth: 2,
+          color: '#2c3e50',
+          fontWeight: 600,
           '&:hover': {
-            borderColor: '#8fc4d6',
-            background: 'rgba(179, 217, 230, 0.1)',
+            borderColor: '#5ba8c7',
+            borderWidth: 2,
+            background: 'rgba(126, 200, 227, 0.08)',
+            transform: 'translateY(-1px)',
           },
         },
       },
@@ -66,20 +91,20 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 16,
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
-          backdropFilter: 'blur(10px)',
+          background: '#ffffff',
+          border: '1px solid rgba(126, 200, 227, 0.15)',
         },
         elevation1: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          boxShadow: '0 2px 8px rgba(44, 62, 80, 0.08), 0 1px 3px rgba(0,0,0,0.04)',
         },
         elevation2: {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxShadow: '0 4px 12px rgba(44, 62, 80, 0.1), 0 2px 4px rgba(0,0,0,0.06)',
         },
         elevation3: {
-          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+          boxShadow: '0 6px 16px rgba(44, 62, 80, 0.12), 0 3px 6px rgba(0,0,0,0.08)',
         },
         elevation4: {
-          boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+          boxShadow: '0 8px 24px rgba(44, 62, 80, 0.15), 0 4px 8px rgba(0,0,0,0.1)',
         },
       },
     },
@@ -93,7 +118,7 @@ function App() {
       <Box
         sx={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #e8f4f8 0%, #d4e8f0 100%)',
+          background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 50%, #f0f9ff 100%)',
           backgroundAttachment: 'fixed',
         }}
       >

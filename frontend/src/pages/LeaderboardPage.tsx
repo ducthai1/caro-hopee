@@ -23,58 +23,98 @@ const LeaderboardPage: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <Container maxWidth="md" sx={{ py: 8 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <Typography variant="h6" sx={{ color: '#5a6a7a' }}>Loading...</Typography>
+        </Box>
+      </Container>
+    );
   }
 
   return (
-    <Container maxWidth="md">
-      <Box sx={{ mt: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+      <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography 
-          variant="h4" 
+          variant="h3" 
           gutterBottom
           sx={{
-            background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
+            background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
-            fontWeight: 'bold',
+            fontWeight: 700,
+            fontSize: { xs: '2rem', md: '3rem' },
+            mb: 2,
           }}
         >
-          Leaderboard
+          🏆 Leaderboard
         </Typography>
-        <TableContainer 
-          component={Paper}
-          sx={{
-            background: 'linear-gradient(135deg, rgba(179, 217, 230, 0.2) 0%, rgba(212, 232, 240, 0.2) 100%)',
-            border: '1px solid rgba(179, 217, 230, 0.4)',
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Rank</TableCell>
-                <TableCell>Username</TableCell>
-                <TableCell align="right">Wins</TableCell>
-                <TableCell align="right">Losses</TableCell>
-                <TableCell align="right">Draws</TableCell>
-                <TableCell align="right">Total Score</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {players.map((player, index) => (
-                <TableRow key={player._id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{player.username}</TableCell>
-                  <TableCell align="right">{player.wins}</TableCell>
-                  <TableCell align="right">{player.losses}</TableCell>
-                  <TableCell align="right">{player.draws}</TableCell>
-                  <TableCell align="right">{player.totalScore}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Typography variant="body1" sx={{ color: '#5a6a7a', fontSize: '1.1rem' }}>
+          Top players ranked by total score
+        </Typography>
       </Box>
+      <TableContainer 
+        component={Paper}
+        elevation={0}
+        sx={{
+          background: '#ffffff',
+          border: '2px solid transparent',
+          borderRadius: 4,
+          backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+          backgroundOrigin: 'border-box',
+          backgroundClip: 'padding-box, border-box',
+          boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
+          overflow: 'hidden',
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: 'rgba(126, 200, 227, 0.08)' }}>
+              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Rank</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Username</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Wins</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Losses</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Draws</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>Total Score</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {players.map((player, index) => (
+              <TableRow 
+                key={player._id}
+                sx={{ 
+                  '&:hover': { 
+                    bgcolor: 'rgba(126, 200, 227, 0.05)',
+                  },
+                  transition: 'background-color 0.2s ease',
+                }}
+              >
+                <TableCell>
+                  <Box sx={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    bgcolor: index < 3 ? 'rgba(126, 200, 227, 0.15)' : 'rgba(0,0,0,0.05)',
+                    fontWeight: 700,
+                    color: '#2c3e50',
+                  }}>
+                    {index + 1}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#2c3e50' }}>{player.username}</TableCell>
+                <TableCell align="right" sx={{ color: '#a8e6cf', fontWeight: 600 }}>{player.wins}</TableCell>
+                <TableCell align="right" sx={{ color: '#ffaaa5', fontWeight: 600 }}>{player.losses}</TableCell>
+                <TableCell align="right" sx={{ color: '#5a6a7a', fontWeight: 600 }}>{player.draws}</TableCell>
+                <TableCell align="right" sx={{ color: '#7ec8e3', fontWeight: 700, fontSize: '1.05rem' }}>{player.totalScore}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Container>
   );
 };

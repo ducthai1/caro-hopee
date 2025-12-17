@@ -131,74 +131,126 @@ const GameControls: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(232, 244, 248, 0.95) 100%)',
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+            background: '#ffffff',
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(126, 200, 227, 0.25)',
+            border: '2px solid transparent',
+            backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+            backgroundOrigin: 'border-box',
+            backgroundClip: 'padding-box, border-box',
+            overflow: 'hidden',
           }
         }}
       >
         <DialogTitle
           sx={{
             textAlign: 'center',
-            pt: 4,
+            pt: 5,
             pb: 2,
+            background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.05) 0%, rgba(168, 230, 207, 0.05) 100%)',
           }}
         >
           <Typography
-            variant="h4"
+            variant="h3"
             sx={{
               background: game.winner === 'draw' 
-                ? 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)'
+                ? 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)'
                 : myPlayerNumber === game.winner
-                ? 'linear-gradient(135deg, #4caf50 0%, #81c784 100%)'
-                : 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
+                ? 'linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)'
+                : 'linear-gradient(135deg, #ffb88c 0%, #ffaaa5 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              fontWeight: 'bold',
+              fontWeight: 800,
               mb: 2,
+              fontSize: { xs: '2rem', md: '2.5rem' },
             }}
           >
             {getWinnerMessage()}
           </Typography>
           {game.winner !== 'draw' && (
-            <Typography variant="body1" sx={{ color: '#666', mt: 1 }}>
-              {myPlayerNumber === game.winner ? 'Congratulations! 🎉' : 'Better luck next time!'}
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                color: '#5a6a7a', 
+                mt: 1,
+                fontWeight: 500,
+                fontSize: '1.1rem',
+              }}
+            >
+              {myPlayerNumber === game.winner ? '🎉 Congratulations!' : '😔 Better luck next time!'}
             </Typography>
           )}
         </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, color: '#1a4a5c' }}>
-              Final Score
+        <DialogContent sx={{ textAlign: 'center', pb: 3, px: 4 }}>
+          <Box sx={{ mb: 4 }}>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 700, 
+                mb: 3, 
+                color: '#2c3e50',
+                fontSize: '1.1rem',
+              }}
+            >
+              🏆 Final Score
             </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-              <Box>
-                <Typography variant="body2" sx={{ color: '#666' }}>Player 1</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1a4a5c' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: 4,
+            }}>
+              <Box sx={{ 
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: 'rgba(126, 200, 227, 0.1)',
+                border: '1px solid rgba(126, 200, 227, 0.3)',
+                minWidth: 120,
+              }}>
+                <Typography variant="body2" sx={{ color: '#5a6a7a', mb: 1, fontWeight: 600 }}>
+                  Player 1
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#7ec8e3' }}>
                   {game.score.player1}
                 </Typography>
               </Box>
-              <Box>
-                <Typography variant="body2" sx={{ color: '#666' }}>Player 2</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1a4a5c' }}>
+              <Box sx={{ 
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: 'rgba(168, 230, 207, 0.1)',
+                border: '1px solid rgba(168, 230, 207, 0.3)',
+                minWidth: 120,
+              }}>
+                <Typography variant="body2" sx={{ color: '#5a6a7a', mb: 1, fontWeight: 600 }}>
+                  Player 2
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#a8e6cf' }}>
                   {game.score.player2}
                 </Typography>
               </Box>
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 4, px: 3, gap: 2 }}>
+        <DialogActions sx={{ justifyContent: 'center', pb: 5, px: 4, gap: 2 }}>
           <Button
             variant="outlined"
             onClick={handleLeaveRoom}
             sx={{
-              minWidth: 140,
-              borderColor: '#8fc4d6',
-              color: '#1a4a5c',
+              minWidth: 160,
+              py: 1.5,
+              borderRadius: 2,
+              borderColor: '#7ec8e3',
+              borderWidth: 2,
+              color: '#2c3e50',
+              fontWeight: 700,
+              textTransform: 'none',
+              fontSize: '1rem',
+              transition: 'all 0.3s ease',
               '&:hover': {
-                borderColor: '#6ba8c1',
-                backgroundColor: 'rgba(143, 196, 214, 0.1)',
+                borderColor: '#5ba8c7',
+                borderWidth: 2,
+                backgroundColor: 'rgba(126, 200, 227, 0.08)',
+                transform: 'translateY(-2px)',
               },
             }}
           >
@@ -208,12 +260,20 @@ const GameControls: React.FC = () => {
             variant="contained"
             onClick={handlePlayAgain}
             sx={{
-              minWidth: 140,
-              background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
-              color: '#1a4a5c',
-              fontWeight: 'bold',
+              minWidth: 160,
+              py: 1.5,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+              color: '#ffffff',
+              fontWeight: 700,
+              textTransform: 'none',
+              fontSize: '1rem',
+              boxShadow: '0 4px 14px rgba(126, 200, 227, 0.4)',
+              transition: 'all 0.3s ease',
               '&:hover': {
-                background: 'linear-gradient(135deg, #6ba8c1 0%, #8fc4d6 100%)',
+                background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
+                boxShadow: '0 6px 20px rgba(126, 200, 227, 0.5)',
+                transform: 'translateY(-2px)',
               },
             }}
           >

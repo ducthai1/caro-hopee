@@ -58,13 +58,14 @@ const GameBoard: React.FC = () => {
       }}
     >
       <Paper
-        elevation={4}
+        elevation={0}
         sx={{
-          p: 3,
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(232, 244, 248, 0.95) 100%)',
-          borderRadius: 2,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-          border: '2px solid rgba(179, 217, 230, 0.3)',
+          p: { xs: 2, md: 4 },
+          background: '#ffffff',
+          borderRadius: 4,
+          boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
+          border: '2px solid rgba(126, 200, 227, 0.2)',
+          transition: 'all 0.3s ease',
         }}
       >
         <Box
@@ -72,9 +73,10 @@ const GameBoard: React.FC = () => {
             display: 'grid',
             gridTemplateColumns: `repeat(${game.boardSize}, 1fr)`,
             gap: 0,
-            border: '3px solid #333',
-            borderRadius: 1,
+            border: '3px solid #7ec8e3',
+            borderRadius: 2,
             overflow: 'hidden',
+            boxShadow: 'inset 0 2px 8px rgba(126, 200, 227, 0.1)',
           }}
         >
           {game.board.map((row, rowIndex) =>

@@ -76,10 +76,9 @@ const GameRoomPage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
       <Box
         sx={{
-          mt: 4,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -96,21 +95,38 @@ const GameRoomPage: React.FC = () => {
               justifyContent: 'center',
               minHeight: '400px',
               gap: 3,
+              p: 4,
+              borderRadius: 3,
+              bgcolor: 'rgba(126, 200, 227, 0.05)',
+              border: '2px dashed rgba(126, 200, 227, 0.3)',
+              maxWidth: '500px',
+              width: '100%',
             }}
           >
             <Typography
               variant="h4"
               sx={{
-                background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
+                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                fontWeight: 'bold',
+                fontWeight: 700,
+                fontSize: { xs: '1.75rem', md: '2.25rem' },
+                textAlign: 'center',
               }}
             >
-              Waiting for player...
+              ⏳ Waiting for player...
             </Typography>
-            <Typography variant="body1" sx={{ color: '#555' }}>
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                color: '#5a6a7a', 
+                fontWeight: 500,
+                fontSize: '1.1rem',
+                textAlign: 'center',
+                maxWidth: '400px',
+              }}
+            >
               Share the room code with another player to start the game
             </Typography>
           </Box>

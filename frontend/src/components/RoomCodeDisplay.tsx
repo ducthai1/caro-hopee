@@ -23,30 +23,41 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label = 'Ro
   return (
     <>
       <Paper
-        elevation={2}
+        elevation={0}
         sx={{
-          p: 2,
+          p: { xs: 2, md: 2.5 },
           display: 'flex',
           alignItems: 'center',
           gap: 2,
-          background: 'linear-gradient(135deg, rgba(179, 217, 230, 0.3) 0%, rgba(212, 232, 240, 0.3) 100%)',
-          border: '1px solid rgba(179, 217, 230, 0.4)',
+          background: '#ffffff',
+          border: '2px solid transparent',
+          borderRadius: 3,
+          backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)',
+          backgroundOrigin: 'border-box',
+          backgroundClip: 'padding-box, border-box',
+          boxShadow: '0 8px 24px rgba(168, 230, 207, 0.12)',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: '0 12px 32px rgba(168, 230, 207, 0.18)',
+          },
         }}
       >
         <Box>
-          <Typography variant="caption" sx={{ color: '#1a4a5c', fontWeight: 600 }}>
+          <Typography variant="caption" sx={{ color: '#2c3e50', fontWeight: 600 }}>
             {label}
           </Typography>
           <Typography
-            variant="h5"
+            variant="h4"
             sx={{
               fontFamily: 'monospace',
-              fontWeight: 'bold',
-              letterSpacing: 2,
-              background: 'linear-gradient(135deg, #8fc4d6 0%, #b3d9e6 100%)',
+              fontWeight: 800,
+              letterSpacing: 3,
+              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
+              fontSize: { xs: '1.75rem', md: '2.25rem' },
             }}
           >
             {roomCode}
@@ -56,13 +67,13 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label = 'Ro
           onClick={handleCopy}
           sx={{
             ml: 'auto',
-            color: '#8fc4d6',
+            color: '#7ec8e3',
             '&:hover': {
-              backgroundColor: 'rgba(179, 217, 230, 0.2)',
+              backgroundColor: 'rgba(126, 200, 227, 0.15)',
             },
           }}
         >
-          {copied ? <Check sx={{ color: '#5cb3cc' }} /> : <ContentCopy />}
+          {copied ? <Check sx={{ color: '#a8e6cf' }} /> : <ContentCopy />}
         </IconButton>
       </Paper>
       <Snackbar
