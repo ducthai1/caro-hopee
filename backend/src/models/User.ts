@@ -4,10 +4,11 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  wins: number;
-  losses: number;
-  draws: number;
-  totalScore: number;
+  // Legacy fields - kept for backward compatibility, will be deprecated
+  wins?: number;
+  losses?: number;
+  draws?: number;
+  totalScore?: number;
   createdAt: Date;
   lastLogin: Date;
 }
@@ -33,6 +34,7 @@ const UserSchema: Schema = new Schema({
     required: true,
     minlength: 6,
   },
+  // Legacy fields - kept for backward compatibility during migration
   wins: {
     type: Number,
     default: 0,

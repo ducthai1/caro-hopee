@@ -60,8 +60,8 @@ export const makeMove = async (
   });
   await move.save();
 
-  // Check for win
-  const isWin = checkWin(game.board, row, col, player, game.boardSize);
+  // Check for win (with block two ends rule if enabled)
+  const isWin = checkWin(game.board, row, col, player, game.boardSize, game.rules.blockTwoEnds);
   if (isWin) {
     game.gameStatus = 'finished';
     game.winner = player;

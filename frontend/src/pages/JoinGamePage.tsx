@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Container, Paper, TextField, Button, Typography, AppBar, Toolbar } from '@mui/material';
+import { Box, Container, Paper, TextField, Button, Typography, CircularProgress } from '@mui/material';
 import { useNavigate, Link } from 'react-router-dom';
 import { gameApi } from '../services/api';
 import { validateRoomCode, formatRoomCode } from '../utils/roomCode';
@@ -49,69 +49,43 @@ const JoinGamePage: React.FC = () => {
   };
 
   return (
-    <>
-      <AppBar 
-        position="static"
-        elevation={0}
-        sx={{
-          background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-          boxShadow: '0 8px 32px rgba(126, 200, 227, 0.2)',
-          backdropFilter: 'blur(10px)',
-        }}
-      >
-        <Toolbar sx={{ py: 1.5, px: { xs: 2, md: 4 } }}>
-          <Typography 
-            variant="h5" 
-            component="div" 
-            sx={{ 
-              flexGrow: 1, 
-              color: '#ffffff', 
-              fontWeight: 700, 
-              fontSize: { xs: '1.5rem', md: '2rem' },
-              letterSpacing: '-0.5px',
-            }}
-          >
-            🎮 Caro
-          </Typography>
-          <Button 
-            component={Link} 
-            to="/"
-            sx={{ 
-              color: '#ffffff', 
-              fontWeight: 600,
-              px: 2,
-              py: 1,
-              borderRadius: 2,
-              textTransform: 'none',
-              fontSize: '0.95rem',
-              transition: 'all 0.3s ease',
-              '&:hover': { 
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                transform: 'translateY(-2px)',
-              } 
-            }}
-          >
-            Home
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 50%, #f0f9ff 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        py: { xs: 4, md: 6 },
+      }}
+    >
+      <Container maxWidth="sm">
         <Box sx={{ textAlign: 'center', mb: 5 }}>
-          <Typography 
-            variant="h3" 
-            gutterBottom
-            sx={{
-              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: 700,
-              fontSize: { xs: '2rem', md: '3rem' },
-              mb: 2,
-            }}
-          >
-            🎯 Join Game
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 2 }}>
+            <Typography
+              component="span"
+              sx={{
+                fontSize: { xs: '2rem', md: '3rem' },
+                lineHeight: 1,
+              }}
+            >
+              🎯
+            </Typography>
+            <Typography 
+              variant="h3" 
+              sx={{
+                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontWeight: 700,
+                fontSize: { xs: '2rem', md: '3rem' },
+                m: 0,
+              }}
+            >
+              Join Game
+            </Typography>
+          </Box>
           <Typography 
             variant="h6" 
             sx={{ 
@@ -137,7 +111,6 @@ const JoinGamePage: React.FC = () => {
             boxShadow: '0 12px 40px rgba(168, 230, 207, 0.15)',
             transition: 'all 0.3s ease',
             '&:hover': {
-              transform: 'translateY(-4px)',
               boxShadow: '0 16px 48px rgba(168, 230, 207, 0.2)',
             },
           }}
@@ -158,10 +131,22 @@ const JoinGamePage: React.FC = () => {
                 fontWeight: 'bold',
               },
             }}
+            InputLabelProps={{
+              shrink: true,
+            }}
             sx={{ 
               mb: 3,
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
+              },
+              '& .MuiInputLabel-root': {
+                transform: 'translate(14px, 20px) scale(1)',
+                '&.MuiInputLabel-shrink': {
+                  transform: 'translate(14px, -9px) scale(0.75)',
+                },
+              },
+              '& .MuiOutlinedInput-input': {
+                padding: '16.5px 14px',
               },
             }}
             autoFocus
@@ -195,7 +180,20 @@ const JoinGamePage: React.FC = () => {
               fontSize: '1rem',
               fontWeight: 700,
               boxShadow: '0 4px 14px rgba(168, 230, 207, 0.4)',
+              background: 'linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #88d6b7 0%, #5ba8c7 100%)',
+                boxShadow: '0 6px 20px rgba(168, 230, 207, 0.5)',
+              },
+              '&:disabled': {
+                background: 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)',
+                color: '#9e9e9e',
+                boxShadow: 'none',
+                cursor: 'not-allowed',
+                opacity: 0.6,
+              },
             }}
+            startIcon={loading ? <CircularProgress size={20} sx={{ color: '#ffffff' }} /> : null}
           >
             {loading ? 'Joining...' : '🎮 Join Game'}
           </Button>
@@ -214,8 +212,25 @@ const JoinGamePage: React.FC = () => {
             Back to Home
           </Button>
         </Paper>
+        <Box sx={{ textAlign: 'center', mt: 3 }}>
+          <Button 
+            component={Link} 
+            to="/" 
+            variant="text"
+            sx={{ 
+              textTransform: 'none',
+              color: '#7ec8e3',
+              fontWeight: 600,
+              '&:hover': {
+                background: 'rgba(126, 200, 227, 0.08)',
+              },
+            }}
+          >
+            ← Back to Home
+          </Button>
+        </Box>
       </Container>
-    </>
+    </Box>
   );
 };
 

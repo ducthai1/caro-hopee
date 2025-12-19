@@ -1,8 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box } from '@mui/material';
+import { Box, GlobalStyles } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { GameProvider } from './contexts/GameContext';
@@ -67,10 +67,12 @@ const theme = createTheme({
           color: '#ffffff',
           fontWeight: 700,
           boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
+          border: 'none',
           '&:hover': {
             background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
             boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
             transform: 'translateY(-2px)',
+            border: 'none',
           },
         },
         outlined: {
@@ -111,30 +113,126 @@ const theme = createTheme({
   },
 });
 
+// Create router with data router API
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <HomePage />,
+  },
+  {
+    path: '/login',
+    element: <LoginPage />,
+  },
+  {
+    path: '/join',
+    element: <JoinGamePage />,
+  },
+  {
+    path: '/game/:roomId',
+    element: <GameRoomPage />,
+  },
+  {
+    path: '/leaderboard',
+    element: <LeaderboardPage />,
+  },
+  {
+    path: '/profile',
+    element: <ProfilePage />,
+  },
+]);
+
 function App() {
+  // Prevent zoom gestures (trackpad, mouse wheel with ctrl/cmd, touch pinch)
+  useEffect(() => {
+    const preventZoom = (e: WheelEvent | TouchEvent): void => {
+      // Prevent zoom with Ctrl/Cmd + Wheel (trackpad zoom)
+      if (e instanceof WheelEvent) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
+      
+      // Prevent pinch zoom on touch devices
+      if (e instanceof TouchEvent && e.touches.length > 1) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const preventGestureZoom = (e: Event): void => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    // Add event listeners
+    document.addEventListener('wheel', preventZoom, { passive: false, capture: true });
+    document.addEventListener('touchstart', preventZoom, { passive: false, capture: true });
+    document.addEventListener('touchmove', preventZoom, { passive: false, capture: true });
+    document.addEventListener('touchend', preventZoom, { passive: false, capture: true });
+    document.addEventListener('gesturestart', preventGestureZoom, { passive: false, capture: true });
+    document.addEventListener('gesturechange', preventGestureZoom, { passive: false, capture: true });
+    document.addEventListener('gestureend', preventGestureZoom, { passive: false, capture: true });
+
+    // Also prevent zoom via keyboard shortcuts
+    const preventKeyboardZoom = (e: KeyboardEvent): void => {
+      // Prevent Ctrl/Cmd + Plus/Minus/0 (zoom shortcuts)
+      if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('keydown', preventKeyboardZoom, { passive: false, capture: true });
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('wheel', preventZoom as EventListener, true);
+      document.removeEventListener('touchstart', preventZoom as EventListener, true);
+      document.removeEventListener('touchmove', preventZoom as EventListener, true);
+      document.removeEventListener('touchend', preventZoom as EventListener, true);
+      document.removeEventListener('gesturestart', preventGestureZoom, true);
+      document.removeEventListener('gesturechange', preventGestureZoom, true);
+      document.removeEventListener('gestureend', preventGestureZoom, true);
+      document.removeEventListener('keydown', preventKeyboardZoom, true);
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <GlobalStyles
+        styles={{
+          '*': {
+            touchAction: 'pan-x pan-y', // Allow panning but prevent pinch zoom
+          },
+          'html, body': {
+            touchAction: 'pan-x pan-y',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            WebkitTapHighlightColor: 'transparent',
+          },
+          // Prevent double-tap zoom on iOS
+          '*:not(input):not(textarea):not(select)': {
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+          },
+        }}
+      />
       <Box
         sx={{
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 50%, #f0f9ff 100%)',
           backgroundAttachment: 'fixed',
+          touchAction: 'pan-x pan-y',
         }}
       >
         <AuthProvider>
           <SocketProvider>
             <GameProvider>
-              <Router>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/join" element={<JoinGamePage />} />
-                  <Route path="/game/:roomId" element={<GameRoomPage />} />
-                  <Route path="/leaderboard" element={<LeaderboardPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                </Routes>
-              </Router>
+              <RouterProvider router={router} />
             </GameProvider>
           </SocketProvider>
         </AuthProvider>

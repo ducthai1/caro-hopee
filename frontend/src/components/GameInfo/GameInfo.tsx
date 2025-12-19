@@ -74,7 +74,7 @@ const GameInfo: React.FC = () => {
         </Box>
       </Box>
       
-      <Box>
+      <Box sx={{ mb: 2.5 }}>
         <Typography 
           variant="subtitle1" 
           sx={{ 
@@ -117,6 +117,77 @@ const GameInfo: React.FC = () => {
               </Typography>
             </Box>
           ))}
+        </Box>
+      </Box>
+      
+      <Box>
+        <Typography 
+          variant="subtitle1" 
+          sx={{ 
+            fontWeight: 700, 
+            mb: 1.5,
+            color: '#2c3e50',
+            fontSize: '0.95rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}
+        >
+          ⚙️ Game Rules
+        </Typography>
+        <Box sx={{ 
+          p: 1.5, 
+          borderRadius: 2, 
+          bgcolor: 'rgba(168, 230, 207, 0.08)',
+          border: '1px solid rgba(168, 230, 207, 0.2)',
+        }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontWeight: 600,
+                  color: '#2c3e50',
+                  fontSize: '0.9rem',
+                }}
+              >
+                Block Two Ends:
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontWeight: 700,
+                  color: game.rules.blockTwoEnds ? '#a8e6cf' : '#ffaaa5',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {game.rules.blockTwoEnds ? '✓ ON' : '✗ OFF'}
+              </Typography>
+            </Box>
+            {game.rules.allowUndo && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600,
+                    color: '#2c3e50',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  Allow Undo:
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 700,
+                    color: '#a8e6cf',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  ✓ ON
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
       </Box>
     </Paper>

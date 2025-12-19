@@ -15,6 +15,7 @@ export interface IGameScore {
 export interface IGame extends Document {
   roomId: string;
   roomCode: string;
+  gameType: string; // 'caro', 'wheel', etc.
   player1: mongoose.Types.ObjectId | null;
   player2: mongoose.Types.ObjectId | null;
   player1GuestId: string | null;
@@ -75,6 +76,13 @@ const GameSchema: Schema = new Schema({
     uppercase: true,
     minlength: 6,
     maxlength: 6,
+  },
+  gameType: {
+    type: String,
+    required: true,
+    default: 'caro',
+    trim: true,
+    lowercase: true,
   },
   player1: {
     type: Schema.Types.ObjectId,

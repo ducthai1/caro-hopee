@@ -8,8 +8,10 @@ import { errorHandler } from './middleware/errorHandler';
 import { setupSocketHandlers } from './services/socketService';
 import authRoutes from './routes/authRoutes';
 import gameRoutes from './routes/gameRoutes';
+import gameStatsRoutes from './routes/gameStatsRoutes';
 import leaderboardRoutes from './routes/leaderboardRoutes';
 import userRoutes from './routes/userRoutes';
+import { authLimiter } from './middleware/rateLimiter';
 
 // Load environment variables
 dotenv.config();
@@ -23,9 +25,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Apply rate limiting to auth routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/games', gameRoutes);
+app.use('/api/games', gameStatsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/users', userRoutes);
 

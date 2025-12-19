@@ -4,11 +4,16 @@ import GameCell from './GameCell';
 import { useGame } from '../../contexts/GameContext';
 
 const GameBoard: React.FC = () => {
-  const { game, isMyTurn, makeMove, myPlayerNumber } = useGame();
+  const { game, isMyTurn, makeMove, myPlayerNumber, lastMove } = useGame();
   const containerRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(50);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    let rafId: number | null = null;
+    let lastUpdateTime = 0;
+    const THROTTLE_MS = 100; // Throttle to max once per 100ms
+
     const updateCellSize = (): void => {
       if (containerRef.current && game) {
         const containerWidth = containerRef.current.offsetWidth;
@@ -19,9 +24,57 @@ const GameBoard: React.FC = () => {
       }
     };
 
+    const throttledUpdate = (): void => {
+      const now = Date.now();
+      
+      // Clear any pending updates
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      // If enough time has passed, update immediately
+      if (now - lastUpdateTime >= THROTTLE_MS) {
+        lastUpdateTime = now;
+        updateCellSize();
+      } else {
+        // Otherwise, schedule update for later
+        const delay = THROTTLE_MS - (now - lastUpdateTime);
+        timeoutId = setTimeout(() => {
+          lastUpdateTime = Date.now();
+          updateCellSize();
+          timeoutId = null;
+        }, delay);
+      }
+    };
+
+    // Initial update
     updateCellSize();
-    window.addEventListener('resize', updateCellSize);
-    return () => window.removeEventListener('resize', updateCellSize);
+    lastUpdateTime = Date.now();
+
+    // Use requestAnimationFrame for smoother updates during zoom
+    const handleResize = (): void => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(throttledUpdate);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [game]);
 
   if (!game) {
@@ -54,7 +107,10 @@ const GameBoard: React.FC = () => {
         maxWidth: '800px',
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'center',
+        margin: '0 auto',
         mb: 3,
+        mx: 'auto',
       }}
     >
       <Paper
@@ -90,6 +146,7 @@ const GameBoard: React.FC = () => {
                 disabled={!isMyTurn || game.gameStatus !== 'playing'}
                 boardSize={game.boardSize}
                 cellSize={cellSize}
+                isLastMove={lastMove !== null && lastMove.row === rowIndex && lastMove.col === colIndex}
               />
             ))
           )}

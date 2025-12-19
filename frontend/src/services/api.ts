@@ -19,6 +19,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+
 // Auth APIs
 export const authApi = {
   register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
@@ -63,16 +64,60 @@ export const gameApi = {
     const response = await api.post(`/games/${roomId}/join`, { guestId });
     return response.data;
   },
+  leaveGame: async (roomId: string): Promise<{ message: string; gameDeleted: boolean }> => {
+    // Use getGuestId() from utils instead of localStorage
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.post(`/games/${roomId}/leave`, { guestId });
+    return response.data;
+  },
+  getWaitingGames: async (): Promise<any[]> => {
+    const response = await api.get('/games/waiting');
+    return response.data;
+  },
+};
+
+// Game Stats APIs
+export const gameStatsApi = {
+  getUserGameStats: async (gameId: string, userId: string) => {
+    const response = await api.get(`/games/${gameId}/stats/${userId}`);
+    return response.data;
+  },
+  getMyGameStats: async (gameId: string) => {
+    const response = await api.get(`/games/${gameId}/stats/my-stats`);
+    return response.data;
+  },
+  submitGameResult: async (gameId: string, result: 'win' | 'loss' | 'draw', score?: number, customStats?: any, gameData?: any) => {
+    const response = await api.post(`/games/${gameId}/stats/submit`, {
+      result,
+      score,
+      customStats,
+      gameData,
+      timestamp: Date.now(),
+      nonce: Math.random().toString(36).substring(7),
+    });
+    return response.data;
+  },
 };
 
 // Leaderboard APIs
 export const leaderboardApi = {
-  getTopPlayers: async (limit: number = 10): Promise<User[]> => {
-    const response = await api.get(`/leaderboard?limit=${limit}`);
+  getLeaderboard: async (gameId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time', limit: number = 50, offset: number = 0) => {
+    const response = await api.get(`/leaderboard/${gameId}?period=${period}&limit=${limit}&offset=${offset}`);
     return response.data;
   },
-  getUserRank: async (userId: string): Promise<{ rank: number; user: User }> => {
-    const response = await api.get(`/leaderboard/user/${userId}`);
+  getUserRank: async (gameId: string, userId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time') => {
+    const response = await api.get(`/leaderboard/${gameId}/rank/${userId}?period=${period}`);
+    return response.data;
+  },
+  getRankAroundUser: async (gameId: string, userId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time', range: number = 5) => {
+    const response = await api.get(`/leaderboard/${gameId}/around/${userId}?period=${period}&range=${range}`);
+    return response.data;
+  },
+  // Legacy endpoints for backward compatibility
+  getTopPlayers: async (limit: number = 10, gameId?: string): Promise<User[]> => {
+    const url = gameId ? `/leaderboard/${gameId}?limit=${limit}` : `/leaderboard/top?limit=${limit}${gameId ? `&gameId=${gameId}` : ''}`;
+    const response = await api.get(url);
     return response.data;
   },
 };
@@ -80,7 +125,19 @@ export const leaderboardApi = {
 // User APIs
 export const userApi = {
   getProfile: async (userId: string): Promise<User> => {
-    const response = await api.get(`/users/${userId}`);
+    const response = await api.get(`/users/${userId}/profile`);
+    return response.data;
+  },
+  getUserGames: async (userId: string) => {
+    const response = await api.get(`/users/${userId}/games`);
+    return response.data;
+  },
+  getUserGameStats: async (userId: string, gameId: string) => {
+    const response = await api.get(`/users/${userId}/games/${gameId}`);
+    return response.data;
+  },
+  getMyProfile: async (): Promise<User> => {
+    const response = await api.get(`/users/me/profile`);
     return response.data;
   },
   updateProfile: async (userId: string, data: Partial<User>): Promise<User> => {

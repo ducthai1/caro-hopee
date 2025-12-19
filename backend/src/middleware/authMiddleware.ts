@@ -22,7 +22,10 @@ export const authMiddleware = (
     }
 
     const decoded = verifyToken(token);
-    req.user = decoded;
+    req.user = {
+      userId: decoded.userId,
+      username: decoded.username,
+    };
     next();
   } catch (error) {
     res.status(401).json({ message: 'Invalid token' });

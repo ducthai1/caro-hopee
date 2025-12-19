@@ -9,6 +9,7 @@ interface GameCellProps {
   disabled: boolean;
   boardSize: number;
   cellSize: number;
+  isLastMove?: boolean;
 }
 
 const GameCell: React.FC<GameCellProps> = ({
@@ -18,6 +19,7 @@ const GameCell: React.FC<GameCellProps> = ({
   onClick,
   disabled,
   cellSize,
+  isLastMove = false,
 }) => {
   const getCellContent = () => {
     if (value === 1) {
@@ -48,17 +50,24 @@ const GameCell: React.FC<GameCellProps> = ({
         height: `${cellSize}px`,
         minWidth: `${cellSize}px`,
         minHeight: `${cellSize}px`,
-        border: '1px solid rgba(126, 200, 227, 0.3)',
+        border: isLastMove 
+          ? '2px solid rgba(126, 200, 227, 0.8)'
+          : '1px solid rgba(126, 200, 227, 0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: disabled || value !== 0 ? 'default' : 'pointer',
         backgroundColor: value === 0 ? '#ffffff' : '#ffffff',
-        background: value === 0 
+        background: isLastMove && value !== 0
+          ? `linear-gradient(135deg, ${value === 1 ? 'rgba(126, 200, 227, 0.15)' : 'rgba(168, 230, 207, 0.15)'} 0%, ${value === 1 ? 'rgba(126, 200, 227, 0.22)' : 'rgba(168, 230, 207, 0.22)'} 100%)`
+          : value === 0 
           ? '#ffffff'
           : '#ffffff',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
+        boxShadow: isLastMove 
+          ? '0 0 8px rgba(126, 200, 227, 0.35), inset 0 0 4px rgba(126, 200, 227, 0.15)'
+          : 'none',
         '&:hover': {
           background: value === 0 && !disabled 
             ? 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)'

@@ -1,4 +1,4 @@
-import { Game, GameMove, PlayerInfo, PlayerNumber } from './game.types';
+import { Game, GameMove, PlayerInfo, PlayerNumber, Winner } from './game.types';
 import { GameRules, GameScore } from './game.types';
 
 // Client → Server Events
@@ -19,13 +19,14 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'room-joined': (data: { roomId: string; players: PlayerInfo[]; gameStatus?: string; currentPlayer?: PlayerNumber }) => void;
   'player-joined': (data: { player: PlayerInfo }) => void;
-  'player-left': (data: { playerId: string }) => void;
-  'move-made': (data: { move: GameMove; board: number[][]; currentPlayer: PlayerNumber }) => void;
+  'player-left': (data: { playerId?: string; playerNumber?: number; roomId?: string; hostTransferred?: boolean; gameReset?: boolean }) => void;
+  'game-deleted': (data: { roomId: string }) => void;
+  'move-made': (data: { move: GameMove | null; board: number[][]; currentPlayer: PlayerNumber }) => void;
   'move-validated': (data: { valid: boolean; message?: string }) => void;
   'undo-requested': (data: { moveNumber: number; requestedBy: PlayerNumber }) => void;
   'undo-approved': (data: { moveNumber: number; board: number[][] }) => void;
   'undo-rejected': (data: { moveNumber: number }) => void;
-  'game-finished': (data: { winner: PlayerNumber | null; reason: string }) => void;
+  'game-finished': (data: { winner: Winner; reason: string }) => void;
   'game-started': (data: { currentPlayer: PlayerNumber }) => void;
   'game-error': (data: { message: string }) => void;
   'score-updated': (data: { score: GameScore }) => void;

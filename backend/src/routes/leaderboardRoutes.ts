@@ -1,10 +1,19 @@
 import { Router } from 'express';
-import { getTopPlayers, getUserRank } from '../controllers/leaderboardController';
+import {
+  getLeaderboard,
+  getUserRank,
+  getRankAroundUser,
+  getTopPlayers, // Legacy endpoint
+} from '../controllers/leaderboardController';
 
 const router = Router();
 
-router.get('/', getTopPlayers);
-router.get('/user/:userId', getUserRank);
+// New endpoints with gameId support
+router.get('/:gameId', getLeaderboard);
+router.get('/:gameId/rank/:userId', getUserRank);
+router.get('/:gameId/around/:userId', getRankAroundUser);
+
+// Legacy endpoint for backward compatibility
+router.get('/top', getTopPlayers);
 
 export default router;
-

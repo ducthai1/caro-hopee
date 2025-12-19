@@ -317,9 +317,40 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
           return;
         }
 
-        // Start the game
+        // Determine which player is starting the game (whoever clicks start goes first)
+        let startingPlayer: PlayerNumber = 1;
+        let playerDetermined = false;
+
+        // Check authenticated user ID first
+        if (!playerDetermined && socketData.userId) {
+          if (game.player1 && game.player1.toString() === socketData.userId.toString()) {
+            startingPlayer = 1;
+            playerDetermined = true;
+          } else if (game.player2 && game.player2.toString() === socketData.userId.toString()) {
+            startingPlayer = 2;
+            playerDetermined = true;
+          }
+        }
+
+        // Check guest ID - this is the most common case for guest players
+        if (!playerDetermined && socketData.playerId) {
+          if (game.player1GuestId && game.player1GuestId === socketData.playerId) {
+            startingPlayer = 1;
+            playerDetermined = true;
+          } else if (game.player2GuestId && game.player2GuestId === socketData.playerId) {
+            startingPlayer = 2;
+            playerDetermined = true;
+          }
+        }
+
+        // If still not determined, default to player1 (host)
+        if (!playerDetermined) {
+          startingPlayer = 1;
+        }
+
+        // Start the game with the player who clicked start going first
         game.gameStatus = 'playing';
-        game.currentPlayer = 1;
+        game.currentPlayer = startingPlayer;
         await game.save();
 
         io.to(roomId).emit('game-started', {

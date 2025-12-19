@@ -17,6 +17,7 @@ export const createGame = async (req: Request, res: Response): Promise<void> => 
     const game = new Game({
       roomId,
       roomCode,
+      gameType: 'caro', // Set game type
       player1: authReq.user?.userId ? (authReq.user.userId as any) : null,
       player1GuestId: authReq.user ? null : guestId || null,
       boardSize,
@@ -269,6 +270,180 @@ export const getUserGames = async (req: AuthRequest, res: Response): Promise<voi
       .limit(50);
 
     res.json(games);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getWaitingGames = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get games that are waiting, have at least 1 player (player1), and player2 slot is empty
+    const games = await Game.find({
+      gameStatus: 'waiting',
+      $or: [
+        { player1: { $ne: null } },
+        { player1GuestId: { $ne: null } },
+      ],
+      $and: [
+        { player2: null },
+        { player2GuestId: null },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select('roomId roomCode boardSize gameStatus player1 player2 player1GuestId player2GuestId createdAt');
+
+    // Format response
+    const formattedGames = games.map(game => ({
+      _id: game._id.toString(),
+      roomId: game.roomId,
+      roomCode: game.roomCode,
+      boardSize: game.boardSize,
+      gameStatus: game.gameStatus,
+      hasPlayer1: !!(game.player1 || game.player1GuestId),
+      hasPlayer2: !!(game.player2 || game.player2GuestId),
+      player1Username: game.player1 ? 'Player' : (game.player1GuestId ? `Guest ${game.player1GuestId.slice(-6)}` : null),
+      createdAt: game.createdAt.toISOString(),
+    }));
+
+    res.json(formattedGames);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const leaveGame = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    const { guestId } = req.body;
+    const authReq = req as AuthRequest;
+    
+    const game = await Game.findOne({ roomId });
+
+    if (!game) {
+      res.status(404).json({ message: 'Game not found' });
+      return;
+    }
+
+    // Determine which player is leaving
+    let isPlayer1 = false;
+    let isPlayer2 = false;
+    
+    // Check if authenticated user is player1 or player2
+    if (authReq.user?.userId) {
+      isPlayer1 = !!(game.player1 && game.player1.toString() === authReq.user.userId.toString());
+      isPlayer2 = !!(game.player2 && game.player2.toString() === authReq.user.userId.toString());
+    }
+    
+    // Also check if guestId matches player1GuestId or player2GuestId
+    if (guestId) {
+      if (game.player1GuestId && game.player1GuestId === guestId) {
+        isPlayer1 = true;
+      }
+      if (game.player2GuestId && game.player2GuestId === guestId) {
+        isPlayer2 = true;
+      }
+    }
+
+    // If player is not in the game, return success (they're already not in it)
+    if (!isPlayer1 && !isPlayer2) {
+      res.json({ message: 'Player not in game', gameDeleted: false });
+      return;
+    }
+
+    // Check if game has no players left (before removing)
+    const hasPlayer1 = !!(game.player1 || game.player1GuestId);
+    const hasPlayer2 = !!(game.player2 || game.player2GuestId);
+    
+    // Check if game was finished before player left
+    const wasFinished = game.gameStatus === 'finished';
+
+    // Remove the player from the game
+    if (isPlayer1) {
+      game.player1 = null;
+      game.player1GuestId = null;
+    } else if (isPlayer2) {
+      game.player2 = null;
+      game.player2GuestId = null;
+    }
+
+    // Check if game has no players left (after removing)
+    const hasNoPlayers = !game.player1 && !game.player1GuestId && !game.player2 && !game.player2GuestId;
+
+    if (hasNoPlayers) {
+      // Delete the game if no players remain
+      await Game.deleteOne({ roomId });
+      
+      // Emit socket event to notify other clients (if any)
+      io.to(roomId).emit('game-deleted', { roomId });
+      
+      res.json({ 
+        message: 'Game deleted - no players remaining', 
+        gameDeleted: true 
+      });
+    } else {
+      let gameReset = false;
+      
+      // If player1 (host) left and player2 still exists, transfer host to player2
+      if (isPlayer1 && hasPlayer2) {
+        // Transfer player2 to player1 (host transfer)
+        game.player1 = game.player2;
+        game.player1GuestId = game.player2GuestId;
+        game.player2 = null;
+        game.player2GuestId = null;
+        
+        // If game was finished, reset to waiting state (close modal, allow new player to join)
+        if (wasFinished) {
+          game.gameStatus = 'waiting';
+          game.winner = null;
+          game.finishedAt = null;
+          // Reset board for new game
+          game.board = Array(game.boardSize)
+            .fill(null)
+            .map(() => Array(game.boardSize).fill(0));
+          game.currentPlayer = 1;
+          gameReset = true;
+        } else if (game.gameStatus === 'playing') {
+          game.gameStatus = 'abandoned';
+        } else if (game.gameStatus === 'waiting') {
+          // Keep as waiting so it shows in lobby
+          game.gameStatus = 'waiting';
+        }
+      } else if (isPlayer2 && hasPlayer1) {
+        // Player2 left, player1 still there - just remove player2
+        // If game was finished, reset to waiting state (close modal, allow new player to join)
+        if (wasFinished) {
+          game.gameStatus = 'waiting';
+          game.winner = null;
+          game.finishedAt = null;
+          // Reset board for new game
+          game.board = Array(game.boardSize)
+            .fill(null)
+            .map(() => Array(game.boardSize).fill(0));
+          game.currentPlayer = 1;
+          gameReset = true;
+        } else if (game.gameStatus === 'playing') {
+          game.gameStatus = 'abandoned';
+        }
+        // If game was waiting, keep it as waiting
+      }
+      
+      await game.save();
+      
+      // Emit socket event to notify other players
+      io.to(roomId).emit('player-left', { 
+        playerNumber: isPlayer1 ? 1 : 2,
+        roomId,
+        hostTransferred: isPlayer1 && hasPlayer2, // Notify if host was transferred
+        gameReset: gameReset, // Notify if game was reset from finished to waiting
+      });
+      
+      res.json({ 
+        message: 'Player left game', 
+        gameDeleted: false,
+        hostTransferred: isPlayer1 && hasPlayer2,
+      });
+    }
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
