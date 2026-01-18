@@ -539,10 +539,10 @@ const GameRoomPage: React.FC = () => {
             gap: 2,
             position: 'fixed',
             right: { lg: 24 },
-            top: { lg: 24 },
+            top: { lg: 60 }, // Adjusted to leave space for LanguageSwitcher (was 24)
             width: { lg: '280px' },
-            height: { lg: 'calc(100vh - 48px)' },
-            maxHeight: { lg: 'calc(100vh - 48px)' },
+            height: { lg: 'calc(100vh - 84px)' }, // Adjusted height (was calc(100vh - 48px))
+            maxHeight: { lg: 'calc(100vh - 84px)' }, // Adjusted maxHeight
             overflowY: 'auto',
             zIndex: 10,
             '&::-webkit-scrollbar': {

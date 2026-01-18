@@ -17,7 +17,6 @@ import {
   ListItem,
   ListItemButton,
   ListItemIcon,
-  ListItemText,
   Divider,
   useTheme,
   useMediaQuery,
@@ -29,6 +28,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import LoginIcon from '@mui/icons-material/Login';
 import HistoryIcon from '@mui/icons-material/History';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useNavigate, Link } from 'react-router-dom';
 import GameCard from '../components/GameCard/GameCard';
 import { gameApi } from '../services/api';
@@ -76,7 +77,38 @@ const GAMES: GameItem[] = [
     available: true,
     color: '#7ec8e3',
   },
-  // Future games will be added here
+  {
+    id: 'lucky-wheel',
+    name: 'games.luckyWheel',
+    icon: '🎡',
+    description: 'home.luckyWheelDescription',
+    available: false,
+    color: '#f39c12',
+  },
+  {
+    id: 'werewolf',
+    name: 'games.werewolf',
+    icon: '🐺',
+    description: 'home.werewolfDescription',
+    available: false,
+    color: '#9b59b6',
+  },
+  {
+    id: 'uno',
+    name: 'games.uno',
+    icon: '🃏',
+    description: 'home.unoDescription',
+    available: false,
+    color: '#e74c3c',
+  },
+  {
+    id: 'other',
+    name: 'games.otherGames',
+    icon: '🎮',
+    description: 'home.otherGamesDescription',
+    available: false,
+    color: '#95a5a6',
+  },
 ];
 
 const HomePage: React.FC = () => {
@@ -95,6 +127,7 @@ const HomePage: React.FC = () => {
   const [loadingGames, setLoadingGames] = useState(true);
   const [joiningGameId, setJoiningGameId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   // Track mounted games to only animate new ones (fixes Issue #5: Unbounded Set Growth)
@@ -321,7 +354,9 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const drawerWidth = 280;
+  const drawerWidthExpanded = 340;
+  const drawerWidthCollapsed = 112;
+  const drawerWidth = isMobile ? drawerWidthExpanded : (sidebarCollapsed ? drawerWidthCollapsed : drawerWidthExpanded);
   const currentGame = GAMES.find(g => g.id === selectedGame);
 
   return (
@@ -334,6 +369,7 @@ const HomePage: React.FC = () => {
         sx={{
           width: drawerWidth,
           flexShrink: 0,
+          transition: 'width 0.3s ease',
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
@@ -345,18 +381,18 @@ const HomePage: React.FC = () => {
             left: 0,
             height: '100vh',
             overflowY: 'auto',
+            overflowX: 'hidden',
             display: 'flex',
             flexDirection: 'column',
+            transition: 'width 0.3s ease',
             '&::-webkit-scrollbar': {
               width: '6px',
             },
             '&::-webkit-scrollbar-track': {
               background: 'rgba(126, 200, 227, 0.05)',
-              // borderRadius: '3px',
             },
             '&::-webkit-scrollbar-thumb': {
               background: 'rgba(126, 200, 227, 0.2)',
-              // borderRadius: '3px',
               '&:hover': {
                 background: 'rgba(126, 200, 227, 0.3)',
               },
@@ -364,23 +400,75 @@ const HomePage: React.FC = () => {
           },
         }}
       >
-        <Box sx={{ p: 3, pb: 2.5, pt: 3.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+        {/* Header with Toggle Button at TOP */}
+        <Box sx={{ p: 2, pb: 2 }}>
+          {/* Toggle Button - Desktop only - AT TOP - use transform for smooth slide animation */}
+          {!isMobile && (
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              mb: 2,
+              position: 'relative',
+              height: 36,
+            }}>
+              <IconButton
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                size="small"
+                sx={{
+                  width: 36,
+                  height: 36,
+                  position: 'absolute',
+                  right: sidebarCollapsed ? `calc(50% - 18px)` : 0, // 18px = half of 36px button width
+                  background: 'rgba(126, 200, 227, 0.1)',
+                  border: '1px solid rgba(126, 200, 227, 0.2)',
+                  color: '#7ec8e3',
+                  transition: 'background 0.2s ease, right 0.25s ease',
+                  '&:hover': {
+                    background: 'rgba(126, 200, 227, 0.2)',
+                  },
+                }}
+              >
+                {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </IconButton>
+            </Box>
+          )}
+          {/* Logo and Title - Full width box that matches game items */}
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            p: 1.5,
+            borderRadius: 2.5,
+            background: 'transparent',
+            border: '1px solid transparent',
+            justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start',
+          }}>
             <Box
               sx={{
-                width: 44,
-                height: 44,
-                // borderRadius: 2.5,
+                width: 48,
+                height: 48,
+                minWidth: 48,
+                flexShrink: 0,
                 background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px rgba(126, 200, 227, 0.25)',
+                borderRadius: 2,
               }}
             >
               <Typography sx={{ fontSize: '1.5rem' }}>🎮</Typography>
             </Box>
-            <Box>
+            <Box
+              sx={{
+                flex: sidebarCollapsed && !isMobile ? 0 : 1,
+                minWidth: 0,
+                opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                marginLeft: sidebarCollapsed && !isMobile ? 0 : 1.5,
+                overflow: 'hidden',
+                transition: 'opacity 0.25s ease, width 0.25s ease, flex 0.25s ease, margin-left 0.25s ease',
+              }}
+            >
               <Typography
                 variant="h6"
                 sx={{
@@ -392,11 +480,12 @@ const HomePage: React.FC = () => {
                   fontSize: '1.15rem',
                   lineHeight: 1.2,
                   mb: 0.25,
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {t('home.title')}
               </Typography>
-              <Typography variant="caption" sx={{ color: '#8a9ba8', fontSize: '0.75rem', fontWeight: 500 }}>
+              <Typography variant="caption" sx={{ color: '#8a9ba8', fontSize: '0.75rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
                 {t('home.subtitle')}
               </Typography>
             </Box>
@@ -412,10 +501,17 @@ const HomePage: React.FC = () => {
                 disabled={!game.available}
                 sx={{
                   borderRadius: 2.5,
-                  py: 1.75,
+                  py: 1.5,
                   px: 2,
+                  justifyContent: 'flex-start',
                   position: 'relative',
                   overflow: 'hidden',
+                  transition: 'all 0.25s ease',
+                  // Enhanced styling for Coming Soon games
+                  ...((!game.available) && {
+                    background: `linear-gradient(135deg, ${game.color}08 0%, ${game.color}04 100%)`,
+                    border: `1px solid ${game.color}20`,
+                  }),
                   '&::before': {
                     content: '""',
                     position: 'absolute',
@@ -423,9 +519,11 @@ const HomePage: React.FC = () => {
                     top: 0,
                     bottom: 0,
                     width: '4px',
-                    background: 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)',
-                    opacity: selectedGame === game.id ? 1 : 0,
-                    transition: 'opacity 0.3s ease',
+                    background: game.available
+                      ? 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)'
+                      : `linear-gradient(180deg, ${game.color} 0%, ${game.color}80 100%)`,
+                    opacity: selectedGame === game.id ? 1 : (!game.available ? 0.6 : 0),
+                    transition: 'opacity 0.25s ease',
                   },
                   '&.Mui-selected': {
                     background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
@@ -436,59 +534,99 @@ const HomePage: React.FC = () => {
                     },
                   },
                   '&:hover': {
-                    backgroundColor: 'rgba(126, 200, 227, 0.06)',
+                    backgroundColor: game.available ? 'rgba(126, 200, 227, 0.06)' : `${game.color}10`,
                   },
                   '&.Mui-disabled': {
-                    opacity: 0.5,
+                    opacity: 0.7,
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 44 }}>
+                <ListItemIcon sx={{
+                  minWidth: 56,
+                  justifyContent: 'flex-start',
+                }}>
                   <Box
                     sx={{
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
+                      minWidth: 48,
+                      flexShrink: 0,
                       borderRadius: 2,
-                      background: selectedGame === game.id 
+                      background: selectedGame === game.id
                         ? 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)'
-                        : 'rgba(126, 200, 227, 0.1)',
+                        : game.available
+                          ? 'rgba(126, 200, 227, 0.1)'
+                          : `${game.color}15`,
+                      border: !game.available ? `1px solid ${game.color}30` : 'none',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      transition: 'all 0.3s ease',
+                      transition: 'all 0.25s ease',
                     }}
                   >
-                    <Typography sx={{ fontSize: '1.4rem' }}>{game.icon}</Typography>
+                    <Typography sx={{ fontSize: '1.5rem' }}>{game.icon}</Typography>
                   </Box>
                 </ListItemIcon>
-                <ListItemText
-                  primary={game.name}
-                  secondary={t(game.description)}
-                  primaryTypographyProps={{
-                    fontWeight: selectedGame === game.id ? 700 : 600,
-                    fontSize: '0.95rem',
-                    color: selectedGame === game.id ? '#2c3e50' : '#5a6a7a',
+                {/* Text content with smooth fade */}
+                <Box
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                    width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                    overflow: 'hidden',
+                    transition: 'opacity 0.2s ease, width 0.25s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
                   }}
-                  secondaryTypographyProps={{
-                    fontSize: '0.75rem',
-                    color: '#8a9ba8',
-                    mt: 0.25,
-                  }}
-                />
-                {!game.available && (
-                  <Chip
-                    label={t('home.comingSoon')}
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: '0.65rem',
-                      bgcolor: 'rgba(255, 170, 165, 0.15)',
-                      color: '#ffaaa5',
-                      fontWeight: 600,
-                      border: '1px solid rgba(255, 170, 165, 0.3)',
-                    }}
-                  />
-                )}
+                >
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography
+                      sx={{
+                        fontWeight: selectedGame === game.id ? 700 : 600,
+                        fontSize: '0.9rem',
+                        color: selectedGame === game.id ? '#2c3e50' : '#5a6a7a',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {game.name.startsWith('games.') ? t(game.name) : game.name}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: '0.72rem',
+                        color: '#8a9ba8',
+                        mt: 0.25,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {t(game.description)}
+                    </Typography>
+                  </Box>
+                  {!game.available && (
+                    <Chip
+                      label={t('home.comingSoon')}
+                      size="small"
+                      sx={{
+                        height: 20,
+                        fontSize: '0.6rem',
+                        bgcolor: 'rgba(255, 170, 165, 0.15)',
+                        color: '#ffaaa5',
+                        fontWeight: 600,
+                        border: '1px solid rgba(255, 170, 165, 0.3)',
+                        flexShrink: 0,
+                        '& .MuiChip-label': {
+                          px: 1,
+                        },
+                      }}
+                    />
+                  )}
+                </Box>
               </ListItemButton>
             </ListItem>
           ))}
@@ -499,7 +637,16 @@ const HomePage: React.FC = () => {
         <Box sx={{ p: 2 }}>
           {isAuthenticated ? (
             <>
-              <Box sx={{ mb: 2 }}>
+              {/* User info - with fade transition */}
+              <Box
+                sx={{
+                  mb: 2,
+                  opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                  height: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                  overflow: 'hidden',
+                  transition: 'opacity 0.25s ease, height 0.25s ease',
+                }}
+              >
                 <Box
                   sx={{
                     p: 2,
@@ -518,6 +665,7 @@ const HomePage: React.FC = () => {
                       mb: 0.5,
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     👤 {t('home.loggedInAs')}
@@ -528,147 +676,244 @@ const HomePage: React.FC = () => {
                       color: '#2c3e50',
                       fontWeight: 700,
                       fontSize: '0.95rem',
-                      wordBreak: 'break-word',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
                     {user?.username || 'User'}
                   </Typography>
                 </Box>
               </Box>
-              <Button
-                component={Link}
-                to="/profile"
-                fullWidth
-                startIcon={<PersonIcon />}
-                sx={{
-                  mb: 1.5,
-                  py: 1.5,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
-                  border: '1px solid rgba(126, 200, 227, 0.3)',
-                  color: '#2c3e50',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
-                    borderColor: 'rgba(126, 200, 227, 0.5)',
-                  },
-                }}
-              >
-                {t('home.profile')}
-              </Button>
-              <Button
-                component={Link}
-                to="/leaderboard"
-                fullWidth
-                startIcon={<LeaderboardIcon />}
-                sx={{
-                  mb: 1.5,
-                  py: 1.5,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
-                  border: '1px solid rgba(126, 200, 227, 0.3)',
-                  color: '#2c3e50',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
-                    borderColor: 'rgba(126, 200, 227, 0.5)',
-                  },
-                }}
-              >
-                {t('home.leaderboard')}
-              </Button>
-              <Button
-                onClick={() => setHistoryModalOpen(true)}
-                fullWidth
-                startIcon={<HistoryIcon />}
-                sx={{
-                  mb: 1.5,
-                  py: 1.5,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
-                  border: '1px solid rgba(126, 200, 227, 0.3)',
-                  color: '#2c3e50',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
-                    borderColor: 'rgba(126, 200, 227, 0.5)',
-                  },
-                }}
-              >
-                {t('home.history')}
-              </Button>
-              <Button
-                onClick={logout}
-                fullWidth
-                sx={{
-                  py: 1.5,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  color: '#ffaaa5',
-                  border: '1px solid rgba(255, 170, 165, 0.3)',
-                  '&:hover': {
-                    background: 'rgba(255, 170, 165, 0.1)',
-                    borderColor: 'rgba(255, 170, 165, 0.5)',
-                  },
-                }}
-              >
-                {t('auth.logout')}
-              </Button>
+              {/* Auth buttons - center icons when collapsed, center content when expanded */}
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}>
+                <Button
+                  component={Link}
+                  to="/profile"
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
+                    border: '1px solid rgba(126, 200, 227, 0.3)',
+                    color: '#2c3e50',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
+                      borderColor: 'rgba(126, 200, 227, 0.5)',
+                    },
+                  }}
+                >
+                  <PersonIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('home.profile')}
+                  </Box>
+                </Button>
+                <Button
+                  component={Link}
+                  to="/leaderboard"
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
+                    border: '1px solid rgba(126, 200, 227, 0.3)',
+                    color: '#2c3e50',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
+                      borderColor: 'rgba(126, 200, 227, 0.5)',
+                    },
+                  }}
+                >
+                  <LeaderboardIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('home.leaderboard')}
+                  </Box>
+                </Button>
+                <Button
+                  onClick={() => setHistoryModalOpen(true)}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
+                    border: '1px solid rgba(126, 200, 227, 0.3)',
+                    color: '#2c3e50',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
+                      borderColor: 'rgba(126, 200, 227, 0.5)',
+                    },
+                  }}
+                >
+                  <HistoryIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('home.history')}
+                  </Box>
+                </Button>
+                <Button
+                  onClick={logout}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    color: '#ffaaa5',
+                    border: '1px solid rgba(255, 170, 165, 0.3)',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'rgba(255, 170, 165, 0.1)',
+                      borderColor: 'rgba(255, 170, 165, 0.5)',
+                    },
+                  }}
+                >
+                  <LoginIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('auth.logout')}
+                  </Box>
+                </Button>
+              </Box>
             </>
           ) : (
             <>
-              <Button
-                onClick={() => setHistoryModalOpen(true)}
-                fullWidth
-                startIcon={<HistoryIcon />}
-                sx={{
-                  mb: 1.5,
-                  py: 1.5,
-                  borderRadius: 2.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
-                  border: '1px solid rgba(126, 200, 227, 0.3)',
-                  color: '#2c3e50',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
-                    borderColor: 'rgba(126, 200, 227, 0.5)',
-                  },
-                }}
-              >
-                {t('home.history')}
-              </Button>
-            <Button
-              component={Link}
-              to="/login"
-              fullWidth
-              startIcon={<LoginIcon />}
-              sx={{
-                py: 1.75,
-                borderRadius: 2.5,
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-                color: '#ffffff',
-                boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
-                  boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
-                },
-              }}
-            >
-              {t('auth.login')} / {t('auth.register')}
-            </Button>
+              {/* Non-authenticated: History and Login buttons - full width always, center content */}
+              <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}>
+                <Button
+                  onClick={() => setHistoryModalOpen(true)}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
+                    border: '1px solid rgba(126, 200, 227, 0.3)',
+                    color: '#2c3e50',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
+                      borderColor: 'rgba(126, 200, 227, 0.5)',
+                    },
+                  }}
+                >
+                  <HistoryIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('home.history')}
+                  </Box>
+                </Button>
+                <Button
+                  component={Link}
+                  to="/login"
+                  sx={{
+                    py: 1.75,
+                    px: 2,
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
+                    justifyContent: 'center',
+                    width: '100%',
+                    minHeight: 56,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
+                      boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
+                    },
+                  }}
+                >
+                  <LoginIcon sx={{ mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' }} />
+                  <Box
+                    component="span"
+                    sx={{
+                      opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+                      width: sidebarCollapsed && !isMobile ? 0 : 'auto',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      transition: 'opacity 0.25s ease, width 0.25s ease',
+                    }}
+                  >
+                    {t('auth.login')} / {t('auth.register')}
+                  </Box>
+                </Button>
+              </Box>
             </>
           )}
         </Box>

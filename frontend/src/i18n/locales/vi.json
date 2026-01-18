@@ -63,7 +63,17 @@
     "orUseJoinPage": "Hoặc vào trang tham gia",
     "loggedInAs": "Đăng nhập với",
     "caroDescription": "Trò chơi chiến thuật cổ điển",
+    "luckyWheelDescription": "Quay và nhận thưởng",
+    "werewolfDescription": "Trò chơi suy luận xã hội",
+    "unoDescription": "Trò chơi bài nhanh",
+    "otherGamesDescription": "Thêm nhiều game sắp ra mắt",
     "comingSoon": "Sắp có"
+  },
+  "games": {
+    "luckyWheel": "Vòng Quay May Mắn",
+    "werewolf": "Ma Sói",
+    "uno": "UNO",
+    "otherGames": "Game Khác"
   },
   "game": {
     "yourTurn": "Lượt của bạn",

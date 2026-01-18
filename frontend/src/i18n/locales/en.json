@@ -63,7 +63,17 @@
     "orUseJoinPage": "Or use join page",
     "loggedInAs": "Logged in as",
     "caroDescription": "Classic strategy game",
+    "luckyWheelDescription": "Spin and win prizes",
+    "werewolfDescription": "Social deduction party game",
+    "unoDescription": "Fast-paced card game",
+    "otherGamesDescription": "More games coming soon",
     "comingSoon": "Soon"
+  },
+  "games": {
+    "luckyWheel": "Lucky Wheel",
+    "werewolf": "Werewolf",
+    "uno": "UNO",
+    "otherGames": "Other Games"
   },
   "game": {
     "yourTurn": "Your Turn",
