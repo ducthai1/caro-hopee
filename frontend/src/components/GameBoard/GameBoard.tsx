@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { Box, Paper } from '@mui/material';
+import { Box, Paper, useMediaQuery, useTheme } from '@mui/material';
 import GameCell from './GameCell';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
@@ -7,6 +7,8 @@ import { useLanguage } from '../../i18n';
 const GameBoard: React.FC = () => {
   const { game, isMyTurn, makeMove, lastMove } = useGame();
   const { t } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const containerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(50);
@@ -43,7 +45,11 @@ const GameBoard: React.FC = () => {
       if (!isMounted) return; // Prevent state update after unmount
       if (containerRef.current && game) {
         const containerWidth = containerRef.current.offsetWidth;
-        const maxWidth = Math.min(containerWidth * 0.9, 800);
+        // CRITICAL FIX FOR MOBILE: On mobile, allow board to be wider than screen for horizontal scroll
+        const isMobile = window.innerWidth < 960; // lg breakpoint
+        const maxWidth = isMobile 
+          ? Math.max(containerWidth, game.boardSize * 40) // Minimum 40px per cell on mobile
+          : Math.min(containerWidth * 0.9, 800);
         const calculatedSize = Math.min(maxWidth / game.boardSize, 60);
         const finalSize = Math.max(calculatedSize, 35);
         setCellSize(finalSize);
@@ -115,13 +121,39 @@ const GameBoard: React.FC = () => {
       ref={containerRef}
       sx={{
         width: '100%',
-        maxWidth: '800px',
+        maxWidth: { xs: '100%', md: '800px' }, // Full width on mobile for horizontal scroll
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         margin: '0 auto',
         mb: 3,
         mx: 'auto',
+        // CRITICAL FIX FOR MOBILE: Enable horizontal scrolling on mobile
+        overflowX: { xs: 'auto', md: 'visible' },
+        overflowY: 'visible',
+        // Enable smooth scrolling on mobile
+        WebkitOverflowScrolling: 'touch',
+        // Prevent vertical scroll interference
+        touchAction: { xs: 'pan-x pan-y', md: 'auto' },
+        // Custom scrollbar styling for mobile
+        '&::-webkit-scrollbar': {
+          height: '8px',
+          display: { xs: 'block', md: 'none' },
+        },
+        '&::-webkit-scrollbar-track': {
+          background: 'rgba(126, 200, 227, 0.1)',
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: 'rgba(126, 200, 227, 0.3)',
+          borderRadius: '4px',
+          '&:hover': {
+            background: 'rgba(126, 200, 227, 0.5)',
+          },
+        },
+        // Firefox scrollbar
+        scrollbarWidth: { xs: 'thin', md: 'none' },
+        scrollbarColor: { xs: 'rgba(126, 200, 227, 0.3) rgba(126, 200, 227, 0.1)', md: 'transparent transparent' },
       }}
     >
       <Paper
@@ -133,18 +165,27 @@ const GameBoard: React.FC = () => {
           boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
           border: '2px solid rgba(126, 200, 227, 0.2)',
           transition: 'all 0.3s ease',
+          // CRITICAL FIX FOR MOBILE: Prevent Paper from shrinking on mobile
+          minWidth: { xs: `${game.boardSize * 40}px`, md: 'auto' }, // Minimum width for mobile scroll
+          width: { xs: 'max-content', md: 'auto' }, // Allow content to determine width on mobile
         }}
       >
         <Box
           sx={{
             position: 'relative',
             display: 'grid',
-            gridTemplateColumns: `repeat(${game.boardSize}, 1fr)`,
+            // CRITICAL FIX FOR MOBILE: Use fixed size on mobile for horizontal scroll, 1fr on desktop
+            gridTemplateColumns: isMobile 
+              ? `repeat(${game.boardSize}, ${cellSize}px)` 
+              : `repeat(${game.boardSize}, 1fr)`,
             gap: 0,
             border: '3px solid #7ec8e3',
             borderRadius: 2,
             overflow: 'hidden',
             boxShadow: 'inset 0 2px 8px rgba(126, 200, 227, 0.1)',
+            // CRITICAL FIX FOR MOBILE: Ensure board maintains its size on mobile for horizontal scroll
+            width: isMobile ? `${game.boardSize * cellSize}px` : 'auto',
+            minWidth: isMobile ? `${game.boardSize * cellSize}px` : 'auto',
           }}
           ref={boardRef}
         >

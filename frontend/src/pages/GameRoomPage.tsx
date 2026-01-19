@@ -353,9 +353,20 @@ const GameRoomPage: React.FC = () => {
             py: { xs: 2, md: 3 },
             pb: { xs: '100px', lg: 3 },
             width: { lg: 'calc(100% - 656px)' },
+            // CRITICAL FIX FOR MOBILE: Enable horizontal scroll on mobile
+            overflowX: { xs: 'auto', lg: 'visible' },
+            overflowY: 'visible',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            width: { xs: '100%', lg: '100%' },
+            minWidth: { xs: '100%', lg: 'auto' },
+            position: 'relative' 
+          }}>
             {isWaiting ? (
               <WaitingState
                 game={game}
@@ -374,7 +385,13 @@ const GameRoomPage: React.FC = () => {
                 t={t}
               />
             ) : (
-              <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+              <Box sx={{ 
+                width: { xs: '100%', lg: '100%' },
+                minWidth: { xs: '100%', lg: 'auto' },
+                display: 'flex', 
+                justifyContent: 'center', 
+                position: 'relative' 
+              }}>
                 <GameErrorBoundary roomId={roomId}>
                   <GameBoard />
                 </GameErrorBoundary>
