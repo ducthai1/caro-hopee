@@ -71,7 +71,7 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
         } else if (game.player1GuestId) {
           players.push({
             id: game.player1GuestId,
-            username: `Guest ${game.player1GuestId.slice(-6)}`,
+            username: game.player1GuestName || `Guest ${game.player1GuestId.slice(-6)}`,
             isGuest: true,
             playerNumber: 1,
           });
@@ -89,7 +89,7 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
         } else if (game.player2GuestId) {
           players.push({
             id: game.player2GuestId,
-            username: `Guest ${game.player2GuestId.slice(-6)}`,
+            username: game.player2GuestName || `Guest ${game.player2GuestId.slice(-6)}`,
             isGuest: true,
             playerNumber: 2,
           });

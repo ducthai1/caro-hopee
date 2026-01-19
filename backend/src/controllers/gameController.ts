@@ -10,7 +10,7 @@ import User from '../models/User';
 
 export const createGame = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { boardSize = 15, rules = {}, guestId } = req.body;
+    const { boardSize = 15, rules = {}, guestId, guestName } = req.body;
     const authReq = req as AuthRequest;
     
     // Try to get user from token (optional auth - allow both authenticated and guest)
@@ -39,6 +39,7 @@ export const createGame = async (req: Request, res: Response): Promise<void> => 
       gameType: 'caro', // Set game type
       player1: finalUserId ? (finalUserId as any) : null,
       player1GuestId: finalUserId ? null : guestId || null,
+      player1GuestName: finalUserId ? null : (guestName || null),
       boardSize,
       board,
       rules: {
@@ -59,7 +60,7 @@ export const createGame = async (req: Request, res: Response): Promise<void> => 
       const user1 = await User.findById(finalUserId).select('username').lean();
       player1Username = user1?.username || 'Player 1';
     } else if (guestId) {
-      player1Username = `Guest ${guestId.slice(-6)}`;
+      player1Username = guestName || `Guest ${guestId.slice(-6)}`;
     }
 
     io.emit('game-created', {
@@ -79,6 +80,8 @@ export const createGame = async (req: Request, res: Response): Promise<void> => 
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1GuestName: game.player1GuestName,
+      player2GuestName: game.player2GuestName,
       player1Marker: game.player1Marker,
       player2Marker: game.player2Marker,
       boardSize: game.boardSize,
@@ -120,6 +123,8 @@ export const getGame = async (req: Request, res: Response): Promise<void> => {
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1GuestName: game.player1GuestName,
+      player2GuestName: game.player2GuestName,
       player1Marker: game.player1Marker,
       player2Marker: game.player2Marker,
       boardSize: game.boardSize,
@@ -158,6 +163,8 @@ export const getGameByCode = async (req: Request, res: Response): Promise<void> 
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1GuestName: game.player1GuestName,
+      player2GuestName: game.player2GuestName,
       player1Marker: game.player1Marker,
       player2Marker: game.player2Marker,
       boardSize: game.boardSize,
@@ -179,7 +186,7 @@ export const getGameByCode = async (req: Request, res: Response): Promise<void> 
 export const joinGame = async (req: Request, res: Response): Promise<void> => {
   try {
     const { roomId } = req.params;
-    const { guestId } = req.body;
+    const { guestId, guestName } = req.body;
     const authReq = req as AuthRequest;
     
     // Try to get user from token (optional auth - allow both authenticated and guest)
@@ -234,6 +241,8 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
         player2: game.player2?.toString() || null,
         player1GuestId: game.player1GuestId,
         player2GuestId: game.player2GuestId,
+        player1GuestName: game.player1GuestName,
+        player2GuestName: game.player2GuestName,
         player1Marker: game.player1Marker,
         player2Marker: game.player2Marker,
         boardSize: game.boardSize,
@@ -264,8 +273,10 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
       if (userIdToCheck) {
         game.player2 = userIdToCheck as any;
         game.player2GuestId = null; // Clear guestId if joining as authenticated user
+        game.player2GuestName = null; // Clear guestName if joining as authenticated user
     } else {
         game.player2GuestId = guestId || null;
+        game.player2GuestName = guestName || null;
       }
     }
 
@@ -276,7 +287,9 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
     io.to(roomId).emit('player-joined', {
       player: {
         id: userIdToCheck || guestId || '',
-        username: userIdToCheck ? (user2?.username || 'Player 2') : `Guest ${guestId?.slice(-6) || ''}`,
+        username: userIdToCheck 
+          ? (user2?.username || 'Player 2') 
+          : (guestName || `Guest ${guestId?.slice(-6) || ''}`),
         isGuest: !userIdToCheck,
         playerNumber: 2,
       },
@@ -318,6 +331,8 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1GuestName: game.player1GuestName,
+      player2GuestName: game.player2GuestName,
       player1Marker: game.player1Marker,
       player2Marker: game.player2Marker,
       boardSize: game.boardSize,
@@ -369,7 +384,7 @@ export const getWaitingGames = async (req: Request, res: Response): Promise<void
     })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select('roomId roomCode boardSize gameStatus player1 player2 player1GuestId player2GuestId createdAt')
+      .select('roomId roomCode boardSize gameStatus player1 player2 player1GuestId player2GuestId player1GuestName player2GuestName createdAt')
       .lean();
 
     // Batch fetch all user IDs in a single query instead of N populate calls
@@ -405,12 +420,12 @@ export const getWaitingGames = async (req: Request, res: Response): Promise<void
         canJoin = true;
       }
 
-      // Get player1 username from userMap (batch fetched)
+      // Get player1 username from userMap (batch fetched) or guest name
       let player1Username: string | null = null;
       if (game.player1) {
         player1Username = userMap.get(game.player1.toString()) || 'Player 1';
       } else if (game.player1GuestId) {
-        player1Username = `Guest ${game.player1GuestId.slice(-6)}`;
+        player1Username = game.player1GuestName || `Guest ${game.player1GuestId.slice(-6)}`;
       }
 
       return {

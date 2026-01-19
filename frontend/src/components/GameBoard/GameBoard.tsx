@@ -14,6 +14,8 @@ const GameBoard: React.FC = () => {
   // Memoize winning cells to avoid recalculating on every render
   const winningCellsSet = useMemo(() => {
     if (!game?.winningLine) return new Set<string>();
+    // Safety check: ensure winningLine is an array
+    if (!Array.isArray(game.winningLine)) return new Set<string>();
     return new Set(
       game.winningLine.map(line => `${line.row}-${line.col}`)
     );
@@ -146,8 +148,8 @@ const GameBoard: React.FC = () => {
           }}
           ref={boardRef}
         >
-          {game.board.map((row, rowIndex) =>
-            row.map((cell, colIndex) => {
+          {Array.isArray(game.board) && game.board.map((row, rowIndex) =>
+            Array.isArray(row) ? row.map((cell, colIndex) => {
               const cellKey = `${rowIndex}-${colIndex}`;
               const isWinningCell = winningCellsSet.has(cellKey);
               const isLastMoveCell = lastMove !== null && lastMove.row === rowIndex && lastMove.col === colIndex;
@@ -167,7 +169,7 @@ const GameBoard: React.FC = () => {
                   player2Marker={game.player2Marker}
                 />
               );
-            })
+            }) : null
           )}
           {/* Winning line overlay */}
           {game.winningLine && game.winningLine.length >= 2 && (

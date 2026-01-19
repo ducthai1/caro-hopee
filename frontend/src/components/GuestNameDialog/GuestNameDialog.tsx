@@ -13,17 +13,27 @@ import {
   Box,
 } from '@mui/material';
 import { useLanguage } from '../../i18n';
-import { setGuestName } from '../../utils/guestName';
+import { setGuestName, getGuestName } from '../../utils/guestName';
 
 interface GuestNameDialogProps {
   open: boolean;
   onClose: (name: string) => void;
+  initialName?: string | null; // For editing existing name
 }
 
-const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose }) => {
+const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose, initialName }) => {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize name when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      const currentName = initialName || getGuestName() || '';
+      setName(currentName);
+      setError(null);
+    }
+  }, [open, initialName]);
 
   const handleSubmit = useCallback(() => {
     const trimmedName = name.trim();
@@ -76,7 +86,9 @@ const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose }) => {
           py: 2,
         }}
       >
-        {t('game.chooseGuestName') || 'Chọn tên hiển thị'}
+        {initialName || getGuestName() 
+          ? (t('game.changeGuestName') || 'Đổi tên hiển thị')
+          : (t('game.chooseGuestName') || 'Chọn tên hiển thị')}
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>
         <Typography

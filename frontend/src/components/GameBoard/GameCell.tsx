@@ -30,6 +30,8 @@ const GameCell: React.FC<GameCellProps> = ({
   const getCellContent = () => {
     if (value === 1) {
       const marker = player1Marker || '✕';
+      // Safety check: ensure marker is a string
+      if (typeof marker !== 'string') return marker;
       // Check if marker is a base64 image
       if (marker.startsWith('data:image')) {
         return (
@@ -50,6 +52,8 @@ const GameCell: React.FC<GameCellProps> = ({
       return marker;
     } else if (value === 2) {
       const marker = player2Marker || '○';
+      // Safety check: ensure marker is a string
+      if (typeof marker !== 'string') return marker;
       // Check if marker is a base64 image
       if (marker.startsWith('data:image')) {
         return (

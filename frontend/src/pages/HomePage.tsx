@@ -11,8 +11,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_BOARD_SIZE } from '../utils/constants';
 import { validateRoomCode, formatRoomCode } from '../utils/roomCode';
 import HistoryModal from '../components/HistoryModal/HistoryModal';
+import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
+import { getGuestName } from '../utils/guestName';
 import {
   HomeSidebar,
   HeroSection,
@@ -52,6 +54,7 @@ const HomePage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
 
   // Refs for tracking mounted games and cleanup
   const mountedGamesRef = useRef<Set<string>>(new Set());
@@ -160,9 +163,16 @@ const HomePage: React.FC = () => {
       };
 
       const handleGameDeleted = (data: { roomId: string }) => {
+        // Safety check: validate data structure
+        if (!data || !data.roomId || typeof data.roomId !== 'string') {
+          logger.error('[HomePage] Invalid game-deleted data:', data);
+          return;
+        }
+        
         logger.log('[HomePage] Game deleted event received:', data.roomId);
         setWaitingGames(prev => {
-          const filtered = prev.filter(game => game.roomId !== data.roomId);
+          if (!Array.isArray(prev)) return prev;
+          const filtered = prev.filter(game => game && game.roomId !== data.roomId);
           mountedGamesRef.current.delete(data.roomId);
           return filtered;
         });
@@ -264,6 +274,7 @@ const HomePage: React.FC = () => {
         user={user}
         logout={logout}
         onHistoryClick={() => setHistoryModalOpen(true)}
+        onEditGuestName={!isAuthenticated ? () => setShowGuestNameDialog(true) : undefined}
       />
 
       {/* Main Content */}
@@ -355,6 +366,17 @@ const HomePage: React.FC = () => {
 
       {/* History Modal */}
       <HistoryModal open={historyModalOpen} onClose={() => setHistoryModalOpen(false)} />
+
+      {/* Guest Name Dialog */}
+      {!isAuthenticated && (
+        <GuestNameDialog
+          open={showGuestNameDialog}
+          onClose={() => {
+            setShowGuestNameDialog(false);
+          }}
+          initialName={getGuestName()}
+        />
+      )}
     </Box>
   );
 };

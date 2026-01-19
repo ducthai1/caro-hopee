@@ -21,9 +21,11 @@ import LoginIcon from '@mui/icons-material/Login';
 import HistoryIcon from '@mui/icons-material/History';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import EditIcon from '@mui/icons-material/Edit';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../i18n';
 import { GAMES, GameItem } from './home-page-types';
+import { getGuestName } from '../../utils/guestName';
 
 interface HomeSidebarProps {
   isMobile: boolean;
@@ -37,6 +39,7 @@ interface HomeSidebarProps {
   user: { username?: string } | null;
   logout: () => void;
   onHistoryClick: () => void;
+  onEditGuestName?: () => void;
 }
 
 // Drawer width constants
@@ -55,6 +58,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
   user,
   logout,
   onHistoryClick,
+  onEditGuestName,
 }) => {
   const { t } = useLanguage();
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
@@ -145,6 +149,12 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
             setSidebarOpen(false);
           }
         }}
+        onEditGuestName={onEditGuestName ? () => {
+          onEditGuestName();
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        } : undefined}
       />
     </Drawer>
   );
@@ -395,6 +405,7 @@ interface AuthSectionProps {
   isMobile: boolean;
   t: (key: string) => string;
   onClose?: () => void;
+  onEditGuestName?: () => void;
 }
 
 const AuthSection: React.FC<AuthSectionProps> = ({
@@ -407,6 +418,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
   isMobile,
   t,
   onClose,
+  onEditGuestName,
 }) => (
   <Box sx={{ p: 2 }}>
     {/* Toggle Button - Desktop only */}
@@ -449,6 +461,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
         isMobile={isMobile}
         t={t}
         onClose={onClose}
+        onEditGuestName={onEditGuestName}
       />
     )}
   </Box>
@@ -605,6 +618,7 @@ interface UnauthenticatedSectionProps {
   isMobile: boolean;
   t: (key: string) => string;
   onClose?: () => void;
+  onEditGuestName?: () => void;
 }
 
 const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
@@ -613,6 +627,7 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
   isMobile,
   t,
   onClose,
+  onEditGuestName,
 }) => {
   const iconMargin = { mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' };
   const textSx = {
@@ -623,8 +638,77 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
     transition: 'opacity 0.25s ease, width 0.25s ease',
   };
 
+  const guestName = getGuestName();
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {/* Guest Name Display */}
+      {guestName && (
+        <Box
+          sx={{
+            mb: 2,
+            opacity: sidebarCollapsed && !isMobile ? 0 : 1,
+            height: sidebarCollapsed && !isMobile ? 0 : 'auto',
+            overflow: 'hidden',
+            transition: 'opacity 0.25s ease, height 0.25s ease',
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: 2.5,
+              background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
+              border: '1px solid rgba(126, 200, 227, 0.2)',
+              mb: 1.5,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: '#5a6a7a',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                👤 {t('home.guestName') || 'Tên hiển thị'}
+              </Typography>
+              {onEditGuestName && (
+                <IconButton
+                  size="small"
+                  onClick={onEditGuestName}
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    color: '#7ec8e3',
+                    '&:hover': {
+                      background: 'rgba(126, 200, 227, 0.15)',
+                    },
+                  }}
+                >
+                  <EditIcon sx={{ fontSize: '0.9rem' }} />
+                </IconButton>
+              )}
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                color: '#2c3e50',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {guestName}
+            </Typography>
+          </Box>
+        </Box>
+      )}
       <Button
         onClick={onHistoryClick}
         sx={{

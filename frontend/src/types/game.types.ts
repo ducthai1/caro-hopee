@@ -22,6 +22,8 @@ export interface Game {
   player2: string | null;
   player1GuestId: string | null;
   player2GuestId: string | null;
+  player1GuestName: string | null;
+  player2GuestName: string | null;
   player1Marker: string | null;
   player2Marker: string | null;
   boardSize: number;

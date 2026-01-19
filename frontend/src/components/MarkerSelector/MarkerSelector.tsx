@@ -6,14 +6,12 @@ import {
   Box,
   Typography,
   Button,
-  Paper,
-  Tooltip,
   IconButton,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useLanguage } from '../../i18n';
+import MarkerItem from './MarkerItem';
 
 interface MarkerSelectorProps {
   selectedMarker: string | null;
@@ -31,116 +29,6 @@ const PREDEFINED_MARKERS = [
   '😀', '😎', '🤖', '👾', '🎨', '🎭', '🎪', '🎬',
 ];
 
-// Marker Item Component - Memoized to prevent unnecessary re-renders
-interface MarkerItemProps {
-  marker: string;
-  isSelected: boolean;
-  isDisabled: boolean;
-  showTooltip: boolean;
-  tooltipText: string;
-  onSelect: (marker: string) => void;
-}
-
-// Custom comparison function for MarkerItem to prevent unnecessary re-renders
-const areMarkerItemEqual = (prevProps: MarkerItemProps, nextProps: MarkerItemProps): boolean => {
-  return (
-    prevProps.marker === nextProps.marker &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isDisabled === nextProps.isDisabled &&
-    prevProps.showTooltip === nextProps.showTooltip &&
-    prevProps.tooltipText === nextProps.tooltipText &&
-    prevProps.onSelect === nextProps.onSelect
-  );
-};
-
-const MarkerItem: React.FC<MarkerItemProps> = React.memo(({
-  marker,
-  isSelected,
-  isDisabled,
-  showTooltip,
-  tooltipText,
-  onSelect,
-}) => {
-  const handleClick = useCallback(() => {
-    if (!isDisabled) {
-      onSelect(marker);
-    }
-  }, [isDisabled, onSelect, marker]);
-
-  const paperElement = (
-    <Paper
-      onClick={handleClick}
-      sx={{
-        p: 2,
-        textAlign: 'center',
-        cursor: isDisabled ? 'not-allowed' : 'pointer',
-        border: isSelected
-          ? '2px solid #7ec8e3'
-          : '1px solid rgba(126, 200, 227, 0.2)',
-        borderRadius: 2,
-        background: isSelected
-          ? 'linear-gradient(135deg, rgba(126, 200, 227, 0.15) 0%, rgba(168, 230, 207, 0.15) 100%)'
-          : isDisabled
-          ? 'rgba(0, 0, 0, 0.03)'
-          : '#ffffff',
-        transition: 'all 0.2s ease',
-        position: 'relative',
-        opacity: isDisabled ? 0.5 : 1,
-        '&:hover': !isDisabled ? {
-          borderColor: '#7ec8e3',
-          background: 'rgba(126, 200, 227, 0.08)',
-          transform: 'scale(1.05)',
-        } : {},
-      }}
-    >
-      {isSelected && (
-        <CheckCircleIcon
-          sx={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            fontSize: '1rem',
-            color: '#7ec8e3',
-          }}
-        />
-      )}
-      <Typography
-        sx={{
-          fontSize: { xs: '1.5rem', sm: '2rem' },
-          lineHeight: 1,
-          userSelect: 'none',
-          pointerEvents: 'none',
-        }}
-      >
-        {marker}
-      </Typography>
-    </Paper>
-  );
-
-  if (showTooltip && tooltipText) {
-    return (
-      <Tooltip 
-        title={tooltipText} 
-        arrow
-        disableInteractive
-        enterDelay={300}
-        leaveDelay={0}
-      >
-        <span style={{ display: 'inline-block', width: '100%' }}>
-          {paperElement}
-        </span>
-      </Tooltip>
-    );
-  }
-  
-  return (
-    <Box component="div" sx={{ width: '100%' }}>
-      {paperElement}
-    </Box>
-  );
-}, areMarkerItemEqual);
-
-MarkerItem.displayName = 'MarkerItem';
 
 const MarkerSelector: React.FC<MarkerSelectorProps> = ({
   selectedMarker,
@@ -155,7 +43,8 @@ const MarkerSelector: React.FC<MarkerSelectorProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Memoize translation strings to prevent re-renders
-  const markerTakenText = useMemo(() => t('game.markerTaken'), [t]);
+  // CRITICAL FIX: Removed markerTakenText as Tooltip is disabled to prevent crashes
+  // const markerTakenText = useMemo(() => t('game.markerTaken'), [t]);
   const selectMarkerText = useMemo(() => t('game.selectMarker'), [t]);
   const customMarkerText = useMemo(() => t('game.customMarker'), [t]);
   const uploadImageText = useMemo(() => t('game.uploadImage') || 'Tải ảnh lên', [t]);
@@ -299,8 +188,10 @@ const MarkerSelector: React.FC<MarkerSelectorProps> = ({
           {availableMarkers.map((marker) => {
             const isSelected = selectedMarker === marker;
             const isDisabled = disabled || marker === otherPlayerMarker;
-            const showTooltip = isDisabled && marker === otherPlayerMarker;
-            const tooltipText = showTooltip ? markerTakenText : '';
+            // CRITICAL FIX: Removed tooltip to prevent browser crashes
+            // Disabled markers are already visually distinct (opacity, cursor)
+            const showTooltip = false; // Disabled to prevent crashes
+            const tooltipText = ''; // Empty to prevent crashes
             
             return (
               <MarkerItem

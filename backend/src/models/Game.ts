@@ -20,6 +20,8 @@ export interface IGame extends Document {
   player2: mongoose.Types.ObjectId | null;
   player1GuestId: string | null;
   player2GuestId: string | null;
+  player1GuestName: string | null; // Guest display name for player 1
+  player2GuestName: string | null; // Guest display name for player 2
   player1Marker: string | null; // Custom marker for player 1
   player2Marker: string | null; // Custom marker for player 2
   boardSize: number;
@@ -106,6 +108,16 @@ const GameSchema: Schema = new Schema({
   player2GuestId: {
     type: String,
     default: null,
+  },
+  player1GuestName: {
+    type: String,
+    default: null,
+    maxlength: 20,
+  },
+  player2GuestName: {
+    type: String,
+    default: null,
+    maxlength: 20,
   },
   player1Marker: {
     type: String,

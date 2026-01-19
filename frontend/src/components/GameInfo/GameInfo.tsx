@@ -1,11 +1,19 @@
-import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Paper, IconButton } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { useGame } from '../../contexts/GameContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../i18n';
+import { getGuestId } from '../../utils/guestId';
+import { getGuestName } from '../../utils/guestName';
+import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
 
 const GameInfo: React.FC = () => {
-  const { game, players, currentPlayer, myPlayerNumber } = useGame();
+  const { game, players, currentPlayer, myPlayerNumber, refreshPlayers } = useGame();
+  const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
 
   if (!game) {
     return null;
@@ -91,34 +99,62 @@ const GameInfo: React.FC = () => {
           👥 {t('gameInfo.players')}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {players.map((player, index) => (
-            <Box 
-              key={index} 
-              sx={{ 
-                p: 1.5,
-                borderRadius: 2,
-                bgcolor: myPlayerNumber === player.playerNumber 
-                  ? 'rgba(126, 200, 227, 0.1)' 
-                  : 'rgba(0,0,0,0.02)',
-                border: myPlayerNumber === player.playerNumber 
-                  ? '1px solid rgba(126, 200, 227, 0.3)' 
-                  : '1px solid transparent',
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: '#2c3e50',
-                  fontSize: '0.9rem',
+          {players.map((player, index) => {
+            const guestId = getGuestId();
+            const isMyGuestPlayer = !isAuthenticated && player.isGuest && player.id === guestId;
+            
+            return (
+              <Box 
+                key={index} 
+                sx={{ 
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: myPlayerNumber === player.playerNumber 
+                    ? 'rgba(126, 200, 227, 0.1)' 
+                    : 'rgba(0,0,0,0.02)',
+                  border: myPlayerNumber === player.playerNumber 
+                    ? '1px solid rgba(126, 200, 227, 0.3)' 
+                    : '1px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                {player.playerNumber === 1 ? '✕' : '○'} {player.username}
-                {player.isGuest && ` (${t('game.guest')})`}
-                {myPlayerNumber === player.playerNumber && ' 👤'}
-              </Typography>
-            </Box>
-          ))}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: '#2c3e50',
+                    fontSize: '0.9rem',
+                    flex: 1,
+                  }}
+                >
+                  {player.playerNumber === 1 ? '✕' : '○'} {player.username}
+                  {player.isGuest && ` (${t('game.guest')})`}
+                  {myPlayerNumber === player.playerNumber && ' 👤'}
+                </Typography>
+                {isMyGuestPlayer && (
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setEditingPlayerId(player.id);
+                      setShowGuestNameDialog(true);
+                    }}
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      color: '#7ec8e3',
+                      '&:hover': {
+                        background: 'rgba(126, 200, 227, 0.15)',
+                      },
+                    }}
+                  >
+                    <EditIcon sx={{ fontSize: '0.9rem' }} />
+                  </IconButton>
+                )}
+              </Box>
+            );
+          })}
         </Box>
       </Box>
 
@@ -192,6 +228,22 @@ const GameInfo: React.FC = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* Guest Name Dialog */}
+      {!isAuthenticated && (
+        <GuestNameDialog
+          open={showGuestNameDialog}
+          onClose={(name) => {
+            setShowGuestNameDialog(false);
+            setEditingPlayerId(null);
+            // Refresh players to update name immediately
+            if (refreshPlayers) {
+              refreshPlayers();
+            }
+          }}
+          initialName={getGuestName()}
+        />
+      )}
     </Paper>
   );
 };

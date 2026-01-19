@@ -3,6 +3,7 @@ import { Game, GameMove, PlayerInfo, PlayerNumber, Winner } from '../types/game.
 import { socketService } from '../services/socketService';
 import { getGuestId } from '../utils/guestId';
 import { getGuestName } from '../utils/guestName';
+import { gameToPlayers, updatePlayerWithGuestName } from './gameContextHelpers';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 import { gameApi, gameStatsApi } from '../services/api';
@@ -73,59 +74,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 // Helper Functions
 // ============================================================================
 
-const gameToPlayers = (game: Game): PlayerInfo[] => {
-  const players: PlayerInfo[] = [];
-
-  if (game.player1) {
-    players.push({
-      id: game.player1,
-      username: 'Player 1',
-      isGuest: false,
-      playerNumber: 1,
-    });
-  } else if (game.player1GuestId) {
-    // Use guest name from sessionStorage if available, otherwise use default
-    const guestName = getGuestName();
-    const guestId = getGuestId();
-    const isMyGuestId = guestId === game.player1GuestId;
-    const username = isMyGuestId && guestName 
-      ? guestName 
-      : `Guest ${game.player1GuestId.slice(-6)}`;
-    
-    players.push({
-      id: game.player1GuestId,
-      username,
-      isGuest: true,
-      playerNumber: 1,
-    });
-  }
-
-  if (game.player2) {
-    players.push({
-      id: game.player2,
-      username: 'Player 2',
-      isGuest: false,
-      playerNumber: 2,
-    });
-  } else if (game.player2GuestId) {
-    // Use guest name from sessionStorage if available, otherwise use default
-    const guestName = getGuestName();
-    const guestId = getGuestId();
-    const isMyGuestId = guestId === game.player2GuestId;
-    const username = isMyGuestId && guestName 
-      ? guestName 
-      : `Guest ${game.player2GuestId.slice(-6)}`;
-    
-    players.push({
-      id: game.player2GuestId,
-      username,
-      isGuest: true,
-      playerNumber: 2,
-    });
-  }
-
-  return players;
-};
+// Helper functions moved to gameContextHelpers.ts
 
 // ============================================================================
 // Provider Component
@@ -168,41 +117,48 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Update players when game changes
   useEffect(() => {
     if (game) {
-      const gamePlayers = gameToPlayers(game);
+      try {
+        const gamePlayers = gameToPlayers(game);
 
-      setPlayers(prevPlayers => {
-        if (prevPlayers.length === 0 ||
-            (gamePlayers.length > prevPlayers.length &&
-             !gamePlayers.every(p => prevPlayers.some(ep => ep.id === p.id)))) {
+        setPlayers(prevPlayers => {
+          if (prevPlayers.length === 0 ||
+              (gamePlayers.length > prevPlayers.length &&
+               !gamePlayers.every(p => prevPlayers.some(ep => ep.id === p.id)))) {
 
-          const guestId = getGuestId();
-          const authenticatedUserId = isAuthenticated ? user?._id : null;
+            const guestId = getGuestId();
+            const authenticatedUserId = isAuthenticated ? user?._id : null;
 
-          const myPlayer = gamePlayers.find(p => {
-            if (authenticatedUserId && p.id === authenticatedUserId && !p.isGuest) return true;
-            if (guestId && p.id === guestId && p.isGuest) return true;
-            if (authenticatedUserId && game.player1 === authenticatedUserId && p.playerNumber === 1 && !p.isGuest) return true;
-            if (guestId && game.player1GuestId === guestId && p.playerNumber === 1 && p.isGuest) return true;
-            if (authenticatedUserId && game.player2 === authenticatedUserId && p.playerNumber === 2 && !p.isGuest) return true;
-            if (guestId && game.player2GuestId === guestId && p.playerNumber === 2 && p.isGuest) return true;
-            return false;
-          });
-
-          if (myPlayer) {
-            const playerNumber = myPlayer.playerNumber;
-            if (rafIdRef.current !== null) {
-              cancelAnimationFrame(rafIdRef.current);
-            }
-            rafIdRef.current = requestAnimationFrame(() => {
-              setMyPlayerNumber(playerNumber);
-              rafIdRef.current = null;
+            const myPlayer = gamePlayers.find(p => {
+              if (authenticatedUserId && p.id === authenticatedUserId && !p.isGuest) return true;
+              if (guestId && p.id === guestId && p.isGuest) return true;
+              // Safety checks for game properties
+              if (authenticatedUserId && game?.player1 === authenticatedUserId && p.playerNumber === 1 && !p.isGuest) return true;
+              if (guestId && game?.player1GuestId === guestId && p.playerNumber === 1 && p.isGuest) return true;
+              if (authenticatedUserId && game?.player2 === authenticatedUserId && p.playerNumber === 2 && !p.isGuest) return true;
+              if (guestId && game?.player2GuestId === guestId && p.playerNumber === 2 && p.isGuest) return true;
+              return false;
             });
-          }
 
-          return gamePlayers;
-        }
-        return prevPlayers;
-      });
+            if (myPlayer) {
+              const playerNumber = myPlayer.playerNumber;
+              if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+              }
+              rafIdRef.current = requestAnimationFrame(() => {
+                setMyPlayerNumber(playerNumber);
+                rafIdRef.current = null;
+              });
+            }
+
+            return gamePlayers;
+          }
+          return prevPlayers;
+        });
+      } catch (error) {
+        // Safety: catch any errors during player update
+        console.error('[GameContext] Error updating players:', error);
+        logger.error('[GameContext] Error updating players:', error);
+      }
     }
 
     return () => {
@@ -290,22 +246,28 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleRoomJoined = (data: { roomId: string; players: PlayerInfo[]; gameStatus?: string; currentPlayer?: PlayerNumber }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !data.roomId || typeof data.roomId !== 'string') {
+        logger.error('[GameContext] Invalid room-joined data:', data);
+        return;
+      }
+      
+      if (!Array.isArray(data.players)) {
+        logger.error('[GameContext] Invalid players array in room-joined:', data);
+        return;
+      }
+      
       setRoomId(data.roomId);
       
       // Override guest name from sessionStorage if available
-      const guestId = getGuestId();
-      const guestName = getGuestName();
-      const updatedPlayers = data.players.map(player => {
-        if (player.isGuest && player.id === guestId && guestName) {
-          return { ...player, username: guestName };
-        }
-        return player;
-      });
+      const updatedPlayers: PlayerInfo[] = data.players.map(updatePlayerWithGuestName);
       setPlayers(updatedPlayers);
 
       const currentIsAuth = isAuthenticatedRef.current;
       const currentUser = userRef.current;
       const authenticatedUserId = currentIsAuth ? currentUser?._id : null;
+      const guestId = getGuestId();
 
       const myPlayer = updatedPlayers.find(p => {
         if (authenticatedUserId && p.id === authenticatedUserId && !p.isGuest) return true;
@@ -343,19 +305,27 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const handlePlayerJoined = (data: { player: PlayerInfo }) => {
       if (!isMountedRef.current) return;
 
+      // Safety check: validate data structure
+      if (!data || !data.player || typeof data.player !== 'object') {
+        logger.error('[GameContext] Invalid player-joined data:', data);
+        return;
+      }
+      
+      if (!data.player.id || !data.player.playerNumber) {
+        logger.error('[GameContext] Invalid player data in player-joined:', data);
+        return;
+      }
+
       setPlayers(prev => {
         const exists = prev.some(p => p.id === data.player.id);
         if (exists) return prev;
 
         // Override guest name from sessionStorage if available
-        const guestId = getGuestId();
-        const guestName = getGuestName();
-        const player = data.player.isGuest && data.player.id === guestId && guestName
-          ? { ...data.player, username: guestName }
-          : data.player;
+        const player = updatePlayerWithGuestName(data.player);
 
         const updated = [...prev, player];
         const currentIsAuth = isAuthenticatedRef.current;
+        const guestId = getGuestId();
         const myId = currentIsAuth ? userRef.current?._id : guestId;
         if (player.id === myId &&
             ((currentIsAuth && !player.isGuest) || (!currentIsAuth && player.isGuest))) {
@@ -409,6 +379,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
     }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || typeof data !== 'object') {
+        logger.error('[GameContext] Invalid player-left data:', data);
+        return;
+      }
 
       const currentRoomId = roomIdRef.current;
       const isForCurrentRoom = !data.roomId || data.roomId === currentRoomId;
@@ -466,6 +442,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleGameDeleted = (data: { roomId: string }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !data.roomId || typeof data.roomId !== 'string') {
+        logger.error('[GameContext] Invalid game-deleted data:', data);
+        return;
+      }
+      
       if (data.roomId === roomIdRef.current) {
         setRoomId(null);
         setGame(null);
@@ -476,6 +459,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleMoveMade = (data: { move: GameMove | null; board: number[][]; currentPlayer: PlayerNumber }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !Array.isArray(data.board) || typeof data.currentPlayer !== 'number') {
+        logger.error('[GameContext] Invalid move-made data:', data);
+        return;
+      }
+      
       setGame(prevGame => {
         if (!prevGame) return prevGame;
         return {
@@ -498,6 +488,22 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       score?: { player1: number; player2: number };
     }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || (data.winner !== null && data.winner !== 1 && data.winner !== 2 && data.winner !== 'draw')) {
+        logger.error('[GameContext] Invalid game-finished data:', data);
+        return;
+      }
+      
+      if (data.winningLine && !Array.isArray(data.winningLine)) {
+        logger.error('[GameContext] Invalid winningLine in game-finished:', data);
+        return;
+      }
+      
+      if (data.score && (typeof data.score.player1 !== 'number' || typeof data.score.player2 !== 'number')) {
+        logger.error('[GameContext] Invalid score in game-finished:', data);
+        return;
+      }
 
       let finishedGameData: {
         roomId: string;
@@ -638,6 +644,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleScoreUpdated = (data: { score: { player1: number; player2: number } }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !data.score || typeof data.score.player1 !== 'number' || typeof data.score.player2 !== 'number') {
+        logger.error('[GameContext] Invalid score-updated data:', data);
+        return;
+      }
+      
       setGame(prevGame => {
         if (!prevGame) return prevGame;
         return { ...prevGame, score: data.score };
@@ -646,6 +659,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleUndoRequested = (data: { moveNumber: number; requestedBy: PlayerNumber }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || typeof data.moveNumber !== 'number' || typeof data.requestedBy !== 'number') {
+        logger.error('[GameContext] Invalid undo-requested data:', data);
+        return;
+      }
+      
       if (data.requestedBy !== myPlayerNumberRef.current) {
         setPendingUndoMove(data.moveNumber);
       }
@@ -653,6 +673,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleUndoApproved = (data: { moveNumber: number; board: number[][] }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !Array.isArray(data.board) || typeof data.moveNumber !== 'number') {
+        logger.error('[GameContext] Invalid undo-approved data:', data);
+        return;
+      }
+      
       setGame(prevGame => {
         if (!prevGame) return prevGame;
         return { ...prevGame, board: data.board };
@@ -684,6 +711,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       winningLine: null;
     }) => {
       if (!isMountedRef.current) return;
+      
+      // Safety check: validate data structure
+      if (!data || !Array.isArray(data.board) || typeof data.currentPlayer !== 'number') {
+        logger.error('[GameContext] Invalid game-reset data:', data);
+        return;
+      }
+      
       setGame(prevGame => {
         if (!prevGame) return prevGame;
         return {
@@ -961,10 +995,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshPlayers = useCallback(() => {
     // Update players with current guest name from sessionStorage
-    if (game) {
-      const gamePlayers = gameToPlayers(game);
-      setPlayers(gamePlayers);
-    } else {
+    try {
+      if (game) {
+        const gamePlayers = gameToPlayers(game);
+        setPlayers(gamePlayers);
+      } else {
       // If no game, update existing players with guest name
       setPlayers(prevPlayers => {
         const guestId = getGuestId();
@@ -978,7 +1013,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           });
         }
         return prevPlayers;
-      });
+        });
+      }
+    } catch (error) {
+      // Safety: catch any errors during refresh
+      console.error('[GameContext] Error refreshing players:', error);
+      logger.error('[GameContext] Error refreshing players:', error);
     }
   }, [game]);
 
