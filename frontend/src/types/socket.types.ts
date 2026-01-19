@@ -47,5 +47,6 @@ export interface ServerToClientEvents {
   'score-updated': (data: { score: GameScore }) => void;
   'game-created': (data: { roomId: string; roomCode: string; boardSize: number; gameStatus: string; player1Username: string | null; createdAt: string }) => void;
   'game-status-updated': (data: { roomId: string; roomCode: string; gameStatus: string; displayStatus: 'waiting' | 'ready' | 'playing'; playerCount: number; isFull: boolean }) => void;
+  'marker-updated': (data: { playerNumber: 1 | 2; marker: string }) => void;
 }
 

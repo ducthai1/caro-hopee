@@ -123,7 +123,15 @@
       "fiveInRow": "Năm quân liên tiếp!",
       "surrender": "Đối thủ đầu hàng",
       "disconnect": "Đối thủ ngắt kết nối"
-    }
+    },
+    "selectMarker": "Chọn dấu đánh của bạn",
+    "markerTaken": "Dấu này đã được chọn",
+    "customMarker": "Tùy chỉnh dấu đánh",
+    "uploadImage": "Tải ảnh lên",
+    "selectedMarker": "Dấu đã chọn:",
+    "invalidImageType": "Chỉ chấp nhận file ảnh",
+    "imageTooLarge": "Ảnh quá lớn. Tối đa 100KB",
+    "imageReadError": "Lỗi khi đọc file ảnh"
   },
   "gameRoom": {
     "loading": "Đang tải trò chơi...",

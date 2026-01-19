@@ -2,7 +2,7 @@
  * GameRoomPage - Main game room with board, controls, and player info
  * Refactored from 916 lines to use modular components
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Container, Box, CircularProgress, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
@@ -13,6 +13,7 @@ import GameInfo from '../components/GameInfo/GameInfo';
 import GameControls from '../components/GameControls/GameControls';
 import RoomCodeDisplay from '../components/RoomCodeDisplay';
 import GameErrorBoundary from '../components/GameErrorBoundary';
+import MarkerSelector from '../components/MarkerSelector';
 import { logger } from '../utils/logger';
 import {
   MobileBottomSheet,
@@ -27,6 +28,56 @@ const GameRoomPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame } = useGame();
+  
+  // Marker selection handler - memoized to prevent re-render loops
+  // Only depend on roomId, not game object to avoid re-creating on every game update
+  const handleMarkerSelect = useCallback(async (marker: string): Promise<void> => {
+    if (!roomId) return;
+    
+    // Validate marker before sending
+    if (!marker || typeof marker !== 'string') {
+      logger.error('Invalid marker provided:', marker);
+      alert('Invalid marker. Please select a valid marker.');
+      return;
+    }
+    
+    // Check if it's a base64 image
+    const isBase64Image = marker.startsWith('data:image/');
+    
+    if (isBase64Image) {
+      // Validate base64 image size (max ~150KB)
+      if (marker.length > 200000) {
+        logger.error('Image too large:', marker.length);
+        alert('Image is too large. Maximum size is 150KB.');
+        return;
+      }
+      // Send base64 image as-is
+    } else {
+      // Text marker validation
+      const trimmedMarker = marker.trim();
+      if (trimmedMarker.length === 0) {
+        logger.error('Empty marker provided');
+        alert('Invalid marker. Please select a valid marker.');
+        return;
+      }
+      if (trimmedMarker.length > 10) {
+        logger.error('Marker too long:', trimmedMarker);
+        alert('Marker is too long. Maximum 10 characters allowed.');
+        return;
+      }
+      // Use trimmed marker for text
+      marker = trimmedMarker;
+    }
+    
+    try {
+      await gameApi.updateMarker(roomId, marker);
+      // Game state will be updated via socket event
+    } catch (error: any) {
+      logger.error('Failed to update marker:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update marker';
+      alert(errorMessage);
+    }
+  }, [roomId]);
 
   // State
   const [loading, setLoading] = useState(true);
@@ -275,12 +326,17 @@ const GameRoomPage: React.FC = () => {
               <WaitingState
                 game={game}
                 onLeaveClick={() => setShowLeaveConfirm(true)}
+                onMarkerSelect={handleMarkerSelect}
+                myPlayerNumber={myPlayerNumber}
                 t={t}
               />
             ) : canStartGame ? (
               <ReadyToStartState
                 roomId={roomId}
                 startGame={startGame}
+                onMarkerSelect={handleMarkerSelect}
+                game={game}
+                myPlayerNumber={myPlayerNumber}
                 t={t}
               />
             ) : (
@@ -318,28 +374,34 @@ const GameRoomPage: React.FC = () => {
 
 // Waiting state component
 interface WaitingStateProps {
-  game: { roomCode: string };
+  game: { roomCode: string; player1Marker?: string | null; player2Marker?: string | null };
   onLeaveClick: () => void;
+  onMarkerSelect: (marker: string) => void;
+  myPlayerNumber: 1 | 2 | null;
   t: (key: string) => string;
 }
 
-const WaitingState: React.FC<WaitingStateProps> = ({ game, onLeaveClick, t }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 3,
-      p: { xs: 3, md: 5 },
-      borderRadius: 3,
-      bgcolor: 'rgba(126, 200, 227, 0.05)',
-      border: '2px dashed rgba(126, 200, 227, 0.3)',
-      width: '100%',
-      maxWidth: '600px',
-      mb: { xs: '120px', lg: 0 },
-    }}
-  >
+const WaitingState: React.FC<WaitingStateProps> = ({ game, onLeaveClick, onMarkerSelect, myPlayerNumber, t }) => {
+  const myMarker = myPlayerNumber === 1 ? (game.player1Marker ?? null) : myPlayerNumber === 2 ? (game.player2Marker ?? null) : null;
+  const otherPlayerMarker = myPlayerNumber === 1 ? (game.player2Marker ?? null) : myPlayerNumber === 2 ? (game.player1Marker ?? null) : null;
+  
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        p: { xs: 3, md: 5 },
+        borderRadius: 3,
+        bgcolor: 'rgba(126, 200, 227, 0.05)',
+        border: '2px dashed rgba(126, 200, 227, 0.3)',
+        width: '100%',
+        maxWidth: '600px',
+        mb: { xs: '120px', lg: 0 },
+      }}
+    >
     <Typography
       variant="h4"
       sx={{
@@ -366,6 +428,17 @@ const WaitingState: React.FC<WaitingStateProps> = ({ game, onLeaveClick, t }) =>
       {t('gameRoom.shareRoomCode')}
     </Typography>
 
+    {/* Marker Selector */}
+    {myPlayerNumber && (
+      <Box sx={{ width: '100%', maxWidth: '500px', mt: 2 }}>
+        <MarkerSelector
+          selectedMarker={myMarker}
+          otherPlayerMarker={otherPlayerMarker}
+          onSelectMarker={onMarkerSelect}
+        />
+      </Box>
+    )}
+
     <Box sx={{ display: { xs: 'block', lg: 'none' }, width: '100%', maxWidth: '280px', mt: 1 }}>
       <Button
         variant="outlined"
@@ -377,22 +450,30 @@ const WaitingState: React.FC<WaitingStateProps> = ({ game, onLeaveClick, t }) =>
         {t('game.leaveGame')}
       </Button>
     </Box>
-  </Box>
-);
+    </Box>
+  );
+};
 
 // Ready to start state component
 interface ReadyToStartStateProps {
   roomId: string | undefined;
   startGame: () => void;
+  onMarkerSelect: (marker: string) => void;
+  game: { player1Marker?: string | null; player2Marker?: string | null };
+  myPlayerNumber: 1 | 2 | null;
   t: (key: string) => string;
 }
 
-const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame, t }) => (
-  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-    <GameErrorBoundary roomId={roomId}>
-      <GameBoard />
-    </GameErrorBoundary>
-    <>
+const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame, onMarkerSelect, game, myPlayerNumber, t }) => {
+  const myMarker = myPlayerNumber === 1 ? (game.player1Marker ?? null) : myPlayerNumber === 2 ? (game.player2Marker ?? null) : null;
+  const otherPlayerMarker = myPlayerNumber === 1 ? (game.player2Marker ?? null) : myPlayerNumber === 2 ? (game.player1Marker ?? null) : null;
+  
+  return (
+    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+      <GameErrorBoundary roomId={roomId}>
+        <GameBoard />
+      </GameErrorBoundary>
+      <>
       {/* Overlay */}
       <Box
         sx={{
@@ -410,7 +491,7 @@ const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame
           pointerEvents: 'none',
         }}
       />
-      {/* Start Game Button */}
+      {/* Marker Selector and Start Game Button */}
       <Box
         sx={{
           position: 'absolute',
@@ -421,9 +502,33 @@ const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 2,
+          gap: 3,
+          width: '90%',
+          maxWidth: '600px',
         }}
       >
+        {/* Marker Selector */}
+        {myPlayerNumber && (
+          <Box
+            sx={{
+              bgcolor: 'rgba(255, 255, 255, 0.98)',
+              p: 3,
+              borderRadius: 3,
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              width: '100%',
+              maxWidth: '500px',
+            }}
+          >
+            <MarkerSelector
+              selectedMarker={myMarker}
+              otherPlayerMarker={otherPlayerMarker}
+              onSelectMarker={onMarkerSelect}
+            />
+          </Box>
+        )}
+        
         <Button
           variant="contained"
           size="large"
@@ -481,8 +586,9 @@ const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame
           </Typography>
         </Box>
       </Box>
-    </>
-  </Box>
-);
+      </>
+    </Box>
+  );
+};
 
 export default GameRoomPage;

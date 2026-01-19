@@ -674,6 +674,38 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     // Register all socket listeners
+    const handleMarkerUpdated = (data: { playerNumber: 1 | 2; marker: string }) => {
+      if (!isMountedRef.current) return;
+      
+      // Validate data structure
+      if (!data || typeof data.playerNumber !== 'number' || !data.marker || typeof data.marker !== 'string') {
+        logger.error('[GameContext] Invalid marker-updated data:', data);
+        return;
+      }
+      
+      // Validate playerNumber is 1 or 2
+      if (data.playerNumber !== 1 && data.playerNumber !== 2) {
+        logger.error('[GameContext] Invalid playerNumber in marker-updated:', data.playerNumber);
+        return;
+      }
+      
+      // Validate marker is not empty after trim
+      const trimmedMarker = data.marker.trim();
+      if (!trimmedMarker || trimmedMarker.length === 0) {
+        logger.error('[GameContext] Empty marker received:', data);
+        return;
+      }
+      
+      setGame(prevGame => {
+        if (!prevGame) return prevGame;
+        if (data.playerNumber === 1) {
+          return { ...prevGame, player1Marker: trimmedMarker };
+        } else {
+          return { ...prevGame, player2Marker: trimmedMarker };
+        }
+      });
+    };
+
     socket.on('room-joined', handleRoomJoined);
     socket.on('player-joined', handlePlayerJoined);
     socket.on('player-left', handlePlayerLeft);
@@ -688,6 +720,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     socket.on('game-started', handleGameStarted);
     socket.on('game-reset', handleGameReset);
     socket.on('game-error', handleGameError);
+    socket.on('marker-updated' as any, handleMarkerUpdated);
 
     return () => {
       isMountedRef.current = false;
@@ -709,6 +742,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       socket.off('game-started', handleGameStarted);
       socket.off('game-reset', handleGameReset);
       socket.off('game-error', handleGameError);
+      socket.off('marker-updated' as any, handleMarkerUpdated);
     };
   }, [debouncedReloadGame, socketConnected]);
 

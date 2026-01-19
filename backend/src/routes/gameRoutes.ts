@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createGame, getGame, getGameByCode, joinGame, getUserGames, leaveGame, getWaitingGames, getGameHistory } from '../controllers/gameController';
+import { createGame, getGame, getGameByCode, joinGame, getUserGames, leaveGame, getWaitingGames, getGameHistory, updateMarker } from '../controllers/gameController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -11,6 +11,7 @@ router.post('/history', authMiddleware, getGameHistory); // Require authenticati
 router.get('/:roomId', getGame);
 router.post('/:roomId/join', joinGame);
 router.post('/:roomId/leave', leaveGame);
+router.post('/:roomId/marker', updateMarker);
 router.get('/user/:userId', authMiddleware, getUserGames);
 
 export default router;

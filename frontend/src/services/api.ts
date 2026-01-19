@@ -117,6 +117,12 @@ export const gameApi = {
       return { history, total: history.length };
     }
   },
+  updateMarker: async (roomId: string, marker: string): Promise<{ message: string; player1Marker: string | null; player2Marker: string | null }> => {
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.post(`/games/${roomId}/marker`, { marker, guestId });
+    return response.data;
+  },
 };
 
 // Game Stats APIs

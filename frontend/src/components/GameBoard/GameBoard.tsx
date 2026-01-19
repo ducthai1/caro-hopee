@@ -156,6 +156,8 @@ const GameBoard: React.FC = () => {
                   cellSize={cellSize}
                   isLastMove={isLastMoveCell}
                   isWinningCell={isWinningCell}
+                  player1Marker={game.player1Marker}
+                  player2Marker={game.player2Marker}
                 />
               );
             })

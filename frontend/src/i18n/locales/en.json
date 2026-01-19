@@ -123,7 +123,15 @@
       "fiveInRow": "Five in a Row!",
       "surrender": "Opponent Surrendered",
       "disconnect": "Opponent Disconnected"
-    }
+    },
+    "selectMarker": "Choose your marker",
+    "markerTaken": "This marker is already taken",
+    "customMarker": "Custom marker",
+    "uploadImage": "Upload image",
+    "selectedMarker": "Selected marker:",
+    "invalidImageType": "Only image files are accepted",
+    "imageTooLarge": "Image too large. Maximum size is 100KB",
+    "imageReadError": "Error reading image file"
   },
   "gameRoom": {
     "loading": "Loading game...",

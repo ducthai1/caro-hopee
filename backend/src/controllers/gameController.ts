@@ -79,6 +79,8 @@ export const createGame = async (req: Request, res: Response): Promise<void> => 
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1Marker: game.player1Marker,
+      player2Marker: game.player2Marker,
       boardSize: game.boardSize,
       board: game.board,
       currentPlayer: game.currentPlayer,
@@ -118,6 +120,8 @@ export const getGame = async (req: Request, res: Response): Promise<void> => {
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1Marker: game.player1Marker,
+      player2Marker: game.player2Marker,
       boardSize: game.boardSize,
       board: game.board,
       currentPlayer: game.currentPlayer,
@@ -154,6 +158,8 @@ export const getGameByCode = async (req: Request, res: Response): Promise<void> 
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1Marker: game.player1Marker,
+      player2Marker: game.player2Marker,
       boardSize: game.boardSize,
       board: game.board,
       currentPlayer: game.currentPlayer,
@@ -228,6 +234,8 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
         player2: game.player2?.toString() || null,
         player1GuestId: game.player1GuestId,
         player2GuestId: game.player2GuestId,
+        player1Marker: game.player1Marker,
+        player2Marker: game.player2Marker,
         boardSize: game.boardSize,
         board: game.board,
         currentPlayer: game.currentPlayer,
@@ -310,6 +318,8 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
       player2: game.player2?.toString() || null,
       player1GuestId: game.player1GuestId,
       player2GuestId: game.player2GuestId,
+      player1Marker: game.player1Marker,
+      player2Marker: game.player2Marker,
       boardSize: game.boardSize,
       board: game.board,
       currentPlayer: game.currentPlayer,
@@ -806,6 +816,140 @@ const cleanupOldHistory = async (
   } catch (error: any) {
     console.error('[cleanupOldHistory] Error cleaning up old history:', error);
     // Don't throw - this is cleanup, shouldn't block the main operation
+  }
+};
+
+export const updateMarker = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    const { marker } = req.body;
+    const authReq = req as AuthRequest;
+    
+    // Try to get user from token (optional auth - allow both authenticated and guest)
+    let userId: string | null = null;
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const { verifyToken } = await import('../utils/jwt');
+        const decoded = verifyToken(token);
+        userId = decoded.userId;
+      }
+    } catch (error) {
+      // Token invalid or not provided - continue as guest
+    }
+    
+    const finalUserId = userId || authReq.user?.userId || null;
+    const { guestId } = req.body;
+    
+    // Validate marker: must be non-empty string
+    if (!marker || typeof marker !== 'string') {
+      res.status(400).json({ message: 'Invalid marker. Must be a non-empty string.' });
+      return;
+    }
+    
+    // Check if it's a base64 image
+    const isBase64Image = marker.startsWith('data:image/');
+    let sanitizedMarker: string;
+    
+    if (isBase64Image) {
+      // Validate base64 image format and size
+      if (marker.length > 200000) { // ~150KB image max
+        res.status(400).json({ message: 'Image too large. Maximum size is 150KB.' });
+        return;
+      }
+      
+      // Validate base64 format
+      const base64Match = marker.match(/^data:image\/(png|jpeg|jpg|gif|webp|svg\+xml);base64,/);
+      if (!base64Match) {
+        res.status(400).json({ message: 'Invalid image format. Supported: PNG, JPEG, JPG, GIF, WEBP, SVG' });
+        return;
+      }
+      
+      sanitizedMarker = marker;
+    } else {
+      // Text marker validation
+      const trimmedMarker = marker.trim();
+      if (!trimmedMarker || trimmedMarker.length === 0) {
+        res.status(400).json({ message: 'Invalid marker. Cannot be empty or whitespace only.' });
+        return;
+      }
+      
+      if (trimmedMarker.length > 10) {
+        res.status(400).json({ message: 'Invalid marker. Text markers must be max 10 characters.' });
+        return;
+      }
+      
+      sanitizedMarker = trimmedMarker;
+    }
+    
+    const game = await Game.findOne({ roomId });
+    
+    if (!game) {
+      res.status(404).json({ message: 'Game not found' });
+      return;
+    }
+    
+    // Only allow marker selection when game is waiting or ready to start
+    if (game.gameStatus !== 'waiting') {
+      res.status(400).json({ message: 'Can only select marker when game is waiting' });
+      return;
+    }
+    
+    // Determine which player is updating marker
+    let isPlayer1 = false;
+    let isPlayer2 = false;
+    
+    if (finalUserId) {
+      const userIdStr = finalUserId.toString();
+      const player1Str = game.player1 ? game.player1.toString() : null;
+      const player2Str = game.player2 ? game.player2.toString() : null;
+      isPlayer1 = !!(player1Str && player1Str === userIdStr);
+      isPlayer2 = !!(player2Str && player2Str === userIdStr);
+    }
+    
+    if (guestId) {
+      if (game.player1GuestId && game.player1GuestId === guestId) {
+        isPlayer1 = true;
+      }
+      if (game.player2GuestId && game.player2GuestId === guestId) {
+        isPlayer2 = true;
+      }
+    }
+    
+    if (!isPlayer1 && !isPlayer2) {
+      res.status(403).json({ message: 'You are not a player in this game' });
+      return;
+    }
+    
+    // Check if marker is already taken by the other player
+    const otherPlayerMarker = isPlayer1 ? game.player2Marker : game.player1Marker;
+    if (otherPlayerMarker && otherPlayerMarker === sanitizedMarker) {
+      res.status(400).json({ message: 'This marker is already taken by the other player' });
+      return;
+    }
+    
+    // Update marker with sanitized value
+    if (isPlayer1) {
+      game.player1Marker = sanitizedMarker;
+    } else {
+      game.player2Marker = sanitizedMarker;
+    }
+    
+    await game.save();
+    
+    // Emit socket event to notify other player
+    io.to(roomId).emit('marker-updated', {
+      playerNumber: isPlayer1 ? 1 : 2,
+      marker: sanitizedMarker,
+    });
+    
+    res.json({
+      message: 'Marker updated successfully',
+      player1Marker: game.player1Marker,
+      player2Marker: game.player2Marker,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 };
 

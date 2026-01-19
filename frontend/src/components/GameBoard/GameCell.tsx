@@ -11,6 +11,8 @@ interface GameCellProps {
   cellSize: number;
   isLastMove?: boolean;
   isWinningCell?: boolean;
+  player1Marker?: string | null;
+  player2Marker?: string | null;
 }
 
 const GameCell: React.FC<GameCellProps> = ({
@@ -22,12 +24,50 @@ const GameCell: React.FC<GameCellProps> = ({
   cellSize,
   isLastMove = false,
   isWinningCell = false,
+  player1Marker = null,
+  player2Marker = null,
 }) => {
   const getCellContent = () => {
     if (value === 1) {
-      return '✕'; // Player 1 - X symbol
+      const marker = player1Marker || '✕';
+      // Check if marker is a base64 image
+      if (marker.startsWith('data:image')) {
+        return (
+          <Box
+            component="img"
+            src={marker}
+            alt="Player 1 marker"
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              maxWidth: `${cellSize * 0.8}px`,
+              maxHeight: `${cellSize * 0.8}px`,
+            }}
+          />
+        );
+      }
+      return marker;
     } else if (value === 2) {
-      return '○'; // Player 2 - O symbol
+      const marker = player2Marker || '○';
+      // Check if marker is a base64 image
+      if (marker.startsWith('data:image')) {
+        return (
+          <Box
+            component="img"
+            src={marker}
+            alt="Player 2 marker"
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              maxWidth: `${cellSize * 0.8}px`,
+              maxHeight: `${cellSize * 0.8}px`,
+            }}
+          />
+        );
+      }
+      return marker;
     }
     return '';
   };
@@ -124,7 +164,9 @@ const MemoizedGameCell = memo(GameCell, (prevProps, nextProps) => {
     prevProps.disabled === nextProps.disabled &&
     prevProps.cellSize === nextProps.cellSize &&
     prevProps.isLastMove === nextProps.isLastMove &&
-    prevProps.isWinningCell === nextProps.isWinningCell
+    prevProps.isWinningCell === nextProps.isWinningCell &&
+    prevProps.player1Marker === nextProps.player1Marker &&
+    prevProps.player2Marker === nextProps.player2Marker
     // onClick is stable via useCallback so we don't compare it
   );
 });
