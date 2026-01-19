@@ -1,16 +1,35 @@
+/**
+ * GameControls - Game action buttons and control dialogs
+ * Refactored to use modular dialog components
+ */
 import React, { useState } from 'react';
-import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography, CircularProgress, Snackbar, Alert } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
 import { logger } from '../../utils/logger';
+import { UndoRequestDialog, WinnerModal, LeaveGameDialog } from './dialogs';
 
 interface GameControlsProps {
   onLeaveGame?: () => Promise<void>;
 }
 
 const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
-  const { game, surrender, startGame, newGame, leaveRoom, requestUndo, approveUndo, rejectUndo, myPlayerNumber, pendingUndoMove, undoRequestSent, clearPendingUndo, players } = useGame();
+  const {
+    game,
+    surrender,
+    startGame,
+    newGame,
+    leaveRoom,
+    requestUndo,
+    approveUndo,
+    rejectUndo,
+    myPlayerNumber,
+    pendingUndoMove,
+    undoRequestSent,
+    clearPendingUndo,
+    players,
+  } = useGame();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [isLeaving, setIsLeaving] = useState(false);
@@ -18,13 +37,12 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
 
   const canStartGame = game?.gameStatus === 'waiting' && players.length === 2 && myPlayerNumber === 1;
   const showWinnerModal = game?.gameStatus === 'finished' && game.winner !== null;
-  
-  // Removed debug logging to improve performance
 
   if (!game) {
     return null;
   }
 
+  // Event handlers
   const handleSurrender = (): void => {
     if (window.confirm(t('game.surrenderConfirm'))) {
       surrender();
@@ -49,17 +67,14 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     setShowLeaveConfirm(false);
     try {
       setIsLeaving(true);
-      // Use onLeaveGame if provided (from GameRoomPage to handle blocker), otherwise use default
       if (onLeaveGame) {
         await onLeaveGame();
       } else {
         await leaveRoom();
-        // Navigate to home after successfully leaving
         navigate('/');
       }
     } catch (error) {
       logger.error('Error leaving game:', error);
-      // Still navigate even if there's an error
       if (!onLeaveGame) {
         navigate('/');
       }
@@ -72,6 +87,7 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     setShowLeaveConfirm(false);
   };
 
+  // Helper functions
   const getWinnerMessage = (): string => {
     if (game.winner === 'draw') {
       return t('game.draw');
@@ -84,7 +100,6 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     return `${t('gameControls.player')} ${game.winner} ${t('gameControls.wins')}`;
   };
 
-  // Count total moves on the board
   const getMoveCount = (): number => {
     let moveCount = 0;
     for (let i = 0; i < game.board.length; i++) {
@@ -97,7 +112,6 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     return moveCount;
   };
 
-  // Count moves made by the current player
   const getMyMoveCount = (): number => {
     if (!myPlayerNumber) return 0;
     let moveCount = 0;
@@ -112,18 +126,16 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
   };
 
   const handleRequestUndo = (): void => {
-    // Calculate move number from board state
     const moveCount = getMoveCount();
     if (moveCount > 0) {
       requestUndo(moveCount);
     }
   };
 
-  // Check if undo is available - player must have made at least 1 move
   const canRequestUndo = (): boolean => {
     if (!myPlayerNumber) return false;
     const myMoveCount = getMyMoveCount();
-    return myMoveCount >= 1; // Player must have made at least 1 move to request undo
+    return myMoveCount >= 1;
   };
 
   const handleApproveUndo = (): void => {
@@ -149,11 +161,11 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
         {game.gameStatus === 'playing' && (
           <>
             {game.rules.allowUndo && canRequestUndo() && (
-              <Button 
-                variant="outlined" 
-                size="medium" 
-                onClick={handleRequestUndo} 
-                disabled={!myPlayerNumber || undoRequestSent} 
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={handleRequestUndo}
+                disabled={!myPlayerNumber || undoRequestSent}
                 fullWidth
                 startIcon={undoRequestSent ? <CircularProgress size={16} /> : null}
                 sx={{
@@ -178,11 +190,11 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
           </Button>
         )}
         {!showWinnerModal && (
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            size="medium" 
-            onClick={handleLeaveRoomClick} 
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="medium"
+            onClick={handleLeaveRoomClick}
             disabled={isLeaving}
             fullWidth
             startIcon={isLeaving ? <CircularProgress size={16} /> : null}
@@ -192,278 +204,39 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
         )}
       </Box>
 
-      <Dialog open={pendingUndoMove !== null} onClose={handleRejectUndo}>
-        <DialogTitle>{t('gameControls.undoRequest')}</DialogTitle>
-        <DialogContent>
-          <Typography>{t('gameControls.undoRequestMessage')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleRejectUndo}>{t('game.rejectUndo')}</Button>
-          <Button onClick={handleApproveUndo} variant="contained">
-            {t('game.approveUndo')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Undo Request Dialog */}
+      <UndoRequestDialog
+        pendingUndoMove={pendingUndoMove}
+        undoRequestSent={undoRequestSent}
+        onApprove={handleApproveUndo}
+        onReject={handleRejectUndo}
+        t={t}
+      />
 
-      {/* Snackbar for undo request feedback */}
-      <Snackbar
-        open={undoRequestSent}
-        autoHideDuration={3000}
-        onClose={() => {}}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="info" sx={{ width: '100%' }}>
-          {t('gameControls.undoRequestSent')}
-        </Alert>
-      </Snackbar>
-
-      <Dialog 
-        open={showWinnerModal} 
-        onClose={() => {}} 
-        maxWidth="sm" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            background: '#ffffff',
-            borderRadius: 4,
-            boxShadow: '0 20px 60px rgba(126, 200, 227, 0.25)',
-            border: '2px solid transparent',
-            backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-            backgroundOrigin: 'border-box',
-            backgroundClip: 'padding-box, border-box',
-            overflow: 'hidden',
-          }
-        }}
-      >
-        <DialogTitle
-          sx={{
-            textAlign: 'center',
-            pt: 5,
-            pb: 2,
-            background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.05) 0%, rgba(168, 230, 207, 0.05) 100%)',
-          }}
-        >
-          <Typography
-            variant="h3"
-            sx={{
-              background: game.winner === 'draw' 
-                ? 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)'
-                : myPlayerNumber === game.winner
-                ? 'linear-gradient(135deg, #a8e6cf 0%, #7ec8e3 100%)'
-                : 'linear-gradient(135deg, #ffb88c 0%, #ffaaa5 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: 800,
-              mb: 2,
-              fontSize: { xs: '2rem', md: '2.5rem' },
-            }}
-          >
-            {getWinnerMessage()}
-          </Typography>
-          {game.winner !== 'draw' && (
-            <Typography
-              variant="h6"
-              sx={{
-                color: '#5a6a7a',
-                mt: 1,
-                fontWeight: 500,
-                fontSize: '1.1rem',
-              }}
-            >
-              {myPlayerNumber === game.winner ? `🎉 ${t('gameControls.congratulations')}` : `😔 ${t('gameControls.betterLuckNextTime')}`}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', pb: 3, px: 4 }}>
-          <Box sx={{ mb: 4 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 700,
-                mb: 3,
-                color: '#2c3e50',
-                fontSize: '1.1rem',
-              }}
-            >
-              🏆 {t('gameControls.finalScore')}
-            </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              gap: 4,
-            }}>
-              <Box sx={{
-                p: 2.5,
-                borderRadius: 3,
-                bgcolor: 'rgba(126, 200, 227, 0.1)',
-                border: '1px solid rgba(126, 200, 227, 0.3)',
-                minWidth: 120,
-              }}>
-                <Typography variant="body2" sx={{ color: '#5a6a7a', mb: 1, fontWeight: 600 }}>
-                  {t('game.player1')}
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#7ec8e3' }}>
-                  {game.score.player1}
-                </Typography>
-              </Box>
-              <Box sx={{
-                p: 2.5,
-                borderRadius: 3,
-                bgcolor: 'rgba(168, 230, 207, 0.1)',
-                border: '1px solid rgba(168, 230, 207, 0.3)',
-                minWidth: 120,
-              }}>
-                <Typography variant="body2" sx={{ color: '#5a6a7a', mb: 1, fontWeight: 600 }}>
-                  {t('game.player2')}
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#a8e6cf' }}>
-                  {game.score.player2}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 5, px: 4, gap: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={handleLeaveRoomClick}
-            disabled={isLeaving}
-            sx={{
-              minWidth: 160,
-              py: 1.5,
-              borderRadius: 2,
-              borderColor: '#7ec8e3',
-              borderWidth: 2,
-              color: '#2c3e50',
-              fontWeight: 700,
-              textTransform: 'none',
-              fontSize: '1rem',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                borderColor: '#5ba8c7',
-                borderWidth: 2,
-                backgroundColor: 'rgba(126, 200, 227, 0.08)',
-              },
-            }}
-          >
-            {t('gameControls.leaveRoom')}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handlePlayAgain}
-            sx={{
-              minWidth: 160,
-              py: 1.5,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-              color: '#ffffff',
-              fontWeight: 700,
-              textTransform: 'none',
-              fontSize: '1rem',
-              boxShadow: '0 4px 14px rgba(126, 200, 227, 0.4)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
-                boxShadow: '0 6px 20px rgba(126, 200, 227, 0.5)',
-              },
-            }}
-          >
-            {t('game.playAgain')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Winner Modal */}
+      <WinnerModal
+        open={showWinnerModal}
+        winner={game.winner}
+        myPlayerNumber={myPlayerNumber}
+        score={game.score}
+        winnerMessage={getWinnerMessage()}
+        isLeaving={isLeaving}
+        onPlayAgain={handlePlayAgain}
+        onLeaveRoom={handleLeaveRoomClick}
+        t={t}
+      />
 
       {/* Leave Game Confirmation Dialog */}
-      <Dialog
+      <LeaveGameDialog
         open={showLeaveConfirm}
-        onClose={handleLeaveCancel}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle
-          sx={{
-            background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            fontWeight: 700,
-            fontSize: '1.5rem',
-            textAlign: 'center',
-            pb: 1,
-          }}
-        >
-          ⚠️ {t('gameControls.leaveGameQuestion')}
-        </DialogTitle>
-        <DialogContent>
-          <Typography
-            variant="body1"
-            sx={{
-              color: '#2c3e50',
-              textAlign: 'center',
-              py: 2,
-              fontSize: '1.1rem',
-            }}
-          >
-            {t('game.leaveConfirm')}
-            {game.gameStatus === 'playing' && (
-              <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 600, color: '#ffaaa5' }}>
-                {t('gameControls.gameInProgress')}
-              </Box>
-            )}
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3, px: 3, gap: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={handleLeaveCancel}
-            sx={{
-              minWidth: 120,
-              py: 1.25,
-              borderRadius: 2,
-              borderColor: '#7ec8e3',
-              borderWidth: 2,
-              color: '#2c3e50',
-              fontWeight: 600,
-              textTransform: 'none',
-              fontSize: '1rem',
-              '&:hover': {
-                borderColor: '#5ba8c7',
-                borderWidth: 2,
-                backgroundColor: 'rgba(126, 200, 227, 0.08)',
-              },
-            }}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleLeaveConfirm}
-            disabled={isLeaving}
-            startIcon={isLeaving ? <CircularProgress size={16} color="inherit" /> : null}
-            sx={{
-              minWidth: 120,
-              py: 1.25,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #ffaaa5 0%, #ff8a80 100%)',
-              color: '#ffffff',
-              fontWeight: 700,
-              textTransform: 'none',
-              fontSize: '1rem',
-              boxShadow: '0 4px 14px rgba(255, 170, 165, 0.4)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #ff8a80 0%, #ff6b6b 100%)',
-                boxShadow: '0 6px 20px rgba(255, 170, 165, 0.5)',
-              },
-            }}
-          >
-            {isLeaving ? t('gameControls.leaving') : t('gameControls.leave')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        isLeaving={isLeaving}
+        isGamePlaying={game.gameStatus === 'playing'}
+        onConfirm={handleLeaveConfirm}
+        onCancel={handleLeaveCancel}
+        t={t}
+      />
     </Box>
   );
 };
 
 export default GameControls;
-

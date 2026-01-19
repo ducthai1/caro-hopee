@@ -383,10 +383,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // If host was transferred, update game state immediately
       if (data.hostTransferred && data.game) {
-        const currentUser = userRef.current;
-        const isAuth = isAuthenticatedRef.current;
-        const currentGuestId = localStorage.getItem('guestId');
-
         // Update game state immediately
         setGame(prevGame => {
           if (!prevGame) return prevGame;

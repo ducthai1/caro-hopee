@@ -1,7 +1,9 @@
+/**
+ * GameRoomPage - Main game room with board, controls, and player info
+ * Refactored from 916 lines to use modular components
+ */
 import React, { useEffect, useState, useRef } from 'react';
-import { Container, Box, CircularProgress, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, Collapse, useMediaQuery, useTheme } from '@mui/material';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Container, Box, CircularProgress, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { gameApi } from '../services/api';
@@ -12,6 +14,11 @@ import GameControls from '../components/GameControls/GameControls';
 import RoomCodeDisplay from '../components/RoomCodeDisplay';
 import GameErrorBoundary from '../components/GameErrorBoundary';
 import { logger } from '../utils/logger';
+import {
+  MobileBottomSheet,
+  LeaveConfirmDialog,
+  PlayersScoreSidebar,
+} from '../components/GameRoomPage';
 
 const GameRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
@@ -20,21 +27,23 @@ const GameRoomPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame } = useGame();
+
+  // State
   const [loading, setLoading] = useState(true);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-  const hasLeftRef = useRef(false);
-  const pendingNavigation = useRef<(() => void) | null>(null);
-
-  // isWaiting: game status is waiting AND not enough players (< 2) - show waiting message only
-  // This includes when host leaves and player2 becomes player1 (only 1 player remains)
-  const isWaiting = game && game.gameStatus === 'waiting' && players.length < 2;
-  // canStartGame: game status is waiting AND has exactly 2 players ready to start - show board with Start button
-  const canStartGame = game && game.gameStatus === 'waiting' && players.length === 2;
-  // Mobile bottom sheet expanded state
   const [mobileSheetExpanded, setMobileSheetExpanded] = useState(false);
 
-  // Block navigation (back button, programmatic navigation) using useBlocker
+  // Refs
+  const hasLeftRef = useRef(false);
+  const pendingNavigation = useRef<(() => void) | null>(null);
+  const initialLoadCompleteRef = useRef(false);
+
+  // Derived state
+  const isWaiting = game && game.gameStatus === 'waiting' && players.length < 2;
+  const canStartGame = game && game.gameStatus === 'waiting' && players.length === 2;
+
+  // Block navigation when in game
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       game !== null &&
@@ -50,41 +59,79 @@ const GameRoomPage: React.FC = () => {
     }
   }, [blocker]);
 
-  // Handle browser tab close (but not reload)
-  // Note: We don't call leave game API here because we can't distinguish
-  // between reload and closing tab. Socket will handle disconnect automatically.
+  // Handle browser tab close
   useEffect(() => {
     if (!game || hasLeftRef.current || !roomId) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Only show warning if game is in progress
-      // Don't call leave game API - let socket handle disconnect
-      // This way, reload won't remove player from game
       if (game.gameStatus === 'playing') {
         e.preventDefault();
-        e.returnValue = ''; // Chrome requires returnValue to be set
-        return ''; // Some browsers require return value
+        e.returnValue = '';
+        return '';
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [game, roomId]);
 
-  // Wrapper function to handle leave game with proper flag setting
+  // Load game on mount
+  useEffect(() => {
+    if (!roomId) {
+      navigate('/');
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadGame = async (): Promise<void> => {
+      try {
+        setLoading(true);
+        logger.log('[GameRoomPage] Loading game with roomId:', roomId);
+        const gameData = await gameApi.getGame(roomId);
+        logger.log('[GameRoomPage] Game loaded successfully:', gameData);
+        if (isMounted) {
+          setGame(gameData);
+          joinRoom(roomId);
+          setLoading(false);
+        }
+      } catch (error: any) {
+        logger.error('[GameRoomPage] Failed to load game:', error);
+        if (isMounted) {
+          setLoading(false);
+          navigate('/');
+        }
+      }
+    };
+
+    loadGame();
+    return () => { isMounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // Track initial load complete
+  useEffect(() => {
+    if (!loading && game) {
+      initialLoadCompleteRef.current = true;
+    }
+  }, [loading, game]);
+
+  // Navigate home if game is deleted
+  useEffect(() => {
+    if (game === null && roomId && !hasLeftRef.current && !loading && initialLoadCompleteRef.current) {
+      logger.log('[GameRoomPage] Game is null and initial load completed - navigating to home');
+      navigate('/');
+    }
+  }, [game, roomId, navigate, loading]);
+
+  // Event handlers
   const handleLeaveGame = async (): Promise<void> => {
-    // Set flag first to prevent blocker from blocking navigation
     hasLeftRef.current = true;
     try {
       await leaveRoom();
-      // Navigate to home after leaving
       navigate('/');
     } catch (error) {
       logger.error('Error leaving game:', error);
-      // Still navigate even if there's an error
       navigate('/');
     }
   };
@@ -109,77 +156,7 @@ const GameRoomPage: React.FC = () => {
     pendingNavigation.current = null;
   };
 
-  // Removed debug logging to improve performance
-
-  useEffect(() => {
-    if (!roomId) {
-      navigate('/');
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadGame = async (): Promise<void> => {
-      try {
-        setLoading(true);
-        logger.log('[GameRoomPage] Loading game with roomId:', roomId);
-        const gameData = await gameApi.getGame(roomId);
-        logger.log('[GameRoomPage] Game loaded successfully:', gameData);
-        if (isMounted) {
-          // Set game first, then join room
-          setGame(gameData);
-          // Join room immediately - joinRoom will handle the game state check
-          joinRoom(roomId);
-          setLoading(false);
-        }
-      } catch (error: any) {
-        logger.error('[GameRoomPage] Failed to load game:', error);
-        // If game not found (404), it might have been deleted
-        if (isMounted) {
-          setLoading(false);
-          if (error.response?.status === 404) {
-            logger.log('[GameRoomPage] Game not found (404) - navigating to home');
-            navigate('/');
-          } else {
-            logger.log('[GameRoomPage] Error loading game - navigating to home');
-          navigate('/');
-          }
-        }
-      }
-    };
-
-    loadGame();
-
-    return () => {
-      isMounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
-
-  // Navigate to home if game is deleted (game becomes null) - but only if not loading
-  // Don't navigate during initial load or when we're in the process of leaving
-  // Use a ref to track if we've completed initial load
-  const initialLoadCompleteRef = useRef(false);
-
-  useEffect(() => {
-    if (!loading && game) {
-      initialLoadCompleteRef.current = true;
-    }
-  }, [loading, game]);
-
-  useEffect(() => {
-    // Only navigate if:
-    // 1. Game is null
-    // 2. We have a roomId
-    // 3. We haven't left manually
-    // 4. We're not currently loading
-    // 5. Initial load has completed (to avoid navigating during initial mount)
-    if (game === null && roomId && !hasLeftRef.current && !loading && initialLoadCompleteRef.current) {
-      logger.log('[GameRoomPage] Game is null and initial load completed - navigating to home');
-      navigate('/');
-    }
-  }, [game, roomId, navigate, loading]);
-
+  // Loading state
   if (loading || !game) {
     return (
       <Container maxWidth="lg">
@@ -205,78 +182,13 @@ const GameRoomPage: React.FC = () => {
   return (
     <>
       {/* Leave Confirmation Dialog */}
-      <Dialog
+      <LeaveConfirmDialog
         open={showLeaveConfirm}
-        onClose={handleLeaveCancel}
-        maxWidth="xs"
-        fullWidth
-        disableEscapeKeyDown={isLeaving}
-      >
-        <DialogTitle sx={{ textAlign: 'center', pt: 4, pb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2c3e50' }}>
-            ⚠️ {t('gameRoom.leaveTitle')}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
-          <Typography variant="body1" sx={{ color: '#5a6a7a', mb: 2 }}>
-            {t('gameRoom.leaveConfirm')}
-          </Typography>
-          {game && game.gameStatus === 'playing' && (
-            <Typography variant="body2" sx={{ color: '#ffaaa5', fontWeight: 600 }}>
-              {t('gameRoom.gameInProgress')}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 4, px: 3, gap: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={handleLeaveCancel}
-            disabled={isLeaving}
-            sx={{
-              minWidth: 120,
-              py: 1.25,
-              borderRadius: 2,
-              borderColor: '#7ec8e3',
-              borderWidth: 2,
-              color: '#2c3e50',
-              fontWeight: 600,
-              textTransform: 'none',
-              fontSize: '0.95rem',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                borderColor: '#5ba8c7',
-                borderWidth: 2,
-                backgroundColor: 'rgba(126, 200, 227, 0.08)',
-              },
-            }}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleLeaveConfirm}
-            disabled={isLeaving}
-            sx={{
-              minWidth: 120,
-              py: 1.25,
-              borderRadius: 2,
-              background: 'linear-gradient(135deg, #ffaaa5 0%, #ffb88c 100%)',
-              color: '#ffffff',
-              fontWeight: 700,
-              textTransform: 'none',
-              fontSize: '0.95rem',
-              boxShadow: '0 4px 14px rgba(255, 170, 165, 0.4)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #e08a85 0%, #e09a7c 100%)',
-                boxShadow: '0 6px 20px rgba(255, 170, 165, 0.5)',
-              },
-            }}
-          >
-            {isLeaving ? t('gameRoom.leaving') : t('game.leaveGame')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        isLeaving={isLeaving}
+        isGamePlaying={game.gameStatus === 'playing'}
+        onConfirm={handleLeaveConfirm}
+        onCancel={handleLeaveCancel}
+      />
 
       <Box
         sx={{
@@ -284,11 +196,8 @@ const GameRoomPage: React.FC = () => {
           background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 30%, #f0f9ff 100%)',
           position: 'relative',
           overflow: 'hidden',
-          // CSS containment to isolate layout calculations and prevent CLS
           contain: 'layout style paint',
-          // Force compositor layer for smoother updates
           transform: 'translateZ(0)',
-          // Static decorations - removed animations to prevent CLS
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -298,7 +207,6 @@ const GameRoomPage: React.FC = () => {
             height: 300,
             borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(126, 200, 227, 0.1) 0%, transparent 70%)',
-            // Compositor layer isolation - prevents pseudo-element from causing layout shifts
             transform: 'translateZ(0)',
             pointerEvents: 'none',
             zIndex: 0,
@@ -312,14 +220,13 @@ const GameRoomPage: React.FC = () => {
             height: 400,
             borderRadius: '50%',
             background: 'radial-gradient(circle, rgba(168, 230, 207, 0.1) 0%, transparent 70%)',
-            // Compositor layer isolation - prevents pseudo-element from causing layout shifts
             transform: 'translateZ(0)',
             pointerEvents: 'none',
             zIndex: 0,
           },
         }}
       >
-        {/* Left Sidebar - Room Code, Game Info & Controls - Fixed */}
+        {/* Left Sidebar - Room Code, Game Info & Controls */}
         <Box
           sx={{
             display: { xs: 'none', lg: 'flex' },
@@ -333,19 +240,12 @@ const GameRoomPage: React.FC = () => {
             maxHeight: { lg: 'calc(100vh - 48px)' },
             overflowY: 'auto',
             zIndex: 10,
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'rgba(126, 200, 227, 0.05)',
-              borderRadius: '3px',
-            },
+            '&::-webkit-scrollbar': { width: '6px' },
+            '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '3px' },
             '&::-webkit-scrollbar-thumb': {
               background: 'rgba(126, 200, 227, 0.2)',
               borderRadius: '3px',
-              '&:hover': {
-                background: 'rgba(126, 200, 227, 0.3)',
-              },
+              '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
             },
           }}
         >
@@ -354,206 +254,36 @@ const GameRoomPage: React.FC = () => {
           <GameControls onLeaveGame={handleLeaveGame} />
         </Box>
 
-        {/* Main Content Area - Board Only */}
+        {/* Main Content Area */}
         <Box
           sx={{
             position: 'relative',
             zIndex: 1,
-            ml: { lg: '328px' }, // Margin for fixed left sidebar (280px + 48px gap)
-            mr: { lg: '328px' }, // Margin for fixed right sidebar (280px + 48px gap)
+            ml: { lg: '328px' },
+            mr: { lg: '328px' },
             display: 'flex',
             justifyContent: 'center',
             alignItems: { xs: 'flex-start', lg: 'center' },
             minHeight: { xs: 'calc(100vh - 80px)', lg: 'calc(100vh - 40px)' },
             py: { xs: 2, md: 3 },
-            pb: { xs: '100px', lg: 3 }, // Add bottom padding on mobile for bottom sheet
-            width: { lg: 'calc(100% - 656px)' }, // 328px * 2 for both sidebars
+            pb: { xs: '100px', lg: 3 },
+            width: { lg: 'calc(100% - 656px)' },
           }}
         >
-          {/* Game Board - Center, Large */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              width: '100%',
-              position: 'relative',
-            }}
-          >
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', position: 'relative' }}>
             {isWaiting ? (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 3,
-                  p: { xs: 3, md: 5 },
-                  borderRadius: 3,
-                  bgcolor: 'rgba(126, 200, 227, 0.05)',
-                  border: '2px dashed rgba(126, 200, 227, 0.3)',
-                  width: '100%',
-                  maxWidth: '600px',
-                  mb: { xs: '120px', lg: 0 }, // Add bottom margin on mobile for bottom sheet
-                }}
-              >
-                <Typography
-                  variant="h4"
-                  sx={{
-                    background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    fontWeight: 700,
-                    fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.25rem' },
-                    textAlign: 'center',
-                  }}
-                >
-                  ⏳ {t('gameRoom.waitingForPlayer')}
-                </Typography>
-
-                {/* Show Room Code prominently on mobile waiting screen */}
-                <Box sx={{ display: { xs: 'block', lg: 'none' }, width: '100%', maxWidth: '320px' }}>
-                  <RoomCodeDisplay roomCode={game.roomCode} />
-                </Box>
-
-                <Typography
-                  variant="body1"
-                  sx={{
-                    color: '#5a6a7a',
-                    fontWeight: 500,
-                    fontSize: { xs: '0.95rem', md: '1.1rem' },
-                    textAlign: 'center',
-                  }}
-                >
-                  {t('gameRoom.shareRoomCode')}
-                </Typography>
-
-                {/* Leave Game button on mobile waiting screen */}
-                <Box sx={{ display: { xs: 'block', lg: 'none' }, width: '100%', maxWidth: '280px', mt: 1 }}>
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    fullWidth
-                    onClick={() => setShowLeaveConfirm(true)}
-                    sx={{
-                      py: 1.5,
-                      borderRadius: 2,
-                      fontWeight: 600,
-                      textTransform: 'none',
-                    }}
-                  >
-                    {t('game.leaveGame')}
-                  </Button>
-                </Box>
-              </Box>
+              <WaitingState
+                game={game}
+                onLeaveClick={() => setShowLeaveConfirm(true)}
+                t={t}
+              />
             ) : canStartGame ? (
-              // Game is waiting but has 2 players - show board with Start Game button
-              <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                <GameErrorBoundary roomId={roomId}>
-                  <GameBoard />
-                </GameErrorBoundary>
-                <>
-                  {/* Semi-transparent overlay */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      bgcolor: 'rgba(0, 0, 0, 0.3)',
-                      backdropFilter: 'blur(4px)',
-                      WebkitBackdropFilter: 'blur(4px)',
-                      willChange: 'transform',
-                      zIndex: 5,
-                      borderRadius: 4,
-                      pointerEvents: 'none',
-                    }}
-                  />
-                  {/* Start Game Button */}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 10,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 2,
-                    }}
-                  >
-                    <Button
-                      variant="contained"
-                      size="large"
-                      onClick={startGame}
-                      sx={{
-                        minWidth: 200,
-                        py: 2,
-                        px: 4,
-                        borderRadius: 3,
-                        background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '1.2rem',
-                        textTransform: 'none',
-                        boxShadow: '0 8px 24px rgba(126, 200, 227, 0.4)',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
-                          boxShadow: '0 12px 32px rgba(126, 200, 227, 0.5)',
-                          transform: 'translateY(-2px)',
-                        },
-                      }}
-                    >
-                      🎮 {t('game.startGame')}
-                    </Button>
-                    <Box
-                      sx={{
-                        bgcolor: 'rgba(255, 255, 255, 0.95)',
-                        px: 2,
-                        py: 1.5,
-                        borderRadius: 2,
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        willChange: 'transform',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: '#2c3e50',
-                          fontWeight: 600,
-                          mb: 0.5,
-                          fontSize: '0.95rem',
-                        }}
-                      >
-                        {t('gameRoom.readyToPlay')}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: '#7ec8e3',
-                          fontWeight: 600,
-                          fontSize: '0.8rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 0.5,
-                        }}
-                      >
-                        ⚡ {t('gameRoom.firstClickGoesFirst')}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </>
-              </Box>
+              <ReadyToStartState
+                roomId={roomId}
+                startGame={startGame}
+                t={t}
+              />
             ) : (
-              // Game is playing - show board normally
               <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
                 <GameErrorBoundary roomId={roomId}>
                   <GameBoard />
@@ -563,354 +293,196 @@ const GameRoomPage: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Right Sidebar - Players Info & Score - Fixed */}
-        <Box
-          sx={{
-            display: { xs: 'none', lg: 'flex' },
-            flexDirection: 'column',
-            gap: 2,
-            position: 'fixed',
-            right: { lg: 24 },
-            top: { lg: 60 }, // Adjusted to leave space for LanguageSwitcher (was 24)
-            width: { lg: '280px' },
-            height: { lg: 'calc(100vh - 84px)' }, // Adjusted height (was calc(100vh - 48px))
-            maxHeight: { lg: 'calc(100vh - 84px)' }, // Adjusted maxHeight
-            overflowY: 'auto',
-            zIndex: 10,
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'rgba(126, 200, 227, 0.05)',
-              borderRadius: '3px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: 'rgba(126, 200, 227, 0.2)',
-              borderRadius: '3px',
-              '&:hover': {
-                background: 'rgba(126, 200, 227, 0.3)',
-              },
-            },
-          }}
-        >
-          <Box
-            sx={{
-              p: 2.5,
-              borderRadius: 3,
-              bgcolor: '#ffffff',
-              border: '2px solid transparent',
-              backgroundImage: 'linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-              backgroundOrigin: 'border-box',
-              backgroundClip: 'padding-box, border-box',
-              boxShadow: '0 4px 16px rgba(126, 200, 227, 0.12)',
-            }}
-          >
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 700,
-                mb: 2.5,
-                color: '#2c3e50',
-                fontSize: '0.95rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                textAlign: 'center',
-              }}
-            >
-              👥 {t('gameRoom.playersAndScore')}
-            </Typography>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2.5,
-              }}
-            >
-              {players.map((player) => {
-                const isCurrentTurn = game.gameStatus === 'playing' && game.currentPlayer === player.playerNumber;
-                const isPlayer1 = player.playerNumber === 1;
+        {/* Right Sidebar - Players & Score */}
+        <PlayersScoreSidebar
+          game={game}
+          players={players}
+          myPlayerNumber={myPlayerNumber}
+        />
 
-                return (
-                  <Box
-                    key={player.playerNumber}
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      bgcolor: isPlayer1
-                        ? 'rgba(126, 200, 227, 0.08)'
-                        : 'rgba(168, 230, 207, 0.08)',
-                      border: isCurrentTurn
-                        ? `2px solid ${isPlayer1 ? '#7ec8e3' : '#a8e6cf'}`
-                        : isPlayer1
-                        ? '1px solid rgba(126, 200, 227, 0.2)'
-                        : '1px solid rgba(168, 230, 207, 0.2)',
-                      textAlign: 'center',
-                      position: 'relative',
-                      boxShadow: isCurrentTurn
-                        ? `0 4px 16px ${isPlayer1 ? 'rgba(126, 200, 227, 0.3)' : 'rgba(168, 230, 207, 0.3)'}`
-                        : 'none',
-                      transform: isCurrentTurn ? 'scale(1.02)' : 'scale(1)',
-                      transition: 'all 0.3s ease',
-                      animation: isCurrentTurn ? 'pulse 2s ease-in-out infinite' : 'none',
-                      '@keyframes pulse': {
-                        '0%, 100%': {
-                          boxShadow: isCurrentTurn
-                            ? `0 4px 16px ${isPlayer1 ? 'rgba(126, 200, 227, 0.3)' : 'rgba(168, 230, 207, 0.3)'}`
-                            : 'none',
-                        },
-                        '50%': {
-                          boxShadow: isCurrentTurn
-                            ? `0 6px 24px ${isPlayer1 ? 'rgba(126, 200, 227, 0.5)' : 'rgba(168, 230, 207, 0.5)'}`
-                            : 'none',
-                        },
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: '#5a6a7a',
-                        fontWeight: 600,
-                        display: 'block',
-                        mb: 1,
-                        fontSize: '0.8rem',
-                      }}
-                    >
-                      {t('gameRoom.player', { number: player.playerNumber })}
-                      {myPlayerNumber === player.playerNumber && ` 👤 (${t('game.you')})`}
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: isCurrentTurn ? (isPlayer1 ? '#7ec8e3' : '#a8e6cf') : '#2c3e50',
-                        fontWeight: isCurrentTurn ? 700 : 600,
-                        display: 'block',
-                        mb: 1.5,
-                        fontSize: isCurrentTurn ? '1rem' : '0.9rem',
-                        wordBreak: 'break-word',
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      {isCurrentTurn && '🎯 '}
-                      {player.username}
-                      {player.isGuest && ` (${t('game.guest')})`}
-                      {isCurrentTurn && myPlayerNumber === player.playerNumber && ` - ${t('gameRoom.yourTurn')}`}
-                      {isCurrentTurn && myPlayerNumber !== player.playerNumber && ` - ${t('gameRoom.theirTurn')}`}
-                    </Typography>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 700,
-                        color: isPlayer1 ? '#7ec8e3' : '#a8e6cf',
-                        fontSize: '2rem',
-                      }}
-                    >
-                      {isPlayer1 ? game.score.player1 : game.score.player2}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Mobile Bottom Sheet - Shows on screens < lg */}
+        {/* Mobile Bottom Sheet */}
         {isMobile && (
-          <Box
-            sx={{
-              position: 'fixed',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              bgcolor: '#ffffff',
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.1)',
-              transition: 'transform 0.3s ease',
-            }}
-          >
-            {/* Handle Bar */}
-            <Box
-              onClick={() => setMobileSheetExpanded(!mobileSheetExpanded)}
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                py: 1,
-                cursor: 'pointer',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 40,
-                  height: 4,
-                  borderRadius: 2,
-                  bgcolor: 'rgba(126, 200, 227, 0.3)',
-                }}
-              />
-            </Box>
-
-            {/* Collapsed View - Always visible */}
-            <Box sx={{ px: 2, pb: mobileSheetExpanded ? 1 : 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                {/* Room Code Mini */}
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" sx={{ color: '#5a6a7a', fontWeight: 600, fontSize: '0.7rem' }}>
-                    {t('home.roomCode')}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontFamily: 'monospace',
-                      fontWeight: 800,
-                      letterSpacing: 2,
-                      background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      fontSize: '1.2rem',
-                    }}
-                  >
-                    {game.roomCode}
-                  </Typography>
-                </Box>
-
-                {/* Players Mini */}
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {players.map((player) => {
-                    const isCurrentTurn = game.gameStatus === 'playing' && game.currentPlayer === player.playerNumber;
-                    const isPlayer1 = player.playerNumber === 1;
-                    return (
-                      <Box
-                        key={player.playerNumber}
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: 1.5,
-                          bgcolor: isCurrentTurn
-                            ? (isPlayer1 ? 'rgba(126, 200, 227, 0.2)' : 'rgba(168, 230, 207, 0.2)')
-                            : 'rgba(0, 0, 0, 0.03)',
-                          border: isCurrentTurn
-                            ? `2px solid ${isPlayer1 ? '#7ec8e3' : '#a8e6cf'}`
-                            : '1px solid rgba(0, 0, 0, 0.05)',
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 700,
-                            color: isPlayer1 ? '#7ec8e3' : '#a8e6cf',
-                            fontSize: '0.85rem',
-                          }}
-                        >
-                          {isPlayer1 ? '✕' : '○'} {isPlayer1 ? game.score.player1 : game.score.player2}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-
-                {/* Expand Button */}
-                <IconButton
-                  onClick={() => setMobileSheetExpanded(!mobileSheetExpanded)}
-                  size="small"
-                  sx={{
-                    bgcolor: 'rgba(126, 200, 227, 0.1)',
-                    '&:hover': { bgcolor: 'rgba(126, 200, 227, 0.2)' },
-                  }}
-                >
-                  {mobileSheetExpanded ? <ExpandMoreIcon /> : <ExpandLessIcon />}
-                </IconButton>
-              </Box>
-            </Box>
-
-            {/* Expanded Content */}
-            <Collapse in={mobileSheetExpanded}>
-              <Box sx={{ px: 2, pb: 3, maxHeight: '50vh', overflowY: 'auto' }}>
-                {/* Room Code Full */}
-                <Box sx={{ mb: 2 }}>
-                  <RoomCodeDisplay roomCode={game.roomCode} />
-                </Box>
-
-                {/* Game Info */}
-                <Box sx={{ mb: 2 }}>
-                  <GameInfo />
-                </Box>
-
-                {/* Game Controls */}
-                <GameControls onLeaveGame={handleLeaveGame} />
-
-                {/* Players & Score */}
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: 'rgba(126, 200, 227, 0.05)',
-                    border: '1px solid rgba(126, 200, 227, 0.1)',
-                  }}
-                >
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      fontWeight: 700,
-                      mb: 1.5,
-                      color: '#2c3e50',
-                      fontSize: '0.85rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    👥 {t('gameRoom.playersAndScore')}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    {players.map((player) => {
-                      const isCurrentTurn = game.gameStatus === 'playing' && game.currentPlayer === player.playerNumber;
-                      const isPlayer1 = player.playerNumber === 1;
-                      return (
-                        <Box
-                          key={player.playerNumber}
-                          sx={{
-                            flex: 1,
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: isPlayer1
-                              ? 'rgba(126, 200, 227, 0.08)'
-                              : 'rgba(168, 230, 207, 0.08)',
-                            border: isCurrentTurn
-                              ? `2px solid ${isPlayer1 ? '#7ec8e3' : '#a8e6cf'}`
-                              : '1px solid transparent',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{ color: '#5a6a7a', fontWeight: 600, display: 'block', mb: 0.5 }}
-                          >
-                            {isPlayer1 ? '✕' : '○'} {player.username}
-                            {myPlayerNumber === player.playerNumber && ' 👤'}
-                          </Typography>
-                          <Typography
-                            variant="h5"
-                            sx={{
-                              fontWeight: 700,
-                              color: isPlayer1 ? '#7ec8e3' : '#a8e6cf',
-                            }}
-                          >
-                            {isPlayer1 ? game.score.player1 : game.score.player2}
-                          </Typography>
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              </Box>
-            </Collapse>
-          </Box>
+          <MobileBottomSheet
+            game={game}
+            players={players}
+            myPlayerNumber={myPlayerNumber}
+            expanded={mobileSheetExpanded}
+            setExpanded={setMobileSheetExpanded}
+            onLeaveGame={handleLeaveGame}
+          />
         )}
       </Box>
     </>
   );
 };
+
+// Waiting state component
+interface WaitingStateProps {
+  game: { roomCode: string };
+  onLeaveClick: () => void;
+  t: (key: string) => string;
+}
+
+const WaitingState: React.FC<WaitingStateProps> = ({ game, onLeaveClick, t }) => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      p: { xs: 3, md: 5 },
+      borderRadius: 3,
+      bgcolor: 'rgba(126, 200, 227, 0.05)',
+      border: '2px dashed rgba(126, 200, 227, 0.3)',
+      width: '100%',
+      maxWidth: '600px',
+      mb: { xs: '120px', lg: 0 },
+    }}
+  >
+    <Typography
+      variant="h4"
+      sx={{
+        background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        fontWeight: 700,
+        fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.25rem' },
+        textAlign: 'center',
+      }}
+    >
+      ⏳ {t('gameRoom.waitingForPlayer')}
+    </Typography>
+
+    <Box sx={{ display: { xs: 'block', lg: 'none' }, width: '100%', maxWidth: '320px' }}>
+      <RoomCodeDisplay roomCode={game.roomCode} />
+    </Box>
+
+    <Typography
+      variant="body1"
+      sx={{ color: '#5a6a7a', fontWeight: 500, fontSize: { xs: '0.95rem', md: '1.1rem' }, textAlign: 'center' }}
+    >
+      {t('gameRoom.shareRoomCode')}
+    </Typography>
+
+    <Box sx={{ display: { xs: 'block', lg: 'none' }, width: '100%', maxWidth: '280px', mt: 1 }}>
+      <Button
+        variant="outlined"
+        color="secondary"
+        fullWidth
+        onClick={onLeaveClick}
+        sx={{ py: 1.5, borderRadius: 2, fontWeight: 600, textTransform: 'none' }}
+      >
+        {t('game.leaveGame')}
+      </Button>
+    </Box>
+  </Box>
+);
+
+// Ready to start state component
+interface ReadyToStartStateProps {
+  roomId: string | undefined;
+  startGame: () => void;
+  t: (key: string) => string;
+}
+
+const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({ roomId, startGame, t }) => (
+  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+    <GameErrorBoundary roomId={roomId}>
+      <GameBoard />
+    </GameErrorBoundary>
+    <>
+      {/* Overlay */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          bgcolor: 'rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          willChange: 'transform',
+          zIndex: 5,
+          borderRadius: 4,
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Start Game Button */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <Button
+          variant="contained"
+          size="large"
+          onClick={startGame}
+          sx={{
+            minWidth: 200,
+            py: 2,
+            px: 4,
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '1.2rem',
+            textTransform: 'none',
+            boxShadow: '0 8px 24px rgba(126, 200, 227, 0.4)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
+              boxShadow: '0 12px 32px rgba(126, 200, 227, 0.5)',
+              transform: 'translateY(-2px)',
+            },
+          }}
+        >
+          🎮 {t('game.startGame')}
+        </Button>
+        <Box
+          sx={{
+            bgcolor: 'rgba(255, 255, 255, 0.95)',
+            px: 2,
+            py: 1.5,
+            borderRadius: 2,
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            willChange: 'transform',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="body2" sx={{ color: '#2c3e50', fontWeight: 600, mb: 0.5, fontSize: '0.95rem' }}>
+            {t('gameRoom.readyToPlay')}
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: '#7ec8e3',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
+            }}
+          >
+            ⚡ {t('gameRoom.firstClickGoesFirst')}
+          </Typography>
+        </Box>
+      </Box>
+    </>
+  </Box>
+);
 
 export default GameRoomPage;
