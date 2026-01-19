@@ -402,36 +402,6 @@ const HomePage: React.FC = () => {
       >
         {/* Header with Toggle Button at TOP */}
         <Box sx={{ p: 2, pb: 2 }}>
-          {/* Toggle Button - Desktop only - AT TOP - use transform for smooth slide animation */}
-          {!isMobile && (
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              mb: 2,
-              position: 'relative',
-              height: 36,
-            }}>
-              <IconButton
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                size="small"
-                sx={{
-                  width: 36,
-                  height: 36,
-                  position: 'absolute',
-                  right: sidebarCollapsed ? `calc(50% - 18px)` : 0, // 18px = half of 36px button width
-                  background: 'rgba(126, 200, 227, 0.1)',
-                  border: '1px solid rgba(126, 200, 227, 0.2)',
-                  color: '#7ec8e3',
-                  transition: 'background 0.2s ease, right 0.25s ease',
-                  '&:hover': {
-                    background: 'rgba(126, 200, 227, 0.2)',
-                  },
-                }}
-              >
-                {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-              </IconButton>
-            </Box>
-          )}
           {/* Logo and Title - Full width box that matches game items */}
           <Box sx={{
             display: 'flex',
@@ -635,6 +605,36 @@ const HomePage: React.FC = () => {
         {/* Auth Section */}
         <Divider sx={{ borderColor: 'rgba(126, 200, 227, 0.12)', mx: 0, mt: 'auto' }} />
         <Box sx={{ p: 2 }}>
+          {/* Toggle Button - Desktop only - AT TOP - use transform for smooth slide animation */}
+          {!isMobile && (
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              mb: 2,
+              position: 'relative',
+              height: 36,
+            }}>
+              <IconButton
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                size="small"
+                sx={{
+                  width: 36,
+                  height: 36,
+                  position: 'absolute',
+                  right: sidebarCollapsed ? `calc(50% - 18px)` : 0, // 18px = half of 36px button width
+                  background: 'rgba(126, 200, 227, 0.1)',
+                  border: '1px solid rgba(126, 200, 227, 0.2)',
+                  color: '#7ec8e3',
+                  transition: 'background 0.2s ease, right 0.25s ease',
+                  '&:hover': {
+                    background: 'rgba(126, 200, 227, 0.2)',
+                  },
+                }}
+              >
+                {sidebarCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </IconButton>
+            </Box>
+          )}
           {isAuthenticated ? (
             <>
               {/* User info - with fade transition */}
