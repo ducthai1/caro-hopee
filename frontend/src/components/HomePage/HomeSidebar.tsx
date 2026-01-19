@@ -64,6 +64,9 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
       variant={isMobile ? 'temporary' : 'permanent'}
       open={sidebarOpen}
       onClose={() => setSidebarOpen(false)}
+      ModalProps={{
+        keepMounted: true, // Better mobile performance
+      }}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
@@ -73,7 +76,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           boxSizing: 'border-box',
           background: '#ffffff',
           borderRight: '1px solid rgba(126, 200, 227, 0.12)',
-          boxShadow: 'none',
+          boxShadow: isMobile ? '2px 0 8px rgba(0, 0, 0, 0.15)' : 'none',
           position: 'fixed',
           top: 0,
           left: 0,
@@ -83,6 +86,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           display: 'flex',
           flexDirection: 'column',
           transition: 'width 0.3s ease',
+          zIndex: (theme) => theme.zIndex.drawer,
           '&::-webkit-scrollbar': { width: '6px' },
           '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)' },
           '&::-webkit-scrollbar-thumb': {
@@ -90,10 +94,18 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
             '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
           },
         },
+        '& .MuiBackdrop-root': {
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        },
       }}
     >
       {/* Header */}
-      <SidebarHeader sidebarCollapsed={sidebarCollapsed} isMobile={isMobile} t={t} />
+      <SidebarHeader 
+        sidebarCollapsed={sidebarCollapsed} 
+        isMobile={isMobile} 
+        t={t}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <Divider sx={{ borderColor: 'rgba(126, 200, 227, 0.12)', mx: 0 }} />
 
@@ -101,7 +113,12 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
       <GameList
         games={GAMES}
         selectedGame={selectedGame}
-        setSelectedGame={setSelectedGame}
+        setSelectedGame={(game) => {
+          setSelectedGame(game);
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        }}
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
         t={t}
@@ -113,11 +130,21 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
         isAuthenticated={isAuthenticated}
         user={user}
         logout={logout}
-        onHistoryClick={onHistoryClick}
+        onHistoryClick={() => {
+          onHistoryClick();
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        }}
         sidebarCollapsed={sidebarCollapsed}
         setSidebarCollapsed={setSidebarCollapsed}
         isMobile={isMobile}
         t={t}
+        onClose={() => {
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        }}
       />
     </Drawer>
   );
@@ -128,10 +155,32 @@ interface SidebarHeaderProps {
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
+  onClose?: () => void;
 }
 
-const SidebarHeader: React.FC<SidebarHeaderProps> = ({ sidebarCollapsed, isMobile, t }) => (
-  <Box sx={{ p: 2, pb: 2 }}>
+const SidebarHeader: React.FC<SidebarHeaderProps> = ({ sidebarCollapsed, isMobile, t, onClose }) => (
+  <Box sx={{ p: 2, pb: 2, position: 'relative' }}>
+    {/* Close button for mobile */}
+    {isMobile && onClose && (
+      <IconButton
+        onClick={onClose}
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          width: 40,
+          height: 40,
+          background: 'rgba(126, 200, 227, 0.1)',
+          color: '#7ec8e3',
+          border: '1px solid rgba(126, 200, 227, 0.2)',
+          '&:hover': {
+            background: 'rgba(126, 200, 227, 0.2)',
+          },
+        }}
+      >
+        <ChevronLeftIcon />
+      </IconButton>
+    )}
     <Box sx={{
       display: 'flex',
       alignItems: 'center',
@@ -345,6 +394,7 @@ interface AuthSectionProps {
   setSidebarCollapsed: (collapsed: boolean) => void;
   isMobile: boolean;
   t: (key: string) => string;
+  onClose?: () => void;
 }
 
 const AuthSection: React.FC<AuthSectionProps> = ({
@@ -356,6 +406,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
   setSidebarCollapsed,
   isMobile,
   t,
+  onClose,
 }) => (
   <Box sx={{ p: 2 }}>
     {/* Toggle Button - Desktop only */}
@@ -389,6 +440,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
         t={t}
+        onClose={onClose}
       />
     ) : (
       <UnauthenticatedSection
@@ -396,6 +448,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
         t={t}
+        onClose={onClose}
       />
     )}
   </Box>
@@ -409,6 +462,7 @@ interface AuthenticatedSectionProps {
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
+  onClose?: () => void;
 }
 
 const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
@@ -418,6 +472,7 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
   sidebarCollapsed,
   isMobile,
   t,
+  onClose,
 }) => {
   const buttonSx = {
     py: 1.5,
@@ -500,11 +555,21 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
 
       {/* Auth buttons */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Button component={Link} to="/profile" sx={buttonSx}>
+        <Button 
+          component={Link} 
+          to="/profile" 
+          sx={buttonSx}
+          onClick={onClose}
+        >
           <PersonIcon sx={iconMargin} />
           <Box component="span" sx={textSx}>{t('home.profile')}</Box>
         </Button>
-        <Button component={Link} to="/leaderboard" sx={buttonSx}>
+        <Button 
+          component={Link} 
+          to="/leaderboard" 
+          sx={buttonSx}
+          onClick={onClose}
+        >
           <LeaderboardIcon sx={iconMargin} />
           <Box component="span" sx={textSx}>{t('home.leaderboard')}</Box>
         </Button>
@@ -539,6 +604,7 @@ interface UnauthenticatedSectionProps {
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
+  onClose?: () => void;
 }
 
 const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
@@ -546,6 +612,7 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
   sidebarCollapsed,
   isMobile,
   t,
+  onClose,
 }) => {
   const iconMargin = { mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' };
   const textSx = {
@@ -603,6 +670,7 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
             boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
           },
         }}
+        onClick={onClose}
       >
         <LoginIcon sx={iconMargin} />
         <Box component="span" sx={textSx}>{t('auth.login')} / {t('auth.register')}</Box>

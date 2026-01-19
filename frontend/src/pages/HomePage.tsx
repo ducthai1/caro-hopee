@@ -268,33 +268,34 @@ const HomePage: React.FC = () => {
         }}
       >
         {/* Mobile Menu Button */}
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            zIndex: (theme) => theme.zIndex.drawer + 1,
-            display: { xs: 'block', md: 'none' },
-            contain: 'layout style',
-          }}
-        >
-          <IconButton
-            onClick={() => setSidebarOpen(true)}
+        {isMobile && (
+          <Box
             sx={{
-              width: 48,
-              height: 48,
-              background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-              color: '#ffffff',
-              boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
-                boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
-              },
+              position: 'fixed',
+              top: 16,
+              left: 16,
+              zIndex: (theme) => theme.zIndex.drawer + 1,
+              display: sidebarOpen ? 'none' : 'block',
             }}
           >
-            <MenuIcon />
-          </IconButton>
-        </Box>
+            <IconButton
+              onClick={() => setSidebarOpen(true)}
+              sx={{
+                width: 48,
+                height: 48,
+                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
+                color: '#ffffff',
+                boxShadow: '0 4px 12px rgba(126, 200, 227, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
+                  boxShadow: '0 6px 16px rgba(126, 200, 227, 0.4)',
+                },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        )}
 
         {/* Page Content */}
         <Box sx={{ flex: 1, bgcolor: '#f8fbff' }}>
