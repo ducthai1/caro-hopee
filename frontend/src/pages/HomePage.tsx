@@ -1323,25 +1323,6 @@ const HomePage: React.FC = () => {
                       t('home.joinGame')
                     )}
                   </Button>
-                  <Button
-                    component={Link}
-                    to="/join"
-                    variant="outlined"
-                    fullWidth
-                    sx={{
-                      borderRadius: 2.5,
-                      textTransform: 'none',
-                      py: 1.5,
-                      borderColor: 'rgba(126, 200, 227, 0.3)',
-                      color: '#5a6a7a',
-                      '&:hover': {
-                        borderColor: '#7ec8e3',
-                        bgcolor: 'rgba(126, 200, 227, 0.05)',
-                      },
-                    }}
-                  >
-                    {t('home.orUseJoinPage')}
-                  </Button>
                 </Paper>
             </Box>
 

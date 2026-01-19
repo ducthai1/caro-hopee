@@ -12,7 +12,6 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import GameRoomPage from './pages/GameRoomPage';
-import JoinGamePage from './pages/JoinGamePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 
@@ -125,10 +124,6 @@ const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
-  },
-  {
-    path: '/join',
-    element: <JoinGamePage />,
   },
   {
     path: '/game/:roomId',
