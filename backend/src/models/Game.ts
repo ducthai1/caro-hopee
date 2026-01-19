@@ -24,6 +24,7 @@ export interface IGame extends Document {
   player2GuestName: string | null; // Guest display name for player 2
   player1Marker: string | null; // Custom marker for player 1
   player2Marker: string | null; // Custom marker for player 2
+  password: string | null; // Hashed password for the game room (only host can set)
   boardSize: number;
   board: number[][];
   currentPlayer: 1 | 2;
@@ -128,6 +129,11 @@ const GameSchema: Schema = new Schema({
     type: String,
     default: null,
     maxlength: 200000, // Support base64 images (up to ~150KB image)
+  },
+  password: {
+    type: String,
+    default: null,
+    select: false, // Don't return password by default in queries
   },
   boardSize: {
     type: Number,

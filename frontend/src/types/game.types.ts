@@ -26,6 +26,7 @@ export interface Game {
   player2GuestName: string | null;
   player1Marker: string | null;
   player2Marker: string | null;
+  hasPassword?: boolean; // Indicates if game has password (without exposing actual password)
   boardSize: number;
   board: number[][];
   currentPlayer: PlayerNumber;

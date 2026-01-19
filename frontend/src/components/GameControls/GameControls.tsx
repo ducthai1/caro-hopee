@@ -4,11 +4,15 @@
  */
 import React, { useState } from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
 import { logger } from '../../utils/logger';
+import { gameApi } from '../../services/api';
 import { UndoRequestDialog, WinnerModal, LeaveGameDialog } from './dialogs';
+import SetPasswordDialog from '../SetPasswordDialog/SetPasswordDialog';
 
 interface GameControlsProps {
   onLeaveGame?: () => Promise<void>;
@@ -34,9 +38,13 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
   const { t } = useLanguage();
   const [isLeaving, setIsLeaving] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSetPasswordDialog, setShowSetPasswordDialog] = useState(false);
 
   const canStartGame = game?.gameStatus === 'waiting' && players.length === 2 && myPlayerNumber === 1;
   const showWinnerModal = game?.gameStatus === 'finished' && game.winner !== null;
+
+  // Get hasPassword from game object (API returns this boolean without exposing actual password)
+  const hasPassword = game?.hasPassword || false;
 
   if (!game) {
     return null;
@@ -150,12 +158,44 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     clearPendingUndo();
   };
 
+  // Check if user is host (player1)
+  const isHost = myPlayerNumber === 1;
+
+  const handleSetPassword = async (password: string | null): Promise<void> => {
+    if (!game) return;
+    try {
+      await gameApi.setPassword(game.roomId, password);
+      setShowSetPasswordDialog(false);
+      logger.log('Password set successfully');
+      // Game context will update hasPassword automatically via socket events or game reload
+    } catch (error: any) {
+      logger.error('Failed to set password:', error);
+      alert(error.response?.data?.message || 'Failed to set password');
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {canStartGame && (
           <Button variant="contained" size="medium" onClick={startGame} fullWidth>
             {t('game.startGame')}
+          </Button>
+        )}
+        {/* Host can set password when game is waiting */}
+        {isHost && game.gameStatus === 'waiting' && (
+          <Button
+            variant="outlined"
+            size="medium"
+            onClick={() => setShowSetPasswordDialog(true)}
+            fullWidth
+            startIcon={hasPassword ? <LockIcon /> : <LockOpenIcon />}
+            sx={{
+              borderColor: hasPassword ? '#ff9800' : '#7ec8e3',
+              color: hasPassword ? '#ff9800' : '#7ec8e3',
+            }}
+          >
+            {hasPassword ? t('game.changePassword') : t('game.setPassword')}
           </Button>
         )}
         {game.gameStatus === 'playing' && (
@@ -235,6 +275,16 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
         onCancel={handleLeaveCancel}
         t={t}
       />
+
+      {/* Set Password Dialog */}
+      {isHost && (
+        <SetPasswordDialog
+          open={showSetPasswordDialog}
+          onConfirm={handleSetPassword}
+          onCancel={() => setShowSetPasswordDialog(false)}
+          hasPassword={hasPassword}
+        />
+      )}
     </Box>
   );
 };

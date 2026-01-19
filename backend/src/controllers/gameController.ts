@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import Game from '../models/Game';
 import GameHistory from '../models/GameHistory';
 import { initializeBoard, generateRoomCode } from '../services/gameEngine';
@@ -186,7 +187,7 @@ export const getGameByCode = async (req: Request, res: Response): Promise<void> 
 export const joinGame = async (req: Request, res: Response): Promise<void> => {
   try {
     const { roomId } = req.params;
-    const { guestId, guestName } = req.body;
+    const { guestId, guestName, password } = req.body;
     const authReq = req as AuthRequest;
     
     // Try to get user from token (optional auth - allow both authenticated and guest)
@@ -205,7 +206,8 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
     // Use userId from token or from authReq.user (fallback)
     const finalUserId = userId || authReq.user?.userId || null;
 
-    const game = await Game.findOne({ roomId });
+    // Fetch game with password field
+    const game = await Game.findOne({ roomId }).select('+password');
 
     if (!game) {
       res.status(404).json({ message: 'Game not found' });
@@ -266,6 +268,20 @@ export const joinGame = async (req: Request, res: Response): Promise<void> => {
     if (hasPlayer1 && hasPlayer2) {
       res.status(400).json({ message: 'Game is full (2/2 players). Please wait for the game to start or find another game.' });
       return;
+    }
+
+    // CRITICAL: Check password if game has password (only for new players joining, not for existing players)
+    if (game.password && !isPlayer1 && !isPlayer2) {
+      if (!password) {
+        res.status(401).json({ message: 'Password required to join this game', requiresPassword: true });
+        return;
+      }
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, game.password);
+      if (!isPasswordValid) {
+        res.status(401).json({ message: 'Incorrect password', requiresPassword: true });
+        return;
+      }
     }
 
     // Join as player2
@@ -384,7 +400,7 @@ export const getWaitingGames = async (req: Request, res: Response): Promise<void
     })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select('roomId roomCode boardSize gameStatus player1 player2 player1GuestId player2GuestId player1GuestName player2GuestName createdAt')
+      .select('roomId roomCode boardSize gameStatus player1 player2 player1GuestId player2GuestId player1GuestName player2GuestName createdAt password')
       .lean();
 
     // Batch fetch all user IDs in a single query instead of N populate calls
@@ -441,6 +457,7 @@ export const getWaitingGames = async (req: Request, res: Response): Promise<void
         hasPlayer2,
         playerCount,
         player1Username,
+        hasPassword: !!(game.password), // Indicate if game has password (without exposing actual password)
       createdAt: game.createdAt.toISOString(),
       };
     });
@@ -674,8 +691,10 @@ export const leaveGame = async (req: Request, res: Response): Promise<void> => {
         updatedGame.player1GuestId = updatedGame.player2GuestId;
         updatedGame.player2 = null;
         updatedGame.player2GuestId = null;
+        // CRITICAL: Clear password when host transfers (as per requirement)
+        updatedGame.password = null;
         hostTransferred = true;
-        console.log(`[leaveGame] Host transfer complete - new player1: ${updatedGame.player1 || updatedGame.player1GuestId}, player2: ${updatedGame.player2 || updatedGame.player2GuestId || 'null'}`);
+        console.log(`[leaveGame] Host transfer complete - new player1: ${updatedGame.player1 || updatedGame.player1GuestId}, player2: ${updatedGame.player2 || updatedGame.player2GuestId || 'null'}, password cleared`);
 
         // Case 2: Game finished + 1 player rời → reset về waiting
         if (wasFinished) {
@@ -831,6 +850,71 @@ const cleanupOldHistory = async (
   } catch (error: any) {
     console.error('[cleanupOldHistory] Error cleaning up old history:', error);
     // Don't throw - this is cleanup, shouldn't block the main operation
+  }
+};
+
+export const setPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    const { password } = req.body;
+    const authReq = req as AuthRequest;
+    
+    // Try to get user from token (optional auth - allow both authenticated and guest)
+    let userId: string | null = null;
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const { verifyToken } = await import('../utils/jwt');
+        const decoded = verifyToken(token);
+        userId = decoded.userId;
+      }
+    } catch (error) {
+      // Token invalid or not provided - continue as guest
+    }
+    
+    const finalUserId = userId || authReq.user?.userId || null;
+    const { guestId } = req.body;
+
+    const game = await Game.findOne({ roomId });
+
+    if (!game) {
+      res.status(404).json({ message: 'Game not found' });
+      return;
+    }
+
+    // CRITICAL: Only host (player1) can set password
+    const isHost = finalUserId
+      ? game.player1 && game.player1.toString() === finalUserId.toString()
+      : game.player1GuestId === guestId;
+
+    if (!isHost) {
+      res.status(403).json({ message: 'Only the host can set the game password' });
+      return;
+    }
+
+    // If password is empty or null, remove password
+    if (!password || password.trim() === '') {
+      game.password = null;
+      await game.save();
+      res.json({ message: 'Password removed successfully', hasPassword: false });
+      return;
+    }
+
+    // Validate password length (min 4, max 50 characters)
+    const trimmedPassword = password.trim();
+    if (trimmedPassword.length < 4 || trimmedPassword.length > 50) {
+      res.status(400).json({ message: 'Password must be between 4 and 50 characters' });
+      return;
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(trimmedPassword, 10);
+    game.password = hashedPassword;
+    await game.save();
+
+    res.json({ message: 'Password set successfully', hasPassword: true });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Failed to set password' });
   }
 };
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createGame, getGame, getGameByCode, joinGame, getUserGames, leaveGame, getWaitingGames, getGameHistory, updateMarker } from '../controllers/gameController';
+import { createGame, getGame, getGameByCode, joinGame, getUserGames, leaveGame, getWaitingGames, getGameHistory, updateMarker, setPassword } from '../controllers/gameController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -12,6 +12,7 @@ router.get('/:roomId', getGame);
 router.post('/:roomId/join', joinGame);
 router.post('/:roomId/leave', leaveGame);
 router.post('/:roomId/marker', updateMarker);
+router.post('/:roomId/password', setPassword); // Set/remove game password (host only)
 router.get('/user/:userId', authMiddleware, getUserGames);
 
 export default router;

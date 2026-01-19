@@ -74,13 +74,20 @@ export const gameApi = {
     const response = await api.get(`/games/user/${userId}`);
     return response.data;
   },
-  joinGame: async (roomId: string): Promise<Game> => {
+  joinGame: async (roomId: string, password?: string): Promise<Game> => {
     // Use getGuestId() from utils instead of localStorage
     const { getGuestId } = await import('../utils/guestId');
     const { getGuestName } = await import('../utils/guestName');
     const guestId = getGuestId();
     const guestName = getGuestName();
-    const response = await api.post(`/games/${roomId}/join`, { guestId, guestName });
+    const response = await api.post(`/games/${roomId}/join`, { guestId, guestName, password });
+    return response.data;
+  },
+  setPassword: async (roomId: string, password: string | null): Promise<{ message: string; hasPassword: boolean }> => {
+    // Use getGuestId() from utils instead of localStorage
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.post(`/games/${roomId}/password`, { password, guestId });
     return response.data;
   },
   leaveGame: async (roomId: string): Promise<{ message: string; gameDeleted: boolean; gameData?: any }> => {

@@ -127,6 +127,18 @@
     },
     "selectMarker": "Chọn dấu đánh của bạn",
     "markerTaken": "Dấu này đã được chọn",
+    "setPassword": "Đặt mật khẩu",
+    "changePassword": "Đổi mật khẩu",
+    "removePassword": "Xóa mật khẩu",
+    "password": "Mật khẩu",
+    "passwordRequired": "Mật khẩu là bắt buộc",
+    "passwordInvalidLength": "Mật khẩu phải từ 4 đến 50 ký tự",
+    "passwordHelper": "Nhập mật khẩu từ 4 đến 50 ký tự",
+    "enterPassword": "Nhập mật khẩu bàn chơi",
+    "passwordRequiredToJoin": "Bàn chơi này được bảo vệ bằng mật khẩu. Vui lòng nhập mật khẩu để tham gia.",
+    "setPasswordDescription": "Đặt mật khẩu để bảo vệ bàn chơi này. Chỉ người chơi có mật khẩu mới có thể tham gia.",
+    "changePasswordDescription": "Thay đổi hoặc xóa mật khẩu cho bàn chơi này. Chỉ host mới có thể đặt mật khẩu.",
+    "gamePasswordProtected": "Có mật khẩu",
     "customMarker": "Tùy chỉnh dấu đánh",
     "uploadImage": "Tải ảnh lên",
     "selectedMarker": "Dấu đã chọn:",
@@ -180,7 +192,9 @@
     "playerWins": "Người chơi {player} thắng!",
     "gameAbandoned": "Bàn đã bị hủy",
     "on": "BẬT",
-    "off": "TẮT"
+    "off": "TẮT",
+    "blockTwoEndsEnabled": "Ngăn chặn các nước đi khai thác",
+    "blockTwoEndsDisabled": "Chơi theo luật chuẩn"
   },
   "gameBoard": {
     "noGameLoaded": "Không có trò chơi"

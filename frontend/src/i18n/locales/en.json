@@ -127,6 +127,18 @@
     },
     "selectMarker": "Choose your marker",
     "markerTaken": "This marker is already taken",
+    "setPassword": "Set Password",
+    "changePassword": "Change Password",
+    "removePassword": "Remove Password",
+    "password": "Password",
+    "passwordRequired": "Password is required",
+    "passwordInvalidLength": "Password must be between 4 and 50 characters",
+    "passwordHelper": "Enter a password between 4 and 50 characters",
+    "enterPassword": "Enter Game Password",
+    "passwordRequiredToJoin": "This game room is password protected. Please enter the password to join.",
+    "setPasswordDescription": "Set a password to protect this game room. Only players with the password can join.",
+    "changePasswordDescription": "Change or remove the password for this game room. Only the host can set the password.",
+    "gamePasswordProtected": "Password Protected",
     "customMarker": "Custom marker",
     "uploadImage": "Upload image",
     "selectedMarker": "Selected marker:",
@@ -180,7 +192,9 @@
     "playerWins": "Player {player} wins!",
     "gameAbandoned": "Game abandoned",
     "on": "ON",
-    "off": "OFF"
+    "off": "OFF",
+    "blockTwoEndsEnabled": "Prevents exploitable patterns",
+    "blockTwoEndsDisabled": "Standard gameplay"
   },
   "gameBoard": {
     "noGameLoaded": "No game loaded"

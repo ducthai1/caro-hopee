@@ -1,6 +1,8 @@
 import React, { memo, useCallback } from 'react';
-import { Paper, Box, Typography, Chip, Button, CircularProgress } from '@mui/material';
+import { Paper, Box, Typography, Chip, Button, CircularProgress, Tooltip } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { formatRelativeTime } from '../../utils/timeFormat';
 import { useLanguage } from '../../i18n';
 
@@ -28,6 +30,7 @@ interface WaitingGame {
   hasPlayer2: boolean;
   playerCount?: number;
   player1Username: string | null;
+  hasPassword?: boolean; // Indicates if game has password
   createdAt: string;
 }
 
@@ -120,7 +123,7 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, joiningGameId, onJoin })
         >
           {game.roomCode}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5, alignItems: 'center' }}>
           <Chip
             label={`${game.boardSize}x${game.boardSize}`}
             size="small"
@@ -142,6 +145,24 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, joiningGameId, onJoin })
               height: 24,
             }}
           />
+          {game.hasPassword && (
+            <Tooltip title={t('game.gamePasswordProtected') || 'Password Protected'} arrow>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(255, 152, 0, 0.15)',
+                  color: '#ff9800',
+                }}
+              >
+                <LockIcon sx={{ fontSize: '0.875rem' }} />
+              </Box>
+            </Tooltip>
+          )}
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {game.player1Username && (
@@ -209,6 +230,7 @@ const GameCard: React.FC<GameCardProps> = memo(({ game, joiningGameId, onJoin })
     prevProps.game.displayStatus === nextProps.game.displayStatus &&
     prevProps.game.canJoin === nextProps.game.canJoin &&
     prevProps.game.statusLabel === nextProps.game.statusLabel &&
+    prevProps.game.hasPassword === nextProps.game.hasPassword &&
     prevProps.joiningGameId === nextProps.joiningGameId
   );
 });

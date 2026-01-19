@@ -3,7 +3,7 @@
  * Refactored from 916 lines to use modular components
  */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Container, Box, CircularProgress, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
+import { Container, Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,10 +14,9 @@ import GameInfo from '../components/GameInfo/GameInfo';
 import GameControls from '../components/GameControls/GameControls';
 import RoomCodeDisplay from '../components/RoomCodeDisplay';
 import GameErrorBoundary from '../components/GameErrorBoundary';
-import MarkerSelector from '../components/MarkerSelector';
 import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
 import { logger } from '../utils/logger';
-import { getGuestName, hasGuestName } from '../utils/guestName';
+import { hasGuestName } from '../utils/guestName';
 import {
   MobileBottomSheet,
   LeaveConfirmDialog,

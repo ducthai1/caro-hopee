@@ -15,6 +15,7 @@ export interface WaitingGame {
   hasPlayer2: boolean;
   playerCount?: number;
   player1Username: string | null;
+  hasPassword?: boolean; // Indicates if game has password
   createdAt: string;
 }
 

@@ -12,6 +12,7 @@ import { DEFAULT_BOARD_SIZE } from '../utils/constants';
 import { validateRoomCode, formatRoomCode } from '../utils/roomCode';
 import HistoryModal from '../components/HistoryModal/HistoryModal';
 import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
+import PasswordDialog from '../components/PasswordDialog/PasswordDialog';
 import { socketService } from '../services/socketService';
 import { logger } from '../utils/logger';
 import { getGuestName } from '../utils/guestName';
@@ -44,6 +45,8 @@ const HomePage: React.FC = () => {
   const [joinRoomCode, setJoinRoomCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
 
   // Waiting games state
   const [waitingGames, setWaitingGames] = useState<WaitingGame[]>([]);
@@ -212,7 +215,7 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleJoinGame = async (): Promise<void> => {
+  const handleJoinGame = async (password?: string): Promise<void> => {
     setJoinError('');
     const formattedCode = formatRoomCode(joinRoomCode);
     if (!validateRoomCode(formattedCode)) {
@@ -232,7 +235,7 @@ const HomePage: React.FC = () => {
         return;
       }
 
-      await gameApi.joinGame(game.roomId);
+      await gameApi.joinGame(game.roomId, password);
       navigate(`/game/${game.roomId}`);
     } catch (err: any) {
       setJoinError(err.response?.data?.message || 'Game not found. Please check the room code.');
@@ -240,18 +243,41 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleQuickJoin = async (game: WaitingGame): Promise<void> => {
+  const handleQuickJoin = async (game: WaitingGame, password?: string): Promise<void> => {
     setJoiningGameId(game.roomId);
     try {
-      await gameApi.joinGame(game.roomId);
+      await gameApi.joinGame(game.roomId, password);
       navigate(`/game/${game.roomId}`);
     } catch (error: any) {
       logger.error('Failed to join game:', error);
+      // Check if password is required
+      if (error.response?.status === 401 && error.response?.data?.requiresPassword) {
+        setPendingJoinRoomId(game.roomId);
+        setShowPasswordDialog(true);
+        setJoiningGameId(null);
+        return;
+      }
       alert(error.response?.data?.message || 'Failed to join game');
       loadWaitingGames();
     } finally {
-      setJoiningGameId(null);
+      if (!showPasswordDialog) {
+        setJoiningGameId(null);
+      }
     }
+  };
+
+  const handlePasswordConfirm = async (password: string): Promise<void> => {
+    if (!pendingJoinRoomId) return;
+    setShowPasswordDialog(false);
+    const roomId = pendingJoinRoomId;
+    setPendingJoinRoomId(null);
+    await handleQuickJoin({ roomId } as WaitingGame, password);
+  };
+
+  const handlePasswordCancel = (): void => {
+    setShowPasswordDialog(false);
+    setPendingJoinRoomId(null);
+    setJoiningGameId(null);
   };
 
   const handleJoinCodeChange = (code: string): void => {
@@ -377,6 +403,13 @@ const HomePage: React.FC = () => {
           initialName={getGuestName()}
         />
       )}
+
+      {/* Password Dialog */}
+      <PasswordDialog
+        open={showPasswordDialog}
+        onConfirm={handlePasswordConfirm}
+        onCancel={handlePasswordCancel}
+      />
     </Box>
   );
 };
