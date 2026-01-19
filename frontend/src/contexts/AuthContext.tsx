@@ -36,14 +36,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Clear any existing interval
+    // Clear any existing interval first
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
     // Only set up interval if user is logged in
-    if (!user) return;
+    if (!user) {
+      // CRITICAL FIX: Return empty cleanup to ensure cleanup is always registered
+      // This prevents memory leak when user logs out (early return without cleanup)
+      return () => {
+        // Ensure interval is cleared even if user is null
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    }
 
     let isMounted = true;
 

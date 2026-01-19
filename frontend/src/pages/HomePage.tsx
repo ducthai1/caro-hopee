@@ -56,6 +56,7 @@ const HomePage: React.FC = () => {
   // Refs for tracking mounted games and cleanup
   const mountedGamesRef = useRef<Set<string>>(new Set());
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   // Calculate drawer width
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
@@ -112,17 +113,22 @@ const HomePage: React.FC = () => {
   }, []);
 
   // Load waiting games
+  // CRITICAL FIX: Use isMountedRef to prevent state updates after unmount
   const loadWaitingGames = useCallback(async (silent: boolean = false): Promise<void> => {
     try {
-      if (!silent) setLoadingGames(true);
+      if (!silent && isMountedRef.current) setLoadingGames(true);
       const games = await gameApi.getWaitingGames();
+      // CRITICAL FIX: Check mounted state before setting state
+      if (!isMountedRef.current) return;
       startTransition(() => {
-        setWaitingGames(prev => smartMergeGames(games, prev));
+        if (isMountedRef.current) {
+          setWaitingGames(prev => smartMergeGames(games, prev));
+        }
       });
     } catch (error) {
       logger.error('Failed to load waiting games:', error);
     } finally {
-      if (!silent) setLoadingGames(false);
+      if (!silent && isMountedRef.current) setLoadingGames(false);
     }
   }, [smartMergeGames]);
 
@@ -132,6 +138,15 @@ const HomePage: React.FC = () => {
     const interval = setInterval(() => loadWaitingGames(true), 30000);
     const socket = socketService.getSocket();
     const currentTimeoutRef = updateTimeoutRef.current;
+
+    // CRITICAL FIX: Always register cleanup to prevent memory leak
+    const cleanup = () => {
+      clearInterval(interval);
+      if (currentTimeoutRef) {
+        clearTimeout(currentTimeoutRef);
+        updateTimeoutRef.current = null;
+      }
+    };
 
     if (socket) {
       const handleGameCreated = () => {
@@ -158,18 +173,14 @@ const HomePage: React.FC = () => {
       socket.on('game-deleted', handleGameDeleted);
 
       return () => {
-        clearInterval(interval);
-        if (currentTimeoutRef) clearTimeout(currentTimeoutRef);
+        cleanup();
         socket.off('game-created', handleGameCreated);
         socket.off('game-status-updated', handleGameStatusUpdated);
         socket.off('game-deleted', handleGameDeleted);
       };
     }
 
-    return () => {
-      clearInterval(interval);
-      if (currentTimeoutRef) clearTimeout(currentTimeoutRef);
-    };
+    return cleanup;
   }, [loadWaitingGames]);
 
   // Event handlers

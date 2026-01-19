@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Game, GameMove, PlayerInfo, PlayerNumber, Winner } from '../types/game.types';
 import { socketService } from '../services/socketService';
 import { getGuestId } from '../utils/guestId';
+import { getGuestName } from '../utils/guestName';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
 import { gameApi, gameStatsApi } from '../services/api';
@@ -51,6 +52,7 @@ interface GameActionsContextType {
   newGame: () => void;
   leaveRoom: () => Promise<void>;
   clearPendingUndo: () => void;
+  refreshPlayers: () => void;
 }
 
 // Combined type for backward compatibility
@@ -82,9 +84,17 @@ const gameToPlayers = (game: Game): PlayerInfo[] => {
       playerNumber: 1,
     });
   } else if (game.player1GuestId) {
+    // Use guest name from sessionStorage if available, otherwise use default
+    const guestName = getGuestName();
+    const guestId = getGuestId();
+    const isMyGuestId = guestId === game.player1GuestId;
+    const username = isMyGuestId && guestName 
+      ? guestName 
+      : `Guest ${game.player1GuestId.slice(-6)}`;
+    
     players.push({
       id: game.player1GuestId,
-      username: `Guest ${game.player1GuestId.slice(-6)}`,
+      username,
       isGuest: true,
       playerNumber: 1,
     });
@@ -98,9 +108,17 @@ const gameToPlayers = (game: Game): PlayerInfo[] => {
       playerNumber: 2,
     });
   } else if (game.player2GuestId) {
+    // Use guest name from sessionStorage if available, otherwise use default
+    const guestName = getGuestName();
+    const guestId = getGuestId();
+    const isMyGuestId = guestId === game.player2GuestId;
+    const username = isMyGuestId && guestName 
+      ? guestName 
+      : `Guest ${game.player2GuestId.slice(-6)}`;
+    
     players.push({
       id: game.player2GuestId,
-      username: `Guest ${game.player2GuestId.slice(-6)}`,
+      username,
       isGuest: true,
       playerNumber: 2,
     });
@@ -273,14 +291,23 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const handleRoomJoined = (data: { roomId: string; players: PlayerInfo[]; gameStatus?: string; currentPlayer?: PlayerNumber }) => {
       if (!isMountedRef.current) return;
       setRoomId(data.roomId);
-      setPlayers(data.players);
-
+      
+      // Override guest name from sessionStorage if available
       const guestId = getGuestId();
+      const guestName = getGuestName();
+      const updatedPlayers = data.players.map(player => {
+        if (player.isGuest && player.id === guestId && guestName) {
+          return { ...player, username: guestName };
+        }
+        return player;
+      });
+      setPlayers(updatedPlayers);
+
       const currentIsAuth = isAuthenticatedRef.current;
       const currentUser = userRef.current;
       const authenticatedUserId = currentIsAuth ? currentUser?._id : null;
 
-      const myPlayer = data.players.find(p => {
+      const myPlayer = updatedPlayers.find(p => {
         if (authenticatedUserId && p.id === authenticatedUserId && !p.isGuest) return true;
         if (guestId && p.id === guestId && p.isGuest) return true;
         return false;
@@ -320,13 +347,19 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const exists = prev.some(p => p.id === data.player.id);
         if (exists) return prev;
 
-        const updated = [...prev, data.player];
+        // Override guest name from sessionStorage if available
         const guestId = getGuestId();
+        const guestName = getGuestName();
+        const player = data.player.isGuest && data.player.id === guestId && guestName
+          ? { ...data.player, username: guestName }
+          : data.player;
+
+        const updated = [...prev, player];
         const currentIsAuth = isAuthenticatedRef.current;
         const myId = currentIsAuth ? userRef.current?._id : guestId;
-        if (data.player.id === myId &&
-            ((currentIsAuth && !data.player.isGuest) || (!currentIsAuth && data.player.isGuest))) {
-          setMyPlayerNumber(data.player.playerNumber);
+        if (player.id === myId &&
+            ((currentIsAuth && !player.isGuest) || (!currentIsAuth && player.isGuest))) {
+          setMyPlayerNumber(player.playerNumber);
         }
         return updated;
       });
@@ -585,8 +618,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 boardSize: currentFinishedData.boardSize,
               }
             );
+            // CRITICAL FIX: Check mounted state after async operation
+            if (!isMountedRef.current) return;
           } catch (error) {
             logger.error('Failed to submit game result:', error);
+            // Check mounted state even on error
+            if (!isMountedRef.current) return;
           }
         }
 
@@ -922,6 +959,29 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const refreshPlayers = useCallback(() => {
+    // Update players with current guest name from sessionStorage
+    if (game) {
+      const gamePlayers = gameToPlayers(game);
+      setPlayers(gamePlayers);
+    } else {
+      // If no game, update existing players with guest name
+      setPlayers(prevPlayers => {
+        const guestId = getGuestId();
+        const guestName = getGuestName();
+        if (guestName && guestId) {
+          return prevPlayers.map(player => {
+            if (player.isGuest && player.id === guestId) {
+              return { ...player, username: guestName };
+            }
+            return player;
+          });
+        }
+        return prevPlayers;
+      });
+    }
+  }, [game]);
+
   // ============================================================================
   // Derived State
   // ============================================================================
@@ -963,7 +1023,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     newGame,
     leaveRoom,
     clearPendingUndo,
-  }), [joinRoom, makeMove, requestUndo, approveUndo, rejectUndo, surrender, startGame, newGame, leaveRoom, clearPendingUndo]);
+    refreshPlayers,
+  }), [joinRoom, makeMove, requestUndo, approveUndo, rejectUndo, surrender, startGame, newGame, leaveRoom, clearPendingUndo, refreshPlayers]);
 
   // Combined context for backward compatibility
   const combinedValue = useMemo<GameContextType>(() => ({

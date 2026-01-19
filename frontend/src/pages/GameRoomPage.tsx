@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Container, Box, CircularProgress, Typography, Button, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
+import { useAuth } from '../contexts/AuthContext';
 import { gameApi } from '../services/api';
 import { useLanguage } from '../i18n';
 import GameBoard from '../components/GameBoard/GameBoard';
@@ -14,7 +15,9 @@ import GameControls from '../components/GameControls/GameControls';
 import RoomCodeDisplay from '../components/RoomCodeDisplay';
 import GameErrorBoundary from '../components/GameErrorBoundary';
 import MarkerSelector from '../components/MarkerSelector';
+import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
 import { logger } from '../utils/logger';
+import { getGuestName, hasGuestName } from '../utils/guestName';
 import {
   MobileBottomSheet,
   LeaveConfirmDialog,
@@ -27,7 +30,12 @@ const GameRoomPage: React.FC = () => {
   const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame } = useGame();
+  const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, refreshPlayers } = useGame();
+  const { isAuthenticated } = useAuth();
+  
+  // Guest name dialog state
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
+  const [guestNameSet, setGuestNameSet] = useState(false);
   
   // Marker selection handler - memoized to prevent re-render loops
   // Only depend on roomId, not game object to avoid re-creating on every game update
@@ -111,11 +119,11 @@ const GameRoomPage: React.FC = () => {
   }, [blocker]);
 
   // Handle browser tab close
+  // CRITICAL FIX: Always register cleanup to prevent memory leak
   useEffect(() => {
-    if (!game || hasLeftRef.current || !roomId) return;
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (game.gameStatus === 'playing') {
+      // Only prevent unload if game is active and playing
+      if (game && !hasLeftRef.current && roomId && game.gameStatus === 'playing') {
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -123,7 +131,9 @@ const GameRoomPage: React.FC = () => {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [game, roomId]);
 
   // Load game on mount
@@ -175,6 +185,20 @@ const GameRoomPage: React.FC = () => {
     }
   }, [game, roomId, navigate, loading]);
 
+  // Check if guest needs to set name when entering game room
+  useEffect(() => {
+    if (!loading && game && !isAuthenticated && !guestNameSet) {
+      // Check if guest name is already set in sessionStorage
+      if (!hasGuestName()) {
+        // Show dialog to let guest choose name
+        setShowGuestNameDialog(true);
+      } else {
+        // Guest name already exists, mark as set
+        setGuestNameSet(true);
+      }
+    }
+  }, [loading, game, isAuthenticated, guestNameSet]);
+
   // Event handlers
   const handleLeaveGame = async (): Promise<void> => {
     hasLeftRef.current = true;
@@ -206,6 +230,14 @@ const GameRoomPage: React.FC = () => {
     }
     pendingNavigation.current = null;
   };
+
+  const handleGuestNameSet = useCallback((name: string) => {
+    setGuestNameSet(true);
+    setShowGuestNameDialog(false);
+    logger.log('[GameRoomPage] Guest name set:', name);
+    // Immediately refresh players to update the name
+    refreshPlayers();
+  }, [refreshPlayers]);
 
   // Loading state
   if (loading || !game) {
@@ -368,6 +400,12 @@ const GameRoomPage: React.FC = () => {
           />
         )}
       </Box>
+
+      {/* Guest Name Dialog */}
+      <GuestNameDialog
+        open={showGuestNameDialog}
+        onClose={handleGuestNameSet}
+      />
     </>
   );
 };

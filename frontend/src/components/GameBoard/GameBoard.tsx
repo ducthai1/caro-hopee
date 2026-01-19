@@ -75,8 +75,14 @@ const GameBoard: React.FC = () => {
       }
     };
 
-    updateCellSize();
-    lastUpdateTime = Date.now();
+    // CRITICAL FIX: Wrap initial call in RAF to prevent state update after unmount
+    // This prevents React 18 StrictMode warnings and potential memory leaks
+    const initialRafId = requestAnimationFrame(() => {
+      if (isMounted) {
+        updateCellSize();
+        lastUpdateTime = Date.now();
+      }
+    });
 
     const handleResize = (): void => {
       if (!isMounted) return;
@@ -93,6 +99,7 @@ const GameBoard: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       if (timeoutId) clearTimeout(timeoutId);
       if (rafId) cancelAnimationFrame(rafId);
+      if (initialRafId) cancelAnimationFrame(initialRafId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.boardSize]);
