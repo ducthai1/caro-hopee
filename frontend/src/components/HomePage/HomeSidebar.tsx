@@ -89,6 +89,8 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           boxSizing: 'border-box',
           background: '#ffffff',
           borderRight: '1px solid rgba(126, 200, 227, 0.12)',
+          borderTopLeftRadius: 0,
+          borderBottomLeftRadius: 0,
           boxShadow: isMobile ? '2px 0 8px rgba(0, 0, 0, 0.15)' : 'none',
           position: 'fixed',
           top: 0,
