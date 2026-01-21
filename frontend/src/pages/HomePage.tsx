@@ -370,8 +370,9 @@ const HomePage: React.FC = () => {
               src="/logo/glacier_logo.svg"
               alt="Glacier"
               sx={{
-                height: 60,
+                height: isScrolled ? 60 : 100,
                 objectFit: 'contain',
+                transition: 'height 0.3s ease',
               }}
             />
           </Box>

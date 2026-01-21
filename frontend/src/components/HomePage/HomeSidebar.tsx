@@ -225,8 +225,11 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ sidebarCollapsed, isMobil
         src="/logo/glacier_logo.svg"
         alt="Glacier"
         sx={{
-          height: 100,
+          // Desktop: 100px when expanded, 80px when collapsed
+          // Mobile sidebar: 100px (always expanded)
+          height: sidebarCollapsed && !isMobile ? 80 : 100,
           objectFit: 'contain',
+          transition: 'height 0.3s ease',
         }}
       />
     </Box>
