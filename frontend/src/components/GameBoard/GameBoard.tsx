@@ -135,12 +135,10 @@ const GameBoard: React.FC = () => {
           left: 0,
           top: 0,
           bottom: 0,
-          width: '16px',
-          background: 'linear-gradient(to right, rgba(126, 200, 227, 0.2), transparent)',
+          width: '10px',
+          background: 'linear-gradient(to right, rgba(126, 200, 227, 0.1), transparent)',
           pointerEvents: 'none',
           zIndex: 10,
-          borderTopLeftRadius: 16,
-          borderBottomLeftRadius: 16,
         }}
       />
       {/* Right shadow overlay - mobile only */}
@@ -151,12 +149,10 @@ const GameBoard: React.FC = () => {
           right: 0,
           top: 0,
           bottom: 0,
-          width: '16px',
-          background: 'linear-gradient(to left, rgba(126, 200, 227, 0.2), transparent)',
+          width: '10px',
+          background: 'linear-gradient(to left, rgba(126, 200, 227, 0.1), transparent)',
           pointerEvents: 'none',
           zIndex: 10,
-          borderTopRightRadius: 16,
-          borderBottomRightRadius: 16,
         }}
       />
       {/* Scrollable container */}
