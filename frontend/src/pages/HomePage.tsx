@@ -69,15 +69,28 @@ const HomePage: React.FC = () => {
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
   const currentGame = GAMES.find(g => g.id === selectedGame);
 
-  // Scroll detection for mobile header
+  // Scroll detection for mobile header with hysteresis to prevent jitter
   useEffect(() => {
     if (!isMobile) return;
+    let lastScrollY = window.scrollY;
+
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      const currentScrollY = window.scrollY;
+      // Hysteresis: different thresholds for scroll down vs scroll up
+      // This prevents rapid toggling when at the threshold
+      if (!isScrolled && currentScrollY > 50) {
+        // Scroll down past threshold - collapse header
+        setIsScrolled(true);
+      } else if (isScrolled && currentScrollY < 20) {
+        // Scroll up past lower threshold - expand header
+        setIsScrolled(false);
+      }
+      lastScrollY = currentScrollY;
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  }, [isMobile, isScrolled]);
 
   // Cleanup stale entries from mountedGamesRef
   useEffect(() => {
