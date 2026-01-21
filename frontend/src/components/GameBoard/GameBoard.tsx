@@ -123,7 +123,9 @@ const GameBoard: React.FC = () => {
         width: '100%',
         maxWidth: { xs: '100%', md: '800px' }, // Full width on mobile for horizontal scroll
         display: 'flex',
-        justifyContent: 'center',
+        // CRITICAL FIX: On mobile, use flex-start to allow full scroll access to left side
+        // On desktop, use center for aesthetic centering
+        justifyContent: { xs: 'flex-start', md: 'center' },
         alignItems: 'center',
         margin: '0 auto',
         mb: 3,

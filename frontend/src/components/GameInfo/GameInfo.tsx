@@ -9,7 +9,7 @@ import { getGuestName } from '../../utils/guestName';
 import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
 
 const GameInfo: React.FC = () => {
-  const { game, players, currentPlayer, myPlayerNumber, refreshPlayers } = useGame();
+  const { game, players, currentPlayer, myPlayerNumber, updateGuestName } = useGame();
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
@@ -236,9 +236,9 @@ const GameInfo: React.FC = () => {
           onClose={(name) => {
             setShowGuestNameDialog(false);
             setEditingPlayerId(null);
-            // Refresh players to update name immediately
-            if (refreshPlayers) {
-              refreshPlayers();
+            // Update guest name via socket - socket event will update UI for both players
+            if (updateGuestName && name) {
+              updateGuestName(name);
             }
           }}
           initialName={getGuestName()}

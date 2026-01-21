@@ -54,6 +54,7 @@ interface GameActionsContextType {
   leaveRoom: () => Promise<void>;
   clearPendingUndo: () => void;
   refreshPlayers: () => void;
+  updateGuestName: (guestName: string) => void;
 }
 
 // Combined type for backward compatibility
@@ -95,6 +96,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Refs for cleanup and latest values
   const rafIdRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true); // Track if component is mounted (for RAF race condition fix)
   const isAuthenticatedRef = useRef(isAuthenticated);
   const userRef = useRef(user);
   const myPlayerNumberRef = useRef(myPlayerNumber);
@@ -145,6 +147,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 cancelAnimationFrame(rafIdRef.current);
               }
               rafIdRef.current = requestAnimationFrame(() => {
+                // Check isMounted to prevent state update on unmounted component (fixes C1 RAF race condition)
+                if (!isMountedRef.current) return;
                 setMyPlayerNumber(playerNumber);
                 rafIdRef.current = null;
               });
@@ -162,6 +166,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     return () => {
+      isMountedRef.current = false;
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
@@ -175,13 +180,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Mark that a reload is pending
     pendingReloadRef.current = true;
 
-    // Clear any existing debounce timeout
+    // Clear any existing debounce timeout and remove from pending array (fixes H1)
     if (reloadGameDebounceRef.current) {
       clearTimeout(reloadGameDebounceRef.current);
+      const index = pendingTimeoutsRef.current.indexOf(reloadGameDebounceRef.current);
+      if (index > -1) pendingTimeoutsRef.current.splice(index, 1);
     }
 
     // Debounce: wait 150ms before making API call
-    reloadGameDebounceRef.current = setTimeout(async () => {
+    const timeoutId = setTimeout(async () => {
       if (!isMounted.current || !pendingReloadRef.current) return;
 
       const currentRoomId = roomIdRef.current;
@@ -220,8 +227,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logger.error('Failed to reload game state:', error);
       } finally {
         pendingReloadRef.current = false;
+        // Remove self from pending timeouts
+        const index = pendingTimeoutsRef.current.indexOf(timeoutId);
+        if (index > -1) pendingTimeoutsRef.current.splice(index, 1);
       }
-    }, 150);
+    }, 150) as NodeJS.Timeout;
+
+    reloadGameDebounceRef.current = timeoutId;
+    pendingTimeoutsRef.current.push(timeoutId); // Track timeout for cleanup (fixes H1)
   }, []);
 
   // Socket listeners setup - runs when socket connects/disconnects
@@ -777,6 +790,44 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
     };
 
+    // Handle guest name updated - sync opponent name in realtime
+    const handleGuestNameUpdated = (data: { playerNumber: 1 | 2; guestName: string; guestId: string }) => {
+      if (!isMountedRef.current) return;
+
+      // Validate data structure
+      if (!data || typeof data.playerNumber !== 'number' || !data.guestName || !data.guestId) {
+        logger.error('[GameContext] Invalid guest-name-updated data:', data);
+        return;
+      }
+
+      if (data.playerNumber !== 1 && data.playerNumber !== 2) {
+        logger.error('[GameContext] Invalid playerNumber in guest-name-updated:', data.playerNumber);
+        return;
+      }
+
+      // Update players list with new guest name
+      setPlayers(prevPlayers => {
+        return prevPlayers.map(player => {
+          if (player.playerNumber === data.playerNumber && player.isGuest && player.id === data.guestId) {
+            return { ...player, username: data.guestName };
+          }
+          return player;
+        });
+      });
+
+      // Also update game state with new guest name
+      setGame(prevGame => {
+        if (!prevGame) return prevGame;
+        if (data.playerNumber === 1) {
+          return { ...prevGame, player1GuestName: data.guestName };
+        } else {
+          return { ...prevGame, player2GuestName: data.guestName };
+        }
+      });
+
+      logger.log('[GameContext] Guest name updated:', data);
+    };
+
     socket.on('room-joined', handleRoomJoined);
     socket.on('player-joined', handlePlayerJoined);
     socket.on('player-left', handlePlayerLeft);
@@ -791,7 +842,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     socket.on('game-started', handleGameStarted);
     socket.on('game-reset', handleGameReset);
     socket.on('game-error', handleGameError);
-    socket.on('marker-updated' as any, handleMarkerUpdated);
+    socket.on('marker-updated', handleMarkerUpdated);
+    socket.on('guest-name-updated', handleGuestNameUpdated);
 
     return () => {
       isMountedRef.current = false;
@@ -813,7 +865,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       socket.off('game-started', handleGameStarted);
       socket.off('game-reset', handleGameReset);
       socket.off('game-error', handleGameError);
-      socket.off('marker-updated' as any, handleMarkerUpdated);
+      socket.off('marker-updated', handleMarkerUpdated);
+      socket.off('guest-name-updated', handleGuestNameUpdated);
     };
   }, [debouncedReloadGame, socketConnected]);
 
@@ -1016,11 +1069,44 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
     } catch (error) {
-      // Safety: catch any errors during refresh
-      console.error('[GameContext] Error refreshing players:', error);
+      // Safety: catch any errors during refresh - reset to safe state (fixes M1)
       logger.error('[GameContext] Error refreshing players:', error);
+      setPlayers([]);
     }
   }, [game]);
+
+  // Update guest name and sync to opponent via socket
+  const updateGuestName = useCallback((guestName: string): void => {
+    // Validate input early to avoid unnecessary socket roundtrip (fixes M2)
+    const trimmed = guestName.trim();
+    if (!trimmed || trimmed.length > 20) {
+      logger.warn('[GameContext] Invalid guest name:', guestName);
+      return;
+    }
+
+    const currentRoomId = roomIdRef.current;
+    if (!currentRoomId) return;
+
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    // Optimistic update for immediate UI feedback (fixes M3)
+    const currentMyPlayerNumber = myPlayerNumberRef.current;
+    if (currentMyPlayerNumber) {
+      setPlayers(prev => prev.map(p =>
+        p.playerNumber === currentMyPlayerNumber && p.isGuest ? { ...p, username: trimmed } : p
+      ));
+      setGame(prev => {
+        if (!prev) return prev;
+        if (currentMyPlayerNumber === 1) return { ...prev, player1GuestName: trimmed };
+        if (currentMyPlayerNumber === 2) return { ...prev, player2GuestName: trimmed };
+        return prev;
+      });
+    }
+
+    // Emit socket event to update guest name in realtime
+    socket.emit('update-guest-name', { roomId: currentRoomId, guestName: trimmed });
+  }, []);
 
   // ============================================================================
   // Derived State
@@ -1064,7 +1150,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     leaveRoom,
     clearPendingUndo,
     refreshPlayers,
-  }), [joinRoom, makeMove, requestUndo, approveUndo, rejectUndo, surrender, startGame, newGame, leaveRoom, clearPendingUndo, refreshPlayers]);
+    updateGuestName,
+  }), [joinRoom, makeMove, requestUndo, approveUndo, rejectUndo, surrender, startGame, newGame, leaveRoom, clearPendingUndo, refreshPlayers, updateGuestName]);
 
   // Combined context for backward compatibility
   const combinedValue = useMemo<GameContextType>(() => ({

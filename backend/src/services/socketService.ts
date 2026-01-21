@@ -12,6 +12,7 @@ import { saveGameHistoryIfFinished } from './gameHistoryService';
 // Throttle map for global broadcasts (fixes Issue #9: Unthrottled global socket broadcasts)
 const lastBroadcastTime = new Map<string, number>();
 const BROADCAST_THROTTLE_MS = 100; // Min 100ms between same-type broadcasts
+const MAX_BROADCAST_EVENT_TYPES = 50; // Prevent unbounded growth (fixes C3)
 
 // Throttled broadcast helper - prevents spam to all clients
 const throttledBroadcast = (io: SocketIOServer, event: string, data: any): boolean => {
@@ -20,6 +21,14 @@ const throttledBroadcast = (io: SocketIOServer, event: string, data: any): boole
   if (now - lastTime < BROADCAST_THROTTLE_MS) {
     return false; // Skip this broadcast
   }
+
+  // Prevent map growth beyond max event types
+  if (lastBroadcastTime.size >= MAX_BROADCAST_EVENT_TYPES && !lastBroadcastTime.has(event)) {
+    // Evict oldest entry
+    const oldest = [...lastBroadcastTime.entries()].sort((a, b) => a[1] - b[1])[0];
+    if (oldest) lastBroadcastTime.delete(oldest[0]);
+  }
+
   lastBroadcastTime.set(event, now);
   io.emit(event, data);
   return true;
@@ -471,6 +480,61 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
       socketData.currentRoomId = undefined;
     });
 
+    // Update guest name - sync to opponent in realtime
+    socket.on('update-guest-name', async (data: { roomId: string; guestName: string }) => {
+      try {
+        const { roomId, guestName } = data;
+
+        // Validate guest name
+        if (!guestName || typeof guestName !== 'string' || guestName.trim().length === 0) {
+          socket.emit('game-error', { message: 'Invalid guest name' });
+          return;
+        }
+
+        const trimmedName = guestName.trim();
+        if (trimmedName.length > 20) {
+          socket.emit('game-error', { message: 'Guest name too long (max 20 characters)' });
+          return;
+        }
+
+        const game = await Game.findOne({ roomId });
+        if (!game) {
+          socket.emit('game-error', { message: 'Game not found' });
+          return;
+        }
+
+        // Determine which player is updating (must be a guest)
+        let playerNumber: 1 | 2 | null = null;
+
+        if (socketData.playerId) {
+          if (game.player1GuestId === socketData.playerId) {
+            playerNumber = 1;
+            game.player1GuestName = trimmedName;
+          } else if (game.player2GuestId === socketData.playerId) {
+            playerNumber = 2;
+            game.player2GuestName = trimmedName;
+          }
+        }
+
+        if (!playerNumber) {
+          socket.emit('game-error', { message: 'Only guests can update their name' });
+          return;
+        }
+
+        await game.save();
+
+        // Broadcast to all players in room (including sender for confirmation)
+        io.to(roomId).emit('guest-name-updated', {
+          playerNumber,
+          guestName: trimmedName,
+          guestId: socketData.playerId,
+        });
+      } catch (error: any) {
+        console.error('[update-guest-name] Error:', error.message);
+        socket.emit('game-error', { message: error.message });
+      }
+    });
+
     // Disconnect - Optimized to reduce DB queries (fixes Issue #4: N+1 Database Queries)
     // Reduced from 5-7 sequential queries to 1-2 queries using lean() and upsert
     socket.on('disconnect', async () => {
@@ -631,6 +695,9 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
       } catch (error: any) {
         console.error('[socket disconnect] Error:', error.message);
         io.to(roomId).emit('player-left', { playerId: playerId || 'guest', roomId });
+      } finally {
+        // Clear socket.data to prevent memory leak (fixes C4)
+        socket.data = {};
       }
     });
   });

@@ -128,6 +128,21 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
         t={t}
       />
 
+      {/* User Name Display - Above divider to prevent layout jumping */}
+      <UserNameDisplay
+        isAuthenticated={isAuthenticated}
+        user={user}
+        sidebarCollapsed={sidebarCollapsed}
+        isMobile={isMobile}
+        t={t}
+        onEditGuestName={onEditGuestName ? () => {
+          onEditGuestName();
+          if (isMobile) {
+            setSidebarOpen(false);
+          }
+        } : undefined}
+      />
+
       {/* Auth Section */}
       <Divider sx={{ borderColor: 'rgba(126, 200, 227, 0.12)', mx: 0, mt: 'auto' }} />
       <AuthSection
@@ -149,12 +164,6 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
             setSidebarOpen(false);
           }
         }}
-        onEditGuestName={onEditGuestName ? () => {
-          onEditGuestName();
-          if (isMobile) {
-            setSidebarOpen(false);
-          }
-        } : undefined}
       />
     </Drawer>
   );
@@ -394,7 +403,93 @@ const GameList: React.FC<GameListProps> = ({ games, selectedGame, setSelectedGam
   </List>
 );
 
-// Auth Section sub-component
+// User Name Display - Separate component above divider to prevent layout jumping
+interface UserNameDisplayProps {
+  isAuthenticated: boolean;
+  user: { username?: string } | null;
+  sidebarCollapsed: boolean;
+  isMobile: boolean;
+  t: (key: string) => string;
+  onEditGuestName?: () => void;
+}
+
+const UserNameDisplay: React.FC<UserNameDisplayProps> = ({
+  isAuthenticated,
+  user,
+  sidebarCollapsed,
+  isMobile,
+  t,
+  onEditGuestName,
+}) => {
+  const guestName = getGuestName();
+  const shouldShow = isAuthenticated ? true : !!guestName;
+  const displayName = isAuthenticated ? (user?.username || 'User') : guestName;
+  const label = isAuthenticated ? t('home.loggedInAs') : (t('home.guestName') || 'Tên hiển thị');
+
+  // Hide completely when collapsed on desktop to avoid layout jump
+  if (sidebarCollapsed && !isMobile) return null;
+  if (!shouldShow) return null;
+
+  return (
+    <Box sx={{ px: 2, pb: 2, mt: 'auto' }}>
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: 2.5,
+          background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
+          border: '1px solid rgba(126, 200, 227, 0.2)',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: '#5a6a7a',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            👤 {label}
+          </Typography>
+          {!isAuthenticated && onEditGuestName && (
+            <IconButton
+              size="small"
+              onClick={onEditGuestName}
+              sx={{
+                width: 24,
+                height: 24,
+                color: '#7ec8e3',
+                '&:hover': {
+                  background: 'rgba(126, 200, 227, 0.15)',
+                },
+              }}
+            >
+              <EditIcon sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          )}
+        </Box>
+        <Typography
+          variant="body1"
+          sx={{
+            color: '#2c3e50',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {displayName}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+// Auth Section sub-component - Contains only toggle button and action buttons
 interface AuthSectionProps {
   isAuthenticated: boolean;
   user: { username?: string } | null;
@@ -405,7 +500,6 @@ interface AuthSectionProps {
   isMobile: boolean;
   t: (key: string) => string;
   onClose?: () => void;
-  onEditGuestName?: () => void;
 }
 
 const AuthSection: React.FC<AuthSectionProps> = ({
@@ -418,7 +512,6 @@ const AuthSection: React.FC<AuthSectionProps> = ({
   isMobile,
   t,
   onClose,
-  onEditGuestName,
 }) => (
   <Box sx={{ p: 2 }}>
     {/* Toggle Button - Desktop only */}
@@ -446,7 +539,6 @@ const AuthSection: React.FC<AuthSectionProps> = ({
 
     {isAuthenticated ? (
       <AuthenticatedSection
-        user={user}
         logout={logout}
         onHistoryClick={onHistoryClick}
         sidebarCollapsed={sidebarCollapsed}
@@ -461,15 +553,13 @@ const AuthSection: React.FC<AuthSectionProps> = ({
         isMobile={isMobile}
         t={t}
         onClose={onClose}
-        onEditGuestName={onEditGuestName}
       />
     )}
   </Box>
 );
 
-// Authenticated user section
+// Authenticated user section - Only action buttons (user info moved to UserNameDisplay)
 interface AuthenticatedSectionProps {
-  user: { username?: string } | null;
   logout: () => void;
   onHistoryClick: () => void;
   sidebarCollapsed: boolean;
@@ -479,7 +569,6 @@ interface AuthenticatedSectionProps {
 }
 
 const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
-  user,
   logout,
   onHistoryClick,
   sidebarCollapsed,
@@ -517,55 +606,6 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
 
   return (
     <>
-      {/* User info */}
-      <Box
-        sx={{
-          mb: 2,
-          opacity: sidebarCollapsed && !isMobile ? 0 : 1,
-          height: sidebarCollapsed && !isMobile ? 0 : 'auto',
-          overflow: 'hidden',
-          transition: 'opacity 0.25s ease, height 0.25s ease',
-        }}
-      >
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: 2.5,
-            background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
-            border: '1px solid rgba(126, 200, 227, 0.2)',
-            mb: 1.5,
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              color: '#5a6a7a',
-              fontWeight: 600,
-              fontSize: '0.75rem',
-              mb: 0.5,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            👤 {t('home.loggedInAs')}
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{
-              color: '#2c3e50',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {user?.username || 'User'}
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Auth buttons */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Button 
@@ -611,14 +651,13 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = ({
   );
 };
 
-// Unauthenticated user section
+// Unauthenticated user section - Only action buttons (guest name moved to UserNameDisplay)
 interface UnauthenticatedSectionProps {
   onHistoryClick: () => void;
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
   onClose?: () => void;
-  onEditGuestName?: () => void;
 }
 
 const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
@@ -627,7 +666,6 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
   isMobile,
   t,
   onClose,
-  onEditGuestName,
 }) => {
   const iconMargin = { mr: sidebarCollapsed && !isMobile ? 0 : 1, transition: 'margin 0.25s ease' };
   const textSx = {
@@ -638,77 +676,8 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = ({
     transition: 'opacity 0.25s ease, width 0.25s ease',
   };
 
-  const guestName = getGuestName();
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      {/* Guest Name Display */}
-      {guestName && (
-        <Box
-          sx={{
-            mb: 2,
-            opacity: sidebarCollapsed && !isMobile ? 0 : 1,
-            height: sidebarCollapsed && !isMobile ? 0 : 'auto',
-            overflow: 'hidden',
-            transition: 'opacity 0.25s ease, height 0.25s ease',
-          }}
-        >
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 2.5,
-              background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
-              border: '1px solid rgba(126, 200, 227, 0.2)',
-              mb: 1.5,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: '#5a6a7a',
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                👤 {t('home.guestName') || 'Tên hiển thị'}
-              </Typography>
-              {onEditGuestName && (
-                <IconButton
-                  size="small"
-                  onClick={onEditGuestName}
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    color: '#7ec8e3',
-                    '&:hover': {
-                      background: 'rgba(126, 200, 227, 0.15)',
-                    },
-                  }}
-                >
-                  <EditIcon sx={{ fontSize: '0.9rem' }} />
-                </IconButton>
-              )}
-            </Box>
-            <Typography
-              variant="body1"
-              sx={{
-                color: '#2c3e50',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {guestName}
-            </Typography>
-          </Box>
-        </Box>
-      )}
       <Button
         onClick={onHistoryClick}
         sx={{

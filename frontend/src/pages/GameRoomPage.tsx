@@ -31,7 +31,7 @@ const GameRoomPage: React.FC = () => {
   const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, refreshPlayers } = useGame();
+  const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, updateGuestName } = useGame();
   const { isAuthenticated } = useAuth();
   
   // Guest name dialog state
@@ -236,9 +236,11 @@ const GameRoomPage: React.FC = () => {
     setGuestNameSet(true);
     setShowGuestNameDialog(false);
     logger.log('[GameRoomPage] Guest name set:', name);
-    // Immediately refresh players to update the name
-    refreshPlayers();
-  }, [refreshPlayers]);
+    // Update guest name via socket - socket event will update UI for both players
+    if (updateGuestName && name) {
+      updateGuestName(name);
+    }
+  }, [updateGuestName]);
 
   // Loading state
   if (loading || !game) {
@@ -279,7 +281,9 @@ const GameRoomPage: React.FC = () => {
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 30%, #f0f9ff 100%)',
           position: 'relative',
-          overflow: 'hidden',
+          // CRITICAL FIX: Allow horizontal scroll on mobile for GameBoard, hide on desktop for decorative elements
+          overflow: { xs: 'visible', lg: 'hidden' },
+          overflowX: { xs: 'auto', lg: 'hidden' },
           contain: 'layout style paint',
           transform: 'translateZ(0)',
           '&::before': {

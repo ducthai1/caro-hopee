@@ -96,6 +96,24 @@ export const validateGameSubmission = async (
  */
 const nonceCache = new Map<string, number>(); // In-memory cache (use Redis in production)
 const NONCE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_NONCE_CACHE_SIZE = 10000; // Prevent unbounded growth
+
+// Cleanup interval for nonce cache - prevents memory leak (fixes C1)
+const nonceCacheCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [nonce, timestamp] of nonceCache) {
+    if (now - timestamp > NONCE_TTL) {
+      nonceCache.delete(nonce);
+    }
+  }
+  // LRU eviction if still over max size
+  if (nonceCache.size > MAX_NONCE_CACHE_SIZE) {
+    const entries = [...nonceCache.entries()].sort((a, b) => a[1] - b[1]);
+    const toDelete = entries.slice(0, entries.length - MAX_NONCE_CACHE_SIZE);
+    toDelete.forEach(([key]) => nonceCache.delete(key));
+  }
+}, 60 * 1000); // Cleanup every 1 minute
+nonceCacheCleanupInterval.unref(); // Don't block process exit
 
 async function checkNonce(nonce: string, timestamp: number): Promise<ValidationResult> {
   if (!nonce || typeof nonce !== 'string') {
@@ -112,6 +130,13 @@ async function checkNonce(nonce: string, timestamp: number): Promise<ValidationR
       isValid: false,
       reason: 'Nonce already used (replay attack detected)',
     };
+  }
+
+  // Check cache size before adding
+  if (nonceCache.size >= MAX_NONCE_CACHE_SIZE) {
+    // Evict oldest entry
+    const oldest = [...nonceCache.entries()].sort((a, b) => a[1] - b[1])[0];
+    if (oldest) nonceCache.delete(oldest[0]);
   }
 
   // Store nonce with TTL
@@ -147,6 +172,24 @@ function checkTimestamp(timestamp: number): ValidationResult {
 const rateLimitCache = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX = 10; // Max 10 submissions per minute
+const MAX_RATE_LIMIT_CACHE_SIZE = 5000; // Prevent unbounded growth
+
+// Cleanup interval for rate limit cache - prevents memory leak (fixes C2)
+const rateLimitCacheCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [identifier, data] of rateLimitCache) {
+    if (now > data.resetAt) {
+      rateLimitCache.delete(identifier);
+    }
+  }
+  // LRU eviction if still over max size
+  if (rateLimitCache.size > MAX_RATE_LIMIT_CACHE_SIZE) {
+    const entries = [...rateLimitCache.entries()].sort((a, b) => a[1].resetAt - b[1].resetAt);
+    const toDelete = entries.slice(0, entries.length - MAX_RATE_LIMIT_CACHE_SIZE);
+    toDelete.forEach(([key]) => rateLimitCache.delete(key));
+  }
+}, 2 * 60 * 1000); // Cleanup every 2 minutes
+rateLimitCacheCleanupInterval.unref(); // Don't block process exit
 
 async function checkRateLimit(
   userId: string | null,
@@ -158,6 +201,13 @@ async function checkRateLimit(
   const limit = rateLimitCache.get(identifier);
 
   if (!limit || now > limit.resetAt) {
+    // Check cache size before adding new entry
+    if (rateLimitCache.size >= MAX_RATE_LIMIT_CACHE_SIZE) {
+      // Evict entry with earliest resetAt
+      const oldest = [...rateLimitCache.entries()].sort((a, b) => a[1].resetAt - b[1].resetAt)[0];
+      if (oldest) rateLimitCache.delete(oldest[0]);
+    }
+
     // Reset or create new limit
     rateLimitCache.set(identifier, {
       count: 1,

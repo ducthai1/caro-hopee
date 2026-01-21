@@ -13,6 +13,7 @@ export interface ClientToServerEvents {
   'start-game': (data: { roomId: string }) => void;
   'new-game': (data: { roomId: string }) => void;
   'update-rules': (data: { roomId: string; rules: GameRules }) => void;
+  'update-guest-name': (data: { roomId: string; guestName: string }) => void;
 }
 
 // Server → Client Events
@@ -48,5 +49,6 @@ export interface ServerToClientEvents {
   'game-created': (data: { roomId: string; roomCode: string; boardSize: number; gameStatus: string; player1Username: string | null; createdAt: string }) => void;
   'game-status-updated': (data: { roomId: string; roomCode: string; gameStatus: string; displayStatus: 'waiting' | 'ready' | 'playing'; playerCount: number; isFull: boolean }) => void;
   'marker-updated': (data: { playerNumber: 1 | 2; marker: string }) => void;
+  'guest-name-updated': (data: { playerNumber: 1 | 2; guestName: string; guestId: string }) => void;
 }
 
