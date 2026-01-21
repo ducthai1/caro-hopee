@@ -1,10 +1,11 @@
 /**
- * MobileBottomSheet - Bottom sheet for game controls on mobile devices
+ * MobileBottomSheet - Top bar for game controls on mobile devices
+ * (Renamed from bottom sheet but keeping export name for compatibility)
  */
 import React from 'react';
 import { Box, Typography, IconButton, Collapse } from '@mui/material';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useLanguage } from '../../i18n';
 import RoomCodeDisplay from '../RoomCodeDisplay';
 import GameInfo from '../GameInfo/GameInfo';
@@ -49,38 +50,17 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
     <Box
       sx={{
         position: 'fixed',
-        bottom: 0,
+        top: 0,
         left: 0,
         right: 0,
         zIndex: 1000,
         bgcolor: '#ffffff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.1)',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
         transition: 'transform 0.3s ease',
       }}
     >
-      {/* Handle Bar */}
-      <Box
-        onClick={() => setExpanded(!expanded)}
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          py: 1,
-          cursor: 'pointer',
-        }}
-      >
-        <Box
-          sx={{
-            width: 40,
-            height: 4,
-            borderRadius: 2,
-            bgcolor: 'rgba(126, 200, 227, 0.3)',
-          }}
-        />
-      </Box>
-
       {/* Collapsed View */}
       <CollapsedView
         game={game}
@@ -100,6 +80,27 @@ const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
           t={t}
         />
       </Collapse>
+
+      {/* Handle Bar - at bottom for top bar */}
+      <Box
+        onClick={() => setExpanded(!expanded)}
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          py: 1,
+          cursor: 'pointer',
+        }}
+      >
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            borderRadius: 2,
+            bgcolor: 'rgba(126, 200, 227, 0.3)',
+          }}
+        />
+      </Box>
     </Box>
   );
 };
@@ -114,7 +115,7 @@ interface CollapsedViewProps {
 }
 
 const CollapsedView: React.FC<CollapsedViewProps> = ({ game, players, expanded, setExpanded, t }) => (
-  <Box sx={{ px: 2, pb: expanded ? 1 : 2 }}>
+  <Box sx={{ px: 2, pt: 2, pb: expanded ? 1 : 0 }}>
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
       {/* Room Code Mini */}
       <Box sx={{ flex: 1 }}>
@@ -181,7 +182,7 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({ game, players, expanded, 
           '&:hover': { bgcolor: 'rgba(126, 200, 227, 0.2)' },
         }}
       >
-        {expanded ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
       </IconButton>
     </Box>
   </Box>
@@ -197,7 +198,7 @@ interface ExpandedContentProps {
 }
 
 const ExpandedContent: React.FC<ExpandedContentProps> = ({ game, players, myPlayerNumber, onLeaveGame, t }) => (
-  <Box sx={{ px: 2, pb: 3, maxHeight: '50vh', overflowY: 'auto' }}>
+  <Box sx={{ px: 2, pb: 2, maxHeight: '50vh', overflowY: 'auto' }}>
     {/* Room Code Full */}
     <Box sx={{ mb: 2 }}>
       <RoomCodeDisplay roomCode={game.roomCode} />

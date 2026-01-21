@@ -45,11 +45,14 @@ const GameCell: React.FC<GameCellProps> = ({
               objectFit: 'contain',
               maxWidth: `${cellSize * 0.8}px`,
               maxHeight: `${cellSize * 0.8}px`,
+              position: 'relative',
+              zIndex: 1,
             }}
           />
         );
       }
-      return marker;
+      // Text marker - wrap in span with z-index
+      return <span style={{ position: 'relative', zIndex: 1 }}>{marker}</span>;
     } else if (value === 2) {
       const marker = player2Marker || '○';
       // Safety check: ensure marker is a string
@@ -67,11 +70,14 @@ const GameCell: React.FC<GameCellProps> = ({
               objectFit: 'contain',
               maxWidth: `${cellSize * 0.8}px`,
               maxHeight: `${cellSize * 0.8}px`,
+              position: 'relative',
+              zIndex: 1,
             }}
           />
         );
       }
-      return marker;
+      // Text marker - wrap in span with z-index
+      return <span style={{ position: 'relative', zIndex: 1 }}>{marker}</span>;
     }
     return '';
   };
@@ -140,6 +146,8 @@ const GameCell: React.FC<GameCellProps> = ({
           right: 0,
           bottom: 0,
           animation: 'fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 0, // Behind the marker content
+          pointerEvents: 'none',
         } : {},
         '@keyframes fadeIn': {
           from: { 

@@ -20,9 +20,11 @@ const LanguageSwitcher: React.FC = memo(() => {
     <Box
       sx={{
         position: 'fixed',
-        top: 16,
+        // Mobile: below top bar, Desktop: top right
+        top: { xs: 'auto', lg: 16 },
+        bottom: { xs: 16, lg: 'auto' },
         right: 16,
-        zIndex: 1200,
+        zIndex: 999, // Below mobile top bar (1000)
       }}
     >
       <ToggleButtonGroup

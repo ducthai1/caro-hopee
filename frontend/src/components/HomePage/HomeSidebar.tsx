@@ -431,7 +431,7 @@ const UserNameDisplay: React.FC<UserNameDisplayProps> = ({
   if (!shouldShow) return null;
 
   return (
-    <Box sx={{ px: 2, pb: 2, mt: 'auto' }}>
+    <Box sx={{ px: 2, mb: 2, mt: 'auto' }}>
       <Box
         sx={{
           p: 2,

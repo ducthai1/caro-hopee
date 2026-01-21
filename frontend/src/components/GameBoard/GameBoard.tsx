@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { Box, Paper, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Paper } from '@mui/material';
 import GameCell from './GameCell';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
@@ -7,8 +7,6 @@ import { useLanguage } from '../../i18n';
 const GameBoard: React.FC = () => {
   const { game, isMyTurn, makeMove, lastMove } = useGame();
   const { t } = useLanguage();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const containerRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(50);
@@ -120,42 +118,23 @@ const GameBoard: React.FC = () => {
     <Box
       ref={containerRef}
       sx={{
+        // Fill available width but never exceed it
         width: '100%',
-        maxWidth: { xs: '100%', md: '800px' }, // Full width on mobile for horizontal scroll
-        display: 'flex',
-        // CRITICAL FIX: On mobile, use flex-start to allow full scroll access to left side
-        // On desktop, use center for aesthetic centering
-        justifyContent: { xs: 'flex-start', md: 'center' },
-        alignItems: 'center',
-        margin: '0 auto',
+        maxWidth: '100%',
+        display: 'block',
         mb: 3,
-        mx: 'auto',
-        // CRITICAL FIX FOR MOBILE: Enable horizontal scrolling on mobile
-        overflowX: { xs: 'auto', md: 'visible' },
+        // Desktop: center the inline-block Paper, Mobile: left align for scroll
+        textAlign: { xs: 'left', md: 'center' },
+        // Enable horizontal scroll for board larger than container
+        overflowX: 'auto',
         overflowY: 'visible',
-        // Enable smooth scrolling on mobile
         WebkitOverflowScrolling: 'touch',
-        // Prevent vertical scroll interference
-        touchAction: { xs: 'pan-x pan-y', md: 'auto' },
-        // Custom scrollbar styling for mobile
-        '&::-webkit-scrollbar': {
-          height: '8px',
-          display: { xs: 'block', md: 'none' },
-        },
-        '&::-webkit-scrollbar-track': {
-          background: 'rgba(126, 200, 227, 0.1)',
-          borderRadius: '4px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          background: 'rgba(126, 200, 227, 0.3)',
-          borderRadius: '4px',
-          '&:hover': {
-            background: 'rgba(126, 200, 227, 0.5)',
-          },
-        },
-        // Firefox scrollbar
-        scrollbarWidth: { xs: 'thin', md: 'none' },
-        scrollbarColor: { xs: 'rgba(126, 200, 227, 0.3) rgba(126, 200, 227, 0.1)', md: 'transparent transparent' },
+        // Scrollbar styling
+        '&::-webkit-scrollbar': { height: '8px' },
+        '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.1)', borderRadius: '4px' },
+        '&::-webkit-scrollbar-thumb': { background: 'rgba(126, 200, 227, 0.3)', borderRadius: '4px' },
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(126, 200, 227, 0.3) rgba(126, 200, 227, 0.1)',
       }}
     >
       <Paper
@@ -167,27 +146,21 @@ const GameBoard: React.FC = () => {
           boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
           border: '2px solid rgba(126, 200, 227, 0.2)',
           transition: 'all 0.3s ease',
-          // CRITICAL FIX FOR MOBILE: Prevent Paper from shrinking on mobile
-          minWidth: { xs: `${game.boardSize * 40}px`, md: 'auto' }, // Minimum width for mobile scroll
-          width: { xs: 'max-content', md: 'auto' }, // Allow content to determine width on mobile
+          // Inline-block: Paper sizes based on grid content, allows scroll
+          display: 'inline-block',
         }}
       >
         <Box
           sx={{
             position: 'relative',
             display: 'grid',
-            // CRITICAL FIX FOR MOBILE: Use fixed size on mobile for horizontal scroll, 1fr on desktop
-            gridTemplateColumns: isMobile 
-              ? `repeat(${game.boardSize}, ${cellSize}px)` 
-              : `repeat(${game.boardSize}, 1fr)`,
+            // Fixed cell size - grid auto-sizes to fit all cells
+            gridTemplateColumns: `repeat(${game.boardSize}, ${cellSize}px)`,
             gap: 0,
             border: '3px solid #7ec8e3',
             borderRadius: 2,
-            overflow: 'hidden',
+            // IMPORTANT: No overflow hidden - let border show naturally
             boxShadow: 'inset 0 2px 8px rgba(126, 200, 227, 0.1)',
-            // CRITICAL FIX FOR MOBILE: Ensure board maintains its size on mobile for horizontal scroll
-            width: isMobile ? `${game.boardSize * cellSize}px` : 'auto',
-            minWidth: isMobile ? `${game.boardSize * cellSize}px` : 'auto',
           }}
           ref={boardRef}
         >

@@ -281,16 +281,15 @@ const GameRoomPage: React.FC = () => {
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #f8fbff 0%, #ffffff 30%, #f0f9ff 100%)',
           position: 'relative',
-          // CRITICAL FIX: Allow horizontal scroll on mobile for GameBoard, hide on desktop for decorative elements
-          overflow: { xs: 'visible', lg: 'hidden' },
-          overflowX: { xs: 'auto', lg: 'hidden' },
+          // Hide all overflow at page level - scroll only in GameBoard
+          overflow: 'hidden',
           contain: 'layout style paint',
           transform: 'translateZ(0)',
           '&::before': {
             content: '""',
             position: 'absolute',
-            top: -50,
-            right: -50,
+            top: 0,
+            right: 0,
             width: 300,
             height: 300,
             borderRadius: '50%',
@@ -302,8 +301,8 @@ const GameRoomPage: React.FC = () => {
           '&::after': {
             content: '""',
             position: 'absolute',
-            bottom: -100,
-            left: -100,
+            bottom: 0,
+            left: 0,
             width: 400,
             height: 400,
             borderRadius: '50%',
@@ -353,22 +352,22 @@ const GameRoomPage: React.FC = () => {
             justifyContent: 'center',
             alignItems: { xs: 'flex-start', lg: 'center' },
             minHeight: { xs: 'calc(100vh - 80px)', lg: 'calc(100vh - 40px)' },
-            py: { xs: 2, md: 3 },
-            pb: { xs: '100px', lg: 3 },
+            // Mobile: top padding for top bar, Desktop: normal padding
+            pt: { xs: '90px', lg: 3 },
+            pb: { xs: 2, lg: 3 },
             width: { lg: 'calc(100% - 656px)' },
-            // CRITICAL FIX FOR MOBILE: Enable horizontal scroll on mobile
-            overflowX: { xs: 'auto', lg: 'visible' },
-            overflowY: 'visible',
-            WebkitOverflowScrolling: 'touch',
+            overflow: 'hidden',
+            px: { xs: 2, lg: 0 },
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            width: { xs: '100%', lg: '100%' },
-            minWidth: { xs: '100%', lg: 'auto' },
-            position: 'relative' 
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: '100%',
+            position: 'relative',
+            overflow: 'hidden',
           }}>
             {isWaiting ? (
               <WaitingState
@@ -388,12 +387,12 @@ const GameRoomPage: React.FC = () => {
                 t={t}
               />
             ) : (
-              <Box sx={{ 
-                width: { xs: '100%', lg: '100%' },
-                minWidth: { xs: '100%', lg: 'auto' },
-                display: 'flex', 
-                justifyContent: 'center', 
-                position: 'relative' 
+              <Box sx={{
+                width: '100%',
+                maxWidth: '100%',
+                display: 'block',
+                position: 'relative',
+                overflow: 'hidden',
               }}>
                 <GameErrorBoundary roomId={roomId}>
                   <GameBoard />
