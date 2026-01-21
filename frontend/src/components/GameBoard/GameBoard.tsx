@@ -129,6 +129,11 @@ const GameBoard: React.FC = () => {
         overflowX: 'auto',
         overflowY: 'visible',
         WebkitOverflowScrolling: 'touch',
+        // Inner shadow to indicate scrollable area (mobile only)
+        boxShadow: {
+          xs: 'inset 8px 0 8px -8px rgba(126, 200, 227, 0.3), inset -8px 0 8px -8px rgba(126, 200, 227, 0.3)',
+          md: 'none'
+        },
         // Scrollbar styling
         '&::-webkit-scrollbar': { height: '8px' },
         '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.1)', borderRadius: '4px' },

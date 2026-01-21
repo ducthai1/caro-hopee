@@ -84,7 +84,9 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           position: 'fixed',
           top: 0,
           left: 0,
-          height: '100vh',
+          // Mobile: account for safe area at bottom
+          height: isMobile ? 'calc(100vh - env(safe-area-inset-bottom, 0px))' : '100vh',
+          paddingBottom: isMobile ? 'env(safe-area-inset-bottom, 0px)' : 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
@@ -513,11 +515,7 @@ const AuthSection: React.FC<AuthSectionProps> = ({
   t,
   onClose,
 }) => (
-  <Box sx={{
-    p: 2,
-    // Add safe area padding for mobile devices with navigation bar
-    pb: isMobile ? 'calc(16px + env(safe-area-inset-bottom, 0px))' : 2,
-  }}>
+  <Box sx={{ p: 2 }}>
     {/* Toggle Button - Desktop only */}
     {!isMobile && (
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, position: 'relative', height: 36 }}>

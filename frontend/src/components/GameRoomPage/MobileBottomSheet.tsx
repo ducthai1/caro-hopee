@@ -198,7 +198,14 @@ interface ExpandedContentProps {
 }
 
 const ExpandedContent: React.FC<ExpandedContentProps> = ({ game, players, myPlayerNumber, onLeaveGame, t }) => (
-  <Box sx={{ px: 2, pb: 2, maxHeight: '50vh', overflowY: 'auto' }}>
+  <Box sx={{
+    px: 2,
+    pb: 2,
+    maxHeight: '50vh',
+    overflowY: 'auto',
+    // Inner shadow to indicate scrollable content
+    boxShadow: 'inset 0 8px 8px -8px rgba(126, 200, 227, 0.25), inset 0 -8px 8px -8px rgba(126, 200, 227, 0.25)',
+  }}>
     {/* Room Code Full */}
     <Box sx={{ mb: 2 }}>
       <RoomCodeDisplay roomCode={game.roomCode} />
