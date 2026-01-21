@@ -138,6 +138,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
         }}
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
+        isAuthenticated={isAuthenticated}
         t={t}
       />
 
@@ -242,11 +243,32 @@ interface GameListProps {
   setSelectedGame: (game: string) => void;
   sidebarCollapsed: boolean;
   isMobile: boolean;
+  isAuthenticated: boolean;
   t: (key: string) => string;
 }
 
-const GameList: React.FC<GameListProps> = ({ games, selectedGame, setSelectedGame, sidebarCollapsed, isMobile, t }) => (
-  <List sx={{ px: 2, py: 2 }}>
+const GameList: React.FC<GameListProps> = ({ games, selectedGame, setSelectedGame, sidebarCollapsed, isMobile, isAuthenticated, t }) => (
+  <List sx={{
+    px: 2,
+    py: 2,
+    // When authenticated: limit height to show ~3 games, enable scroll for rest
+    ...(isAuthenticated && {
+      // Collapsed sidebar on desktop: 442px, otherwise 310px
+      maxHeight: (sidebarCollapsed && !isMobile) ? 442 : 310,
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      // Inner shadow to indicate scrollable content
+      boxShadow: 'inset 0 8px 8px -8px rgba(126, 200, 227, 0.15), inset 0 -8px 8px -8px rgba(126, 200, 227, 0.15)',
+      transition: 'max-height 0.3s ease',
+      '&::-webkit-scrollbar': { width: '4px' },
+      '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(126, 200, 227, 0.2)',
+        borderRadius: '2px',
+        '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
+      },
+    }),
+  }}>
     {games.map((game) => (
       <ListItem key={game.id} disablePadding sx={{ mb: 1 }}>
         <ListItemButton
