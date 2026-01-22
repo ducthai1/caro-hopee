@@ -72,19 +72,6 @@ const LeaderboardPage: React.FC = () => {
     setPeriod(periods[newValue]);
   };
 
-  if (loading) {
-    return (
-      <>
-        <PageHeader hideLeaderboardLink />
-        <Container maxWidth="md" sx={{ py: 8 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-            <CircularProgress sx={{ color: '#7ec8e3' }} />
-          </Box>
-        </Container>
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader hideLeaderboardLink />
@@ -152,6 +139,7 @@ const LeaderboardPage: React.FC = () => {
         )}
       </Box>
 
+      {/* Table - header always visible, only body content changes */}
       <TableContainer
         component={Paper}
         elevation={0}
@@ -164,28 +152,41 @@ const LeaderboardPage: React.FC = () => {
           backgroundClip: 'padding-box, border-box',
           boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
           overflow: 'hidden',
+          minHeight: 200, // Prevent layout shift when content changes
         }}
       >
-        <Table>
+        <Table sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'rgba(126, 200, 227, 0.08)' }}>
-              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>{t('leaderboard.rank')}</TableCell>
-              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>{t('leaderboard.username')}</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>{t('leaderboard.wins')}</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem' }}>{t('leaderboard.score')}</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem', width: '15%' }}>{t('leaderboard.rank')}</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem', width: '45%' }}>{t('leaderboard.username')}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem', width: '20%' }}>{t('leaderboard.wins')}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50', fontSize: '0.95rem', width: '20%' }}>{t('leaderboard.score')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {leaderboard?.rankings.length === 0 ? (
+            {/* Loading state - only in body */}
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body1" sx={{ color: '#5a6a7a' }}>
-                    {t('leaderboard.noPlayers')}
-                  </Typography>
+                <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                  <CircularProgress size={32} sx={{ color: '#7ec8e3' }} />
+                </TableCell>
+              </TableRow>
+            ) : !leaderboard?.rankings?.length ? (
+              /* Empty state with icon - handles null, undefined, or empty array */
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ fontSize: '3rem', opacity: 0.5 }}>🏅</Typography>
+                    <Typography variant="body1" sx={{ color: '#5a6a7a', fontWeight: 500 }}>
+                      {t('leaderboard.noPlayers')}
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              leaderboard?.rankings.map((entry, index) => (
+              /* Data rows */
+              leaderboard.rankings.map((entry, index) => (
                 <TableRow
                   key={entry.userId}
                   sx={{

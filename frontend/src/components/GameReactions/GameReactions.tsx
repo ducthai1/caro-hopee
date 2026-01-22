@@ -58,8 +58,13 @@ const GameReactions: React.FC<GameReactionsProps> = ({ onSendReaction, disabled 
         boxShadow: '0 4px 20px rgba(126, 200, 227, 0.1)',
       }}
     >
-      {/* Emoji buttons row */}
-      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+      {/* Emoji buttons - 2 rows of 3 for better fit */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 0.75,
+        justifyItems: 'center',
+      }}>
         {REACTIONS.map((reaction) => (
           <Tooltip
             key={reaction.id}
@@ -72,9 +77,9 @@ const GameReactions: React.FC<GameReactionsProps> = ({ onSendReaction, disabled 
                 onClick={() => handleReaction(reaction.emoji)}
                 disabled={disabled || isOnCooldown}
                 sx={{
-                  width: 44,
-                  height: 44,
-                  fontSize: '1.4rem',
+                  width: 40,
+                  height: 40,
+                  fontSize: '1.3rem',
                   borderRadius: 2,
                   background: isOnCooldown
                     ? 'rgba(156, 163, 175, 0.1)'
