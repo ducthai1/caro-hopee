@@ -19,7 +19,6 @@ const GameInfo: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
-  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
 
   if (!game) {
     return null;
@@ -142,10 +141,7 @@ const GameInfo: React.FC = () => {
                 {isMyGuestPlayer && (
                   <IconButton
                     size="small"
-                    onClick={() => {
-                      setEditingPlayerId(player.id);
-                      setShowGuestNameDialog(true);
-                    }}
+                    onClick={() => setShowGuestNameDialog(true)}
                     sx={{
                       width: 28,
                       height: 28,
@@ -241,7 +237,6 @@ const GameInfo: React.FC = () => {
           open={showGuestNameDialog}
           onClose={(name) => {
             setShowGuestNameDialog(false);
-            setEditingPlayerId(null);
             // Update guest name via socket - socket event will update UI for both players
             if (updateGuestName && name) {
               updateGuestName(name);

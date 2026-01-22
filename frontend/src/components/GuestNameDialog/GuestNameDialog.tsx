@@ -10,7 +10,6 @@ import {
   TextField,
   Button,
   Typography,
-  Box,
 } from '@mui/material';
 import { useLanguage } from '../../i18n';
 import { setGuestName, getGuestName } from '../../utils/guestName';

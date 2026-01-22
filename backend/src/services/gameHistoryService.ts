@@ -1,4 +1,4 @@
-import Game, { IGame } from '../models/Game';
+import { IGame } from '../models/Game';
 import GameHistory from '../models/GameHistory';
 import mongoose from 'mongoose';
 
