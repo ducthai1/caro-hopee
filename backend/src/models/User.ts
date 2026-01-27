@@ -14,6 +14,7 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
+  role: 'user' | 'admin';
   // Profile fields
   displayName?: string;
   bio?: string;
@@ -48,6 +49,11 @@ const UserSchema: Schema = new Schema({
     type: String,
     required: true,
     minlength: 6,
+  },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
   },
   // Profile fields
   displayName: {

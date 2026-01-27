@@ -11,7 +11,10 @@ import gameRoutes from './routes/gameRoutes';
 import gameStatsRoutes from './routes/gameStatsRoutes';
 import leaderboardRoutes from './routes/leaderboardRoutes';
 import userRoutes from './routes/userRoutes';
+import luckyWheelRoutes from './routes/luckyWheelRoutes';
+import adminRoutes from './routes/adminRoutes';
 import { authLimiter, gameCreationLimiter, gameJoinLimiter, apiLimiter } from './middleware/rateLimiter';
+import { cleanupInactiveGuests } from './controllers/luckyWheelController';
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +41,8 @@ app.use('/api/games', gameRoutes);
 app.use('/api/games', gameStatsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/lucky-wheel', luckyWheelRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
@@ -57,11 +62,28 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 5001;
 
+// Scheduled cleanup job: Delete inactive guest configs every hour
+const startCleanupJob = () => {
+  // Run cleanup immediately on startup
+  cleanupInactiveGuests().then((count) => {
+    console.log(`[Cleanup] Deleted ${count} inactive guest configs on startup`);
+  });
+
+  // Then run every hour
+  setInterval(async () => {
+    const count = await cleanupInactiveGuests();
+    if (count > 0) {
+      console.log(`[Cleanup] Deleted ${count} inactive guest configs`);
+    }
+  }, 60 * 60 * 1000); // 1 hour
+};
+
 const startServer = async () => {
   try {
     await connectDatabase();
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      startCleanupJob();
     });
   } catch (error) {
     console.error('Failed to start server:', error);

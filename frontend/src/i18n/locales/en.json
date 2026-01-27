@@ -93,7 +93,49 @@
     "reset": "Reset",
     "congratulations": "🎉 CONGRATULATIONS! 🎉",
     "result": "🎯 RESULT 🎯",
-    "winnerMessage": "🎡 You spun - {winner} – Keep trying your luck! 🎡"
+    "winnerMessage": "🎡 You spun - {winner} – Keep trying your luck! 🎡",
+    "config": {
+      "title": "Configure Lucky Wheel Options",
+      "button": "Add/Remove Options",
+      "subtitle": "Customize your lucky wheel options (2-12 items)",
+      "itemLabel": "Item",
+      "addItem": "Add Item",
+      "save": "Save Config",
+      "saving": "Saving...",
+      "reset": "Reset",
+      "info": "Changes are automatically saved to the server. You can have between 2 and 12 items.",
+      "emptyLabels": "All items must have labels",
+      "minItems": "At least 2 items are required",
+      "saveError": "Failed to save config",
+      "saveSuccess": "Config saved successfully!"
+    }
+  },
+  "admin": {
+    "luckyWheel": {
+      "title": "Lucky Wheel Admin",
+      "searchPlaceholder": "Search by username or guest name...",
+      "user": "User",
+      "type": "Type",
+      "items": "Items",
+      "lastUpdated": "Last Updated",
+      "actions": "Actions",
+      "authenticated": "Authenticated",
+      "guest": "Guest",
+      "noUsers": "No users found",
+      "total": "Total",
+      "users": "users",
+      "manageConfig": "Manage User Config",
+      "adjustWeights": "Adjust Option Weights",
+      "preview": "Preview",
+      "previewNote": "Preview will show the wheel with updated weights",
+      "save": "Save Changes",
+      "saving": "Saving...",
+      "reset": "Reset",
+      "saveSuccess": "Config saved successfully!",
+      "saveError": "Failed to save config",
+      "loadError": "Failed to load user config",
+      "userNotFound": "User not found"
+    }
   },
   "game": {
     "yourTurn": "Your Turn",

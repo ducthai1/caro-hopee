@@ -15,6 +15,9 @@ import LoginPage from './pages/LoginPage';
 import GameRoomPage from './pages/GameRoomPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
+import LuckyWheelConfigPage from './pages/LuckyWheelConfigPage';
+import LuckyWheelAdminPage from './pages/admin/LuckyWheelAdminPage';
+import LuckyWheelUserConfigPage from './pages/admin/LuckyWheelUserConfigPage';
 import { MainLayout } from './components/MainLayout';
 
 const theme = createTheme({
@@ -142,6 +145,18 @@ const router = createBrowserRouter([
   {
     path: '/profile',
     element: <MainLayout><ProfilePage /></MainLayout>,
+  },
+  {
+    path: '/lucky-wheel/config',
+    element: <LuckyWheelConfigPage />,
+  },
+  {
+    path: '/admin/lucky-wheel',
+    element: <LuckyWheelAdminPage />,
+  },
+  {
+    path: '/admin/lucky-wheel/:userId',
+    element: <LuckyWheelUserConfigPage />,
   },
 ]);
 

@@ -221,5 +221,110 @@ export const userApi = {
   },
 };
 
+// Lucky Wheel APIs
+export interface WheelItem {
+  label: string;
+  weight: number;
+}
+
+export const luckyWheelApi = {
+  saveConfig: async (items: WheelItem[]): Promise<{ message: string; config: any }> => {
+    const { getGuestId } = await import('../utils/guestId');
+    const { getGuestName } = await import('../utils/guestName');
+    const guestId = getGuestId();
+    const guestName = getGuestName();
+    const response = await api.post('/lucky-wheel/config', {
+      items,
+      guestId,
+      guestName,
+    });
+    return response.data;
+  },
+  getMyConfig: async (): Promise<{ config: any; items: WheelItem[]; isDefault: boolean }> => {
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.get(`/lucky-wheel/config?guestId=${guestId}`);
+    return response.data;
+  },
+  getUserConfig: async (userId: string): Promise<{ config: any; items: WheelItem[] }> => {
+    const response = await api.get(`/lucky-wheel/config/${userId}`);
+    return response.data;
+  },
+  deleteGuestConfig: async (guestId: string): Promise<{ message: string }> => {
+    const response = await api.delete('/lucky-wheel/config', {
+      data: { guestId },
+    });
+    return response.data;
+  },
+  updateActivity: async (guestId?: string): Promise<{ message: string }> => {
+    const { getGuestId } = await import('../utils/guestId');
+    const finalGuestId = guestId || getGuestId();
+    const response = await api.post('/lucky-wheel/activity', {
+      guestId: finalGuestId,
+    });
+    return response.data;
+  },
+};
+
+// Admin APIs
+export const adminApi = {
+  listLuckyWheelUsers: async (page: number = 1, limit: number = 50, search?: string): Promise<{
+    users: Array<{
+      id: string;
+      userId: string | null;
+      guestId: string | null;
+      username: string | null;
+      guestName: string | null;
+      displayName: string;
+      userType: 'authenticated' | 'guest';
+      itemCount: number;
+      lastUpdated: Date;
+      createdAt: Date;
+    }>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (search) {
+      params.append('search', search);
+    }
+    const response = await api.get(`/admin/lucky-wheel/users?${params.toString()}`);
+    return response.data;
+  },
+  getUserConfig: async (userId: string, guestId?: string): Promise<{
+    id: string;
+    userId: string | null;
+    guestId: string | null;
+    username: string | null;
+    guestName: string | null;
+    displayName: string;
+    userType: 'authenticated' | 'guest';
+    items: WheelItem[];
+    createdAt: Date;
+    updatedAt: Date;
+  }> => {
+    const params = guestId ? `?guestId=${guestId}` : '';
+    const response = await api.get(`/admin/lucky-wheel/users/${userId}${params}`);
+    return response.data;
+  },
+  updateUserConfig: async (userId: string, items: WheelItem[], guestId?: string): Promise<{
+    message: string;
+    config: any;
+  }> => {
+    const response = await api.put(`/admin/lucky-wheel/users/${userId}/config`, {
+      items,
+      guestId,
+    });
+    return response.data;
+  },
+};
+
 export default api;
 

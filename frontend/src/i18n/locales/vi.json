@@ -93,7 +93,49 @@
     "reset": "Reset",
     "congratulations": "🎉 CHÚC MỪNG! 🎉",
     "result": "🎯 KẾT QUẢ 🎯",
-    "winnerMessage": "🎡 Bạn đã quay được - {winner} – Tiếp tục thử vận may thôi nào! 🎡"
+    "winnerMessage": "🎡 Bạn đã quay được - {winner} – Tiếp tục thử vận may thôi nào! 🎡",
+    "config": {
+      "title": "Cấu hình Tùy chọn Vòng Quay",
+      "button": "Thêm/Bớt Tùy chọn",
+      "subtitle": "Tùy chỉnh các tùy chọn vòng quay may mắn (2-12 mục)",
+      "itemLabel": "Mục",
+      "addItem": "Thêm Mục",
+      "save": "Lưu Cấu hình",
+      "saving": "Đang lưu...",
+      "reset": "Đặt lại",
+      "info": "Thay đổi được tự động lưu lên server. Bạn có thể có từ 2 đến 12 mục.",
+      "emptyLabels": "Tất cả các mục phải có nhãn",
+      "minItems": "Cần ít nhất 2 mục",
+      "saveError": "Lưu cấu hình thất bại",
+      "saveSuccess": "Lưu cấu hình thành công!"
+    }
+  },
+  "admin": {
+    "luckyWheel": {
+      "title": "Quản trị Vòng Quay May Mắn",
+      "searchPlaceholder": "Tìm kiếm theo tên người dùng hoặc tên khách...",
+      "user": "Người dùng",
+      "type": "Loại",
+      "items": "Số mục",
+      "lastUpdated": "Cập nhật lần cuối",
+      "actions": "Thao tác",
+      "authenticated": "Đã đăng nhập",
+      "guest": "Khách",
+      "noUsers": "Không tìm thấy người dùng",
+      "total": "Tổng",
+      "users": "người dùng",
+      "manageConfig": "Quản lý Cấu hình Người dùng",
+      "adjustWeights": "Điều chỉnh Tỉ lệ Tùy chọn",
+      "preview": "Xem trước",
+      "previewNote": "Xem trước sẽ hiển thị vòng quay với tỉ lệ đã cập nhật",
+      "save": "Lưu Thay đổi",
+      "saving": "Đang lưu...",
+      "reset": "Đặt lại",
+      "saveSuccess": "Lưu cấu hình thành công!",
+      "saveError": "Lưu cấu hình thất bại",
+      "loadError": "Tải cấu hình người dùng thất bại",
+      "userNotFound": "Không tìm thấy người dùng"
+    }
   },
   "game": {
     "yourTurn": "Lượt của bạn",
