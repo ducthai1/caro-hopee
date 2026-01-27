@@ -77,11 +77,12 @@ const LuckyWheelConfigPageContent: React.FC = () => {
       setError(null);
       setSuccess(false);
       
-      // Update context
-      setItems(localItems);
+      // Save to server with localItems directly to avoid stale state issues
+      // This ensures we save exactly what the user sees, not what might be in state
+      await saveConfigToServer(localItems);
       
-      // Save to server
-      await saveConfigToServer();
+      // Update context state after successful save
+      setItems(localItems);
       
       setSuccess(true);
       setTimeout(() => {

@@ -23,10 +23,11 @@ type LuckyWheelContextType = {
   addItem: (label: string) => void;
   removeItem: (index: number) => void;
   updateItemWeight: (index: number, weight: number) => void;
-  saveConfigToServer: () => Promise<void>;
+  saveConfigToServer: (itemsToSave?: WheelItem[]) => Promise<void>;
   loadConfigFromServer: () => Promise<void>;
   isLoading: boolean;
   colors: string[];
+  updateActivity: (immediate?: boolean) => void;
 };
 
 const LuckyWheelContext = createContext<LuckyWheelContextType | undefined>(undefined);
@@ -183,23 +184,27 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
     };
   }, [items, isInitialized]);
 
-  // Save config to server (debounced) - use ref to avoid dependency on items
-  const saveConfigToServer = React.useCallback(async (): Promise<void> => {
+  // Save config to server - accepts itemsToSave parameter to avoid stale closure issues
+  const saveConfigToServer = React.useCallback(async (itemsToSave?: WheelItem[]): Promise<void> => {
     if (isSavingRef.current) return;
     
     try {
       isSavingRef.current = true;
-      // Use current items from state via closure
-      const currentItems = items;
+      // Use provided itemsToSave or fall back to current state items
+      const currentItems = itemsToSave || items;
       await luckyWheelApi.saveConfig(currentItems);
       // Update hash after save
       lastConfigHashRef.current = JSON.stringify(currentItems);
+      // If itemsToSave was provided, also update state to keep them in sync
+      if (itemsToSave) {
+        setItems(itemsToSave);
+      }
     } catch (error) {
       throw error;
     } finally {
       isSavingRef.current = false;
     }
-  }, []); // Empty deps - items will be captured from closure
+  }, [items, setItems]); // Include items and setItems in deps
 
   // Auto-save to server after items change (debounced)
   // Chỉ save nếu user thay đổi items, không save khi load từ server
@@ -373,8 +378,9 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
     saveConfigToServer,
     loadConfigFromServer,
     isLoading,
-    colors 
-  }), [items, setItems, addItem, removeItem, updateItemWeight, saveConfigToServer, loadConfigFromServer, isLoading, colors]);
+    colors,
+    updateActivity
+  }), [items, setItems, addItem, removeItem, updateItemWeight, saveConfigToServer, loadConfigFromServer, isLoading, colors, updateActivity]);
 
   return (
     <LuckyWheelContext.Provider value={contextValue}>

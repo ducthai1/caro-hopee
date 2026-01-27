@@ -19,13 +19,20 @@ function easeOutQuint(t: number) {
 }
 
 export default function LuckyWheelDisplay() {
-  const { items, colors } = useLuckyWheel();
+  const { items, colors, updateActivity } = useLuckyWheel();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const theme = useTheme();
   // Memoize media queries to prevent excessive re-renders during zoom
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isSmallMobile = useMediaQuery('(max-width: 400px)', { noSsr: true });
+  
+  // Update activity immediately when component mounts (for guest users)
+  // Đảm bảo admin thấy user ngay khi vào tab lucky wheel
+  useEffect(() => {
+    // Update activity immediately when tab is opened
+    updateActivity(true);
+  }, [updateActivity]); // Run when component mounts
   
   const [isTheBestRewards, setIsTheBestRewards] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
