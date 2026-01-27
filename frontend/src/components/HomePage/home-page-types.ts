@@ -43,7 +43,7 @@ export const GAMES: GameItem[] = [
     name: 'games.luckyWheel',
     icon: '🎡',
     description: 'home.luckyWheelDescription',
-    available: false,
+    available: true,
     color: '#f39c12',
   },
   {

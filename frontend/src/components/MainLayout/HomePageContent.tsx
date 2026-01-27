@@ -1,67 +1,35 @@
-/**
- * HomePage - Main landing page with game selection, creation, and joining
- * Refactored from 1474 lines to use modular components
- */
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
-import { Box, Container, IconButton, useTheme, useMediaQuery } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { gameApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { DEFAULT_BOARD_SIZE } from '../utils/constants';
-import { validateRoomCode, formatRoomCode } from '../utils/roomCode';
-import HistoryModal from '../components/HistoryModal/HistoryModal';
-import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
-import PasswordDialog from '../components/PasswordDialog/PasswordDialog';
-import { socketService } from '../services/socketService';
-import { useSocket } from '../contexts/SocketContext';
-import { logger } from '../utils/logger';
-import { getGuestName } from '../utils/guestName';
+import { Box, Container, useTheme, useMediaQuery } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { gameApi } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { DEFAULT_BOARD_SIZE } from '../../utils/constants';
+import { validateRoomCode, formatRoomCode } from '../../utils/roomCode';
+import HistoryModal from '../HistoryModal/HistoryModal';
+import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
+import PasswordDialog from '../PasswordDialog/PasswordDialog';
+import { socketService } from '../../services/socketService';
+import { useSocket } from '../../contexts/SocketContext';
+import { logger } from '../../utils/logger';
+import { getGuestName } from '../../utils/guestName';
+import { useMainLayout } from './MainLayoutContext';
 import {
-  HomeSidebar,
   HeroSection,
   CreateGameCard,
   JoinGameCard,
   WaitingGamesSection,
   GAMES,
   WaitingGame,
-  DRAWER_WIDTH_EXPANDED,
-  DRAWER_WIDTH_COLLAPSED,
-} from '../components/HomePage';
+} from '../HomePage';
 
-const HomePage: React.FC = () => {
+const HomePageContent: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { isAuthenticated, user, logout } = useAuth();
-  const { isConnected: socketConnected } = useSocket(); // FIX C2: Track socket connection state
+  const { isAuthenticated } = useAuth();
+  const { isConnected: socketConnected } = useSocket();
+  const { openHistoryModal, openGuestNameDialog } = useMainLayout();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  // Game selection state - sync with route
-  const [selectedGame, setSelectedGame] = useState<string>(() => {
-    if (location.pathname === '/lucky-wheel') return 'lucky-wheel';
-    return 'caro';
-  });
-
-  // Sync selectedGame with route changes
-  useEffect(() => {
-    if (location.pathname === '/lucky-wheel') {
-      setSelectedGame('lucky-wheel');
-    } else if (location.pathname === '/') {
-      setSelectedGame('caro');
-    }
-  }, [location.pathname]);
-
-  // Handle game selection with navigation
-  const handleGameSelection = useCallback((gameId: string) => {
-    setSelectedGame(gameId);
-    if (gameId === 'lucky-wheel') {
-      navigate('/lucky-wheel');
-    } else if (gameId === 'caro') {
-      // Already on home page for caro, no navigation needed
-    }
-  }, [navigate]);
-
+  
   // Create game state
   const [boardSize, setBoardSize] = useState<number>(DEFAULT_BOARD_SIZE);
   const [blockTwoEnds, setBlockTwoEnds] = useState(false);
@@ -79,33 +47,31 @@ const HomePage: React.FC = () => {
   const [joiningGameId, setJoiningGameId] = useState<string | null>(null);
 
   // UI state
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Listen to context events
+  useEffect(() => {
+    // This will be handled by a ref or event system
+    // For now, we'll use a simple approach with a custom event
+    const handleOpenHistory = () => setHistoryModalOpen(true);
+    const handleOpenGuestName = () => setShowGuestNameDialog(true);
+    
+    window.addEventListener('openHistoryModal', handleOpenHistory);
+    window.addEventListener('openGuestNameDialog', handleOpenGuestName);
+    
+    return () => {
+      window.removeEventListener('openHistoryModal', handleOpenHistory);
+      window.removeEventListener('openGuestNameDialog', handleOpenGuestName);
+    };
+  }, []);
 
   // Refs for tracking mounted games and cleanup
   const mountedGamesRef = useRef<Set<string>>(new Set());
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
-  // Calculate drawer width
-  const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
-  const currentGame = GAMES.find(g => g.id === selectedGame);
-
-  // Scroll detection for mobile header - simple threshold, header height is fixed
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const handleScroll = () => {
-      // Simple check - header height doesn't change, only logo inside animates
-      setIsScrolled(window.scrollY > 30);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  const currentGame = GAMES.find(g => g.id === 'caro');
 
   // Cleanup stale entries from mountedGamesRef
   useEffect(() => {
@@ -158,12 +124,10 @@ const HomePage: React.FC = () => {
   }, []);
 
   // Load waiting games
-  // CRITICAL FIX: Use isMountedRef to prevent state updates after unmount
   const loadWaitingGames = useCallback(async (silent: boolean = false): Promise<void> => {
     try {
       if (!silent && isMountedRef.current) setLoadingGames(true);
       const games = await gameApi.getWaitingGames();
-      // CRITICAL FIX: Check mounted state before setting state
       if (!isMountedRef.current) return;
       startTransition(() => {
         if (isMountedRef.current) {
@@ -178,17 +142,13 @@ const HomePage: React.FC = () => {
   }, [smartMergeGames]);
 
   // Socket.IO and polling setup
-  // FIX C2: Add socketConnected dependency to re-register listeners when socket connects
-  // This ensures listeners are properly registered even if socket connects after component mount
   useEffect(() => {
     isMountedRef.current = true;
     loadWaitingGames();
     const interval = setInterval(() => loadWaitingGames(true), 30000);
 
-    // Store current timeout ref value for cleanup
     const capturedTimeoutRef = updateTimeoutRef.current;
 
-    // Define cleanup function first
     const cleanup = () => {
       clearInterval(interval);
       if (capturedTimeoutRef) {
@@ -198,14 +158,11 @@ const HomePage: React.FC = () => {
         clearTimeout(updateTimeoutRef.current);
         updateTimeoutRef.current = null;
       }
-      // FIX H2: Clear mountedGamesRef on unmount
       mountedGamesRef.current.clear();
     };
 
-    // Get socket - may be null if not connected yet
     const socket = socketService.getSocket();
 
-    // Define handlers outside conditional to reference in cleanup
     const handleGameCreated = () => {
       if (!isMountedRef.current) return;
       logger.log('[HomePage] Game created event received');
@@ -220,7 +177,6 @@ const HomePage: React.FC = () => {
 
     const handleGameDeleted = (data: { roomId: string }) => {
       if (!isMountedRef.current) return;
-      // Safety check: validate data structure
       if (!data || !data.roomId || typeof data.roomId !== 'string') {
         logger.error('[HomePage] Invalid game-deleted data:', data);
         return;
@@ -235,7 +191,6 @@ const HomePage: React.FC = () => {
       });
     };
 
-    // Only register listeners if socket exists and is connected
     if (socket && socketConnected) {
       socket.on('game-created', handleGameCreated);
       socket.on('game-status-updated', handleGameStatusUpdated);
@@ -245,7 +200,6 @@ const HomePage: React.FC = () => {
     return () => {
       isMountedRef.current = false;
       cleanup();
-      // Always try to remove listeners, even if socket state changed
       const currentSocket = socketService.getSocket();
       if (currentSocket) {
         currentSocket.off('game-created', handleGameCreated);
@@ -309,7 +263,6 @@ const HomePage: React.FC = () => {
       navigate(`/game/${game.roomId}`);
     } catch (error: any) {
       logger.error('Failed to join game:', error);
-      // Check if password is required
       if (error.response?.status === 401 && error.response?.data?.requiresPassword) {
         setPendingJoinRoomId(game.roomId);
         setShowPasswordDialog(true);
@@ -345,133 +298,55 @@ const HomePage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fbff' }}>
-      {/* Sidebar */}
-      <HomeSidebar
-        isMobile={isMobile}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
-        selectedGame={selectedGame}
-        setSelectedGame={handleGameSelection}
-        isAuthenticated={isAuthenticated}
-        user={user}
-        logout={logout}
-        onHistoryClick={() => setHistoryModalOpen(true)}
-        onEditGuestName={!isAuthenticated ? () => setShowGuestNameDialog(true) : undefined}
-      />
-
-      {/* Main Content */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: '100vh',
-          ml: { md: 0 },
+    <>
+      <Box 
+        sx={{ 
+          flex: 1, 
+          bgcolor: '#f8fbff',
+          // Thêm padding-top trên mobile để tránh bị header đè lên
+          pt: { xs: isMobile ? '80px' : 0, md: 0 },
         }}
       >
-        {/* Mobile Header with Hamburger + Logo - Fixed height to prevent jitter */}
-        {isMobile && !sidebarOpen && (
+        <Container maxWidth="xl" sx={{ py: { xs: 4, md: 5 }, px: { xs: 2, md: 3 } }}>
+          {/* Hero Section */}
+          <HeroSection currentGame={currentGame} />
+
+          {/* Action Cards */}
           <Box
             sx={{
-              position: 'sticky',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: (theme) => theme.zIndex.drawer + 1,
-              // Fixed height - prevents content shift when logo animates
-              height: 80,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              px: 2,
-              bgcolor: isScrolled ? '#ffffff' : 'transparent',
-              borderBottom: isScrolled ? '1px solid rgba(126, 200, 227, 0.15)' : 'none',
-              boxShadow: isScrolled ? '0 2px 8px rgba(126, 200, 227, 0.15)' : 'none',
-              transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
+              gap: { xs: 3, md: 4 },
+              mb: 6,
+              maxWidth: '1200px',
+              mx: 'auto',
             }}
           >
-            {/* Hamburger - absolute left */}
-            <IconButton
-              onClick={() => setSidebarOpen(true)}
-              sx={{
-                position: 'absolute',
-                left: 16,
-                width: 48,
-                height: 48,
-                background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
-                color: '#ffffff',
-                boxShadow: '0 2px 8px rgba(126, 200, 227, 0.25)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
-                },
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
-            {/* Logo - centered, uses transform for smooth animation without layout shift */}
-            <Box
-              component="img"
-              src="/logo/glacier_logo.svg"
-              alt="Glacier"
-              sx={{
-                height: 70,
-                objectFit: 'contain',
-                // Use transform scale instead of height change to prevent layout recalculation
-                transform: isScrolled ? 'scale(0.75)' : 'scale(1)',
-                transition: 'transform 0.25s ease',
-              }}
+            <CreateGameCard
+              boardSize={boardSize}
+              setBoardSize={setBoardSize}
+              blockTwoEnds={blockTwoEnds}
+              setBlockTwoEnds={setBlockTwoEnds}
+              onCreateGame={handleCreateGame}
+            />
+            <JoinGameCard
+              joinRoomCode={joinRoomCode}
+              setJoinRoomCode={handleJoinCodeChange}
+              joinError={joinError}
+              joinLoading={joinLoading}
+              onJoinGame={handleJoinGame}
             />
           </Box>
-        )}
 
-        {/* Page Content */}
-        <Box sx={{ flex: 1, bgcolor: '#f8fbff' }}>
-          <Container maxWidth="xl" sx={{ py: { xs: 4, md: 5 }, px: { xs: 2, md: 3 } }}>
-            {/* Hero Section */}
-            <HeroSection currentGame={currentGame} />
-
-            {/* Action Cards */}
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
-                gap: { xs: 3, md: 4 },
-                mb: 6,
-                maxWidth: '1200px',
-                mx: 'auto',
-              }}
-            >
-              <CreateGameCard
-                boardSize={boardSize}
-                setBoardSize={setBoardSize}
-                blockTwoEnds={blockTwoEnds}
-                setBlockTwoEnds={setBlockTwoEnds}
-                onCreateGame={handleCreateGame}
-              />
-              <JoinGameCard
-                joinRoomCode={joinRoomCode}
-                setJoinRoomCode={handleJoinCodeChange}
-                joinError={joinError}
-                joinLoading={joinLoading}
-                onJoinGame={handleJoinGame}
-              />
-            </Box>
-
-            {/* Waiting Games Section */}
-            <WaitingGamesSection
-              waitingGames={waitingGames}
-              loadingGames={loadingGames}
-              joiningGameId={joiningGameId}
-              mountedGamesRef={mountedGamesRef}
-              onJoin={handleQuickJoin}
-            />
-          </Container>
-        </Box>
+          {/* Waiting Games Section */}
+          <WaitingGamesSection
+            waitingGames={waitingGames}
+            loadingGames={loadingGames}
+            joiningGameId={joiningGameId}
+            mountedGamesRef={mountedGamesRef}
+            onJoin={handleQuickJoin}
+          />
+        </Container>
       </Box>
 
       {/* History Modal */}
@@ -494,8 +369,8 @@ const HomePage: React.FC = () => {
         onConfirm={handlePasswordConfirm}
         onCancel={handlePasswordCancel}
       />
-    </Box>
+    </>
   );
 };
 
-export default HomePage;
+export default HomePageContent;

@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage';
 import GameRoomPage from './pages/GameRoomPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
+import { MainLayout } from './components/MainLayout';
 
 const theme = createTheme({
   palette: {
@@ -120,7 +121,11 @@ const theme = createTheme({
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <HomePage />,
+    element: <MainLayout />,
+  },
+  {
+    path: '/lucky-wheel',
+    element: <MainLayout />,
   },
   {
     path: '/login',
@@ -128,15 +133,15 @@ const router = createBrowserRouter([
   },
   {
     path: '/game/:roomId',
-    element: <GameRoomPage />,
+    element: <MainLayout><GameRoomPage /></MainLayout>,
   },
   {
     path: '/leaderboard',
-    element: <LeaderboardPage />,
+    element: <MainLayout><LeaderboardPage /></MainLayout>,
   },
   {
     path: '/profile',
-    element: <ProfilePage />,
+    element: <MainLayout><ProfilePage /></MainLayout>,
   },
 ]);
 
@@ -153,6 +158,12 @@ function App() {
           'input, textarea, select': {
             userSelect: 'text',
             WebkitUserSelect: 'text',
+          },
+          // Skeleton loading animation for lucky wheel icons
+          '@keyframes skeleton-shimmer': {
+            '100%': {
+              transform: 'translateX(100%)',
+            },
           },
         }}
       />

@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Container, Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Tab, CircularProgress } from '@mui/material';
+import { Container, Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Tab, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
 import { leaderboardApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../i18n';
 import { logger } from '../utils/logger';
-import PageHeader from '../components/PageHeader';
 
 interface LeaderboardEntry {
   rank: number;
@@ -28,6 +27,8 @@ interface LeaderboardData {
 const LeaderboardPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [gameId] = useState<string>('caro');
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'all-time'>('all-time');
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
@@ -74,8 +75,14 @@ const LeaderboardPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader hideLeaderboardLink />
-      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          py: { xs: 4, md: 6 },
+          // Thêm padding-top trên mobile để tránh bị header đè lên
+          pt: { xs: isMobile ? '80px' : 4, md: 6 },
+        }}
+      >
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography
           variant="h3"

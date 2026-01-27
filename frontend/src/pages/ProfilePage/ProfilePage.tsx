@@ -11,6 +11,8 @@ import {
   Tab,
   CircularProgress,
   Button,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,7 +28,6 @@ import {
   ProfileDetailedStats,
   ProfileAchievements,
 } from './components';
-import PageHeader from '../../components/PageHeader';
 
 interface Streaks {
   currentWin: number;
@@ -69,6 +70,8 @@ interface UserGamesData {
 const ProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth();
   const { t, language } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Data state
   const [profile, setProfile] = useState<User | null>(null);
@@ -166,8 +169,14 @@ const ProfilePage: React.FC = () => {
 
   return (
     <>
-      <PageHeader hideProfileLink />
-      <Container maxWidth="md" sx={{ py: { xs: 4, md: 6 } }}>
+      <Container 
+        maxWidth="md" 
+        sx={{ 
+          py: { xs: 4, md: 6 },
+          // Thêm padding-top trên mobile để tránh bị header đè lên
+          pt: { xs: isMobile ? '80px' : 4, md: 6 },
+        }}
+      >
       {/* Page Title */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography

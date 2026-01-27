@@ -87,6 +87,14 @@
     "uno": "UNO",
     "otherGames": "Game Khác"
   },
+  "luckyWheel": {
+    "spinning": "Đang quay...",
+    "spinNow": "QUAY NGAY! 🎊",
+    "reset": "Reset",
+    "congratulations": "🎉 CHÚC MỪNG! 🎉",
+    "result": "🎯 KẾT QUẢ 🎯",
+    "winnerMessage": "🎡 Bạn đã quay được - {winner} – Tiếp tục thử vận may thôi nào! 🎡"
+  },
   "game": {
     "yourTurn": "Lượt của bạn",
     "opponentTurn": "Lượt đối thủ",
