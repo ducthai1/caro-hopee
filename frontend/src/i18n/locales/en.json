@@ -87,6 +87,14 @@
     "uno": "UNO",
     "otherGames": "Other Games"
   },
+  "luckyWheel": {
+    "spinning": "Spinning...",
+    "spinNow": "SPIN NOW! 🎊",
+    "reset": "Reset",
+    "congratulations": "🎉 CONGRATULATIONS! 🎉",
+    "result": "🎯 RESULT 🎯",
+    "winnerMessage": "🎡 You spun - {winner} – Keep trying your luck! 🎡"
+  },
   "game": {
     "yourTurn": "Your Turn",
     "opponentTurn": "Opponent's Turn",

@@ -305,10 +305,27 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
             position: 'relative',
             overflow: 'hidden',
             transition: 'all 0.25s ease',
-            ...((!game.available) && {
-              background: `linear-gradient(135deg, ${game.color}08 0%, ${game.color}04 100%)`,
-              border: `1px solid ${game.color}20`,
-            }),
+            // Background cho tất cả tabs (selected và unselected)
+            background: selectedGame === game.id
+              ? game.id === 'lucky-wheel'
+                ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.08) 0%, rgba(243, 156, 18, 0.06) 100%)' // Màu cam vàng nhẹ nhàng khi selected
+                : 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)' // Màu xanh cho các game khác
+              : game.available
+                ? // Unselected available tabs - sử dụng màu của game nhưng mờ đi
+                  game.id === 'lucky-wheel'
+                  ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.06) 0%, rgba(243, 156, 18, 0.04) 100%)' // Giữ màu #f39c12 cho lucky wheel
+                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.06) 0%, rgba(168, 230, 207, 0.04) 100%)' // Màu mặc định cho các game khác
+                : // Unavailable tabs
+                  `linear-gradient(135deg, ${game.color}08 0%, ${game.color}04 100%)`,
+            border: selectedGame === game.id
+              ? game.id === 'lucky-wheel'
+                ? '1px solid rgba(243, 156, 18, 0.2)' // Border cam vàng nhẹ nhàng khi selected
+                : '1px solid rgba(126, 200, 227, 0.2)' // Border xanh cho các game khác
+              : game.available
+                ? game.id === 'lucky-wheel'
+                  ? '1px solid rgba(243, 156, 18, 0.15)' // Border mờ cho lucky wheel
+                  : '1px solid rgba(126, 200, 227, 0.1)' // Border mờ cho các game khác
+                : `1px solid ${game.color}20`,
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -316,22 +333,38 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
               top: 0,
               bottom: 0,
               width: '4px',
-              background: game.available
-                ? 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)'
-                : `linear-gradient(180deg, ${game.color} 0%, ${game.color}80 100%)`,
-              opacity: selectedGame === game.id ? 1 : (!game.available ? 0.6 : 0),
+              background: selectedGame === game.id
+                ? game.id === 'lucky-wheel'
+                  ? 'linear-gradient(180deg, #f39c12 0%, #f39c1280 100%)' // Border cam vàng khi selected
+                  : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border xanh cho các game khác
+                : game.available
+                  ? game.id === 'lucky-wheel'
+                    ? 'linear-gradient(180deg, #f39c12 0%, #f39c1280 100%)' // Border màu lucky wheel
+                    : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border mặc định
+                  : `linear-gradient(180deg, ${game.color} 0%, ${game.color}80 100%)`,
+              opacity: selectedGame === game.id ? 1 : (game.available ? 0.4 : 0.6), // Mờ đi khi unselected nhưng vẫn hiển thị
               transition: 'opacity 0.25s ease',
             },
             '&.Mui-selected': {
-              background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)',
-              border: '1px solid rgba(126, 200, 227, 0.2)',
-              boxShadow: '0 4px 12px rgba(126, 200, 227, 0.15)',
+              boxShadow: game.id === 'lucky-wheel'
+                ? '0 4px 12px rgba(243, 156, 18, 0.15)' // Shadow cam vàng nhẹ nhàng cho lucky wheel
+                : '0 4px 12px rgba(126, 200, 227, 0.15)', // Shadow xanh cho các game khác
               '&:hover': {
-                background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)',
+                background: game.id === 'lucky-wheel'
+                  ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(243, 156, 18, 0.08) 100%)' // Hover cam vàng nhẹ nhàng
+                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)', // Hover xanh
               },
             },
             '&:hover': {
-              backgroundColor: game.available ? 'rgba(126, 200, 227, 0.06)' : `${game.color}10`,
+              backgroundColor: selectedGame === game.id
+                ? game.id === 'lucky-wheel'
+                  ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(243, 156, 18, 0.08) 100%)' // Hover cam vàng nhẹ nhàng khi selected
+                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)' // Hover xanh
+                : game.available
+                  ? game.id === 'lucky-wheel'
+                    ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.08) 0%, rgba(243, 156, 18, 0.05) 100%)'
+                    : 'rgba(126, 200, 227, 0.08)'
+                  : `${game.color}10`,
             },
             '&.Mui-disabled': { opacity: 0.7 },
           }}
@@ -345,11 +378,21 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                 flexShrink: 0,
                 borderRadius: 2,
                 background: selectedGame === game.id
-                  ? 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)'
+                  ? game.id === 'lucky-wheel'
+                    ? 'rgba(243, 156, 18, 0.2)' // Icon background cam vàng nhẹ nhàng khi selected
+                    : 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)' // Icon background xanh cho các game khác
                   : game.available
-                    ? 'rgba(126, 200, 227, 0.1)'
+                    ? game.id === 'lucky-wheel'
+                      ? 'rgba(243, 156, 18, 0.15)' // Icon background mờ cho lucky wheel
+                      : 'rgba(126, 200, 227, 0.1)' // Icon background mờ cho các game khác
                     : `${game.color}15`,
-                border: !game.available ? `1px solid ${game.color}30` : 'none',
+                border: !game.available 
+                  ? `1px solid ${game.color}30` 
+                  : game.id === 'lucky-wheel'
+                    ? selectedGame === game.id
+                      ? '1px solid rgba(243, 156, 18, 0.25)' // Border nhẹ nhàng khi selected
+                      : '1px solid rgba(243, 156, 18, 0.2)' // Border mờ cho lucky wheel icon
+                    : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
