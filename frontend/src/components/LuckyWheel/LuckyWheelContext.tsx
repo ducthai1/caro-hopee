@@ -326,19 +326,26 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
       const { getGuestId } = require('../../utils/guestId');
       const guestId = getGuestId();
 
-      if (guestId) {
-        // Use fetch with keepalive for reliable delivery even when tab is closing
-        // Use API_BASE_URL instead of window.location.origin for correct API endpoint
-        fetch(`${API_BASE_URL}/lucky-wheel/config`, {
+      if (!guestId) return;
+
+      const deleteUrl = `${API_BASE_URL}/lucky-wheel/config`;
+      const payload = JSON.stringify({ guestId });
+
+      // Try sendBeacon first (most reliable for page unload)
+      // sendBeacon sends POST, but we need DELETE - so use query param workaround
+      const beaconSent = navigator.sendBeacon?.(
+        `${deleteUrl}?_method=DELETE`,
+        new Blob([payload], { type: 'application/json' })
+      );
+
+      // Fallback to fetch with keepalive if sendBeacon fails or unavailable
+      if (!beaconSent) {
+        fetch(deleteUrl, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ guestId }),
-          keepalive: true, // Ensures request completes even if tab closes
-        }).catch(() => {
-          // Silently fail
-        });
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
       }
     };
 

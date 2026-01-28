@@ -24,7 +24,13 @@ const optionalAuth = (req: Request, res: Response, next: NextFunction): void => 
 };
 
 // Save config - optional auth (works for both authenticated and guest)
-router.post('/config', optionalAuth, saveConfig);
+// Also handles _method=DELETE for sendBeacon (which only supports POST)
+router.post('/config', optionalAuth, (req: Request, res: Response, next: NextFunction) => {
+  if (req.query._method === 'DELETE') {
+    return deleteGuestConfig(req, res);
+  }
+  next();
+}, saveConfig);
 
 // Get my config - optional auth
 router.get('/config', optionalAuth, getMyConfig);

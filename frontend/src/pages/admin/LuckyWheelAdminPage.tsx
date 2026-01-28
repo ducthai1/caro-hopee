@@ -270,7 +270,14 @@ const LuckyWheelAdminPage: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <Typography variant="body2" sx={{ color: '#5a6a7a' }}>
-                                {new Date(user.lastUpdated).toLocaleDateString()}
+                                {new Date(user.lastUpdated).toLocaleString('vi-VN', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })}
                               </Typography>
                             </TableCell>
                             <TableCell align="center">
