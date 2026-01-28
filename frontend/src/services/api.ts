@@ -256,11 +256,14 @@ export const luckyWheelApi = {
     });
     return response.data;
   },
-  updateActivity: async (guestId?: string): Promise<{ message: string }> => {
+  updateActivity: async (guestId?: string, guestName?: string): Promise<{ message: string; isNew?: boolean }> => {
     const { getGuestId } = await import('../utils/guestId');
+    const { getGuestName } = await import('../utils/guestName');
     const finalGuestId = guestId || getGuestId();
+    const finalGuestName = guestName || getGuestName();
     const response = await api.post('/lucky-wheel/activity', {
       guestId: finalGuestId,
+      guestName: finalGuestName,
     });
     return response.data;
   },

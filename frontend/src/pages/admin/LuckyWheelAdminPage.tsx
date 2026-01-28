@@ -44,7 +44,7 @@ const LuckyWheelAdminPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  useMediaQuery(theme.breakpoints.down('md')); // For responsive re-render
 
   const [users, setUsers] = useState<LuckyWheelUser[]>([]);
   const [loading, setLoading] = useState(true);

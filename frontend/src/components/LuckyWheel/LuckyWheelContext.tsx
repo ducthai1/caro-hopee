@@ -132,30 +132,26 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
   }, [loadConfigFromServer, isAuthenticated, updateActivity]);
 
   // Polling: Check for config updates from admin (only when tab is visible)
-  // Đảm bảo user tự động nhận config mới khi admin update weights
+  // Poll every 30 seconds for better performance
   useEffect(() => {
     if (!isInitialized) return;
 
     let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let isPollingPaused = document.visibilityState !== 'visible';
 
-    const startPolling = () => {
-      // Only poll if tab is visible
-      if (document.visibilityState === 'visible' && !isSavingRef.current) {
-        loadConfigFromServer(true).catch(() => {
-          // Silently fail
-        });
-      }
+    const poll = () => {
+      if (isPollingPaused || isSavingRef.current) return;
+      loadConfigFromServer(true).catch(() => {});
     };
 
-    // Poll every 15 seconds (reduced for better performance, only when visible)
-    pollInterval = setInterval(startPolling, 15000);
+    // Poll every 30 seconds (increased from 15s for better performance)
+    pollInterval = setInterval(poll, 30000);
 
-    // Also poll when tab becomes visible
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !isSavingRef.current) {
-        loadConfigFromServer(true).catch(() => {
-          // Silently fail
-        });
+      isPollingPaused = document.visibilityState !== 'visible';
+      // Load immediately when tab becomes visible
+      if (!isPollingPaused && !isSavingRef.current) {
+        loadConfigFromServer(true).catch(() => {});
       }
     };
 

@@ -23,17 +23,19 @@ export default function LuckyWheelDisplay() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const theme = useTheme();
-  // Memoize media queries to prevent excessive re-renders during zoom
+  // Stable media queries - only check once on mount and resize
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const isSmallMobile = useMediaQuery('(max-width: 400px)', { noSsr: true });
-  
-  // Update activity immediately when component mounts (for guest users)
-  // Đảm bảo admin thấy user ngay khi vào tab lucky wheel
+
+  // Update activity on mount only
+  const hasUpdatedActivityRef = useRef(false);
   useEffect(() => {
-    // Update activity immediately when tab is opened
-    updateActivity(true);
-  }, [updateActivity]); // Run when component mounts
-  
+    if (!hasUpdatedActivityRef.current) {
+      hasUpdatedActivityRef.current = true;
+      updateActivity(true);
+    }
+  }, [updateActivity]);
+
   const [isTheBestRewards, setIsTheBestRewards] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
@@ -46,9 +48,6 @@ export default function LuckyWheelDisplay() {
   const durationMsRef = useRef(0);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const isMountedRef = useRef(true);
-  const nestedRafRefs = useRef<number[]>([]); // Track nested RAFs for cleanup
-  const isZoomingRef = useRef(false); // Track if user is zooming
-  const lastRotationUpdateRef = useRef(0); // Throttle rotation updates
   const rafLoopActiveRef = useRef(false); // Prevent multiple RAF loops
 
   const [winner, setWinner] = useState("");
@@ -95,24 +94,23 @@ export default function LuckyWheelDisplay() {
     return { index: 0, item: options[0] };
   };
 
-  const clearAllTimeouts = () => {
+  const clearAllTimeouts = useCallback(() => {
     timeoutsRef.current.forEach((id) => clearTimeout(id));
     timeoutsRef.current = [];
-  };
+  }, []);
 
-  const stopRAF = () => {
+  const stopRAF = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    // Cleanup nested RAFs
-    nestedRafRefs.current.forEach((id) => cancelAnimationFrame(id));
-    nestedRafRefs.current = [];
-    rafLoopActiveRef.current = false; // Reset loop flag
-  };
+    rafLoopActiveRef.current = false;
+  }, []);
 
-  const spinWheel = () => {
-    if (isSpinning || items.length === 0 || isZoomingRef.current) return; // Don't spin while zooming
+  const spinWheel = useCallback(() => {
+    if (isSpinning || items.length === 0) return;
+    if (rafLoopActiveRef.current) return; // Prevent multiple RAF loops
+
     setIsSpinning(true);
     setShowWinner(false);
     setWinner("");
@@ -120,9 +118,8 @@ export default function LuckyWheelDisplay() {
     setIsTheBestRewards(false);
     clearAllTimeouts();
     stopRAF();
-    rafLoopActiveRef.current = false; // Reset loop flag
 
-    // chọn người thắng
+    // Pick winner
     const { index: winnerIndex, item: winningItem } = weightedRandom(items);
     const segmentAngleLocal = 360 / items.length;
     const segmentCenter = winnerIndex * segmentAngleLocal + segmentAngleLocal / 2;
@@ -146,23 +143,16 @@ export default function LuckyWheelDisplay() {
 
     const target = targetRotRef.current;
     const increasing = target >= startRotRef.current;
+    const winningItemLabel = winningItem.label;
+    const firstItemLabel = items[0]?.label;
+    const secondItemLabel = items[1]?.label;
+
+    rafLoopActiveRef.current = true;
 
     const loop = (now: number) => {
-      // Kiểm tra nếu RAF đã bị cancel (component unmount, reset, hoặc đang zoom)
-      if (rafRef.current === null || !isMountedRef.current || isZoomingRef.current) {
+      // Check if animation should stop
+      if (!isMountedRef.current || rafRef.current === null) {
         stopRAF();
-        return;
-      }
-
-      // Throttle rotation updates to max 60fps (every ~16ms)
-      const timeSinceLastUpdate = now - lastRotationUpdateRef.current;
-      if (timeSinceLastUpdate < 16) {
-        // Skip this frame if too soon, but continue the loop
-        if (rafRef.current !== null && !isZoomingRef.current && isMountedRef.current) {
-          rafRef.current = requestAnimationFrame(loop);
-        } else {
-          stopRAF();
-        }
         return;
       }
 
@@ -171,71 +161,45 @@ export default function LuckyWheelDisplay() {
       const eased = easeOutQuint(tRaw);
       let cur = startRotRef.current + eased * totalDelta;
 
-      // CLAMP: đảm bảo cur không vượt target (tránh overshoot)
+      // Clamp to prevent overshoot
       if (increasing) cur = Math.min(cur, target);
       else cur = Math.max(cur, target);
 
       rotationRef.current = cur;
-      lastRotationUpdateRef.current = now;
       setRotation(cur);
 
       if (tRaw < 1) {
-        // Kiểm tra lại trước khi request frame tiếp theo
-        if (rafRef.current !== null && !isZoomingRef.current && isMountedRef.current) {
+        if (isMountedRef.current) {
           rafRef.current = requestAnimationFrame(loop);
-        } else {
-          stopRAF();
         }
       } else {
-        // Kết thúc: stop RAF, đảm bảo state final = chính xác target (không round)
+        // Animation complete
         stopRAF();
-        rafLoopActiveRef.current = false; // Reset loop flag
         rotationRef.current = target;
         setRotation(target);
 
-        // Đợi browser paint final frame trước khi show modal để tránh nhảy
-        // Sử dụng requestAnimationFrame với check mounted để tránh memory leak
-        const raf1 = requestAnimationFrame(() => {
-          if (!isMountedRef.current || rafRef.current === null) return;
-          const raf2 = requestAnimationFrame(() => {
-            if (!isMountedRef.current || rafRef.current === null) return;
-            setWinner(winningItem.label);
-            setShowWinner(true);
+        // Use setTimeout instead of nested RAF for cleaner cleanup
+        const showResultTimeout = setTimeout(() => {
+          if (!isMountedRef.current) return;
+          setWinner(winningItemLabel);
+          setShowWinner(true);
+          setIsSpinning(false);
 
-            // mount confetti sau 1 rAF nữa để tránh blocking paint modal
-            if (winningItem.label === items[0]?.label || winningItem.label === items[1]?.label) {
-              const raf3 = requestAnimationFrame(() => {
-                if (!isMountedRef.current || rafRef.current === null) return;
-                setShowFireworks(true);
-                setIsTheBestRewards(true);
-              });
-              nestedRafRefs.current.push(raf3);
-            }
-            setIsSpinning(false);
-            // Remove from nested refs after execution
-            nestedRafRefs.current = nestedRafRefs.current.filter(id => id !== raf2);
-          });
-          nestedRafRefs.current.push(raf2);
-          // Remove from nested refs after execution
-          nestedRafRefs.current = nestedRafRefs.current.filter(id => id !== raf1);
-        });
-        nestedRafRefs.current.push(raf1);
+          if (winningItemLabel === firstItemLabel || winningItemLabel === secondItemLabel) {
+            setShowFireworks(true);
+            setIsTheBestRewards(true);
+          }
+        }, 50);
+        timeoutsRef.current.push(showResultTimeout);
       }
     };
 
-    // Prevent multiple RAF loops
-    if (rafLoopActiveRef.current || isZoomingRef.current) {
-      return;
-    }
-    rafLoopActiveRef.current = true;
-    lastRotationUpdateRef.current = performance.now();
     rafRef.current = requestAnimationFrame(loop);
-  };
+  }, [isSpinning, items, clearAllTimeouts, stopRAF]);
 
-  const resetWheel = () => {
+  const resetWheel = useCallback(() => {
     stopRAF();
     clearAllTimeouts();
-    rafLoopActiveRef.current = false;
     rotationRef.current = 0;
     setRotation(0);
     setWinner("");
@@ -243,7 +207,7 @@ export default function LuckyWheelDisplay() {
     setIsSpinning(false);
     setShowFireworks(false);
     setIsTheBestRewards(false);
-  };
+  }, [stopRAF, clearAllTimeouts]);
 
   const closeWinnerModal = useCallback(() => {
     setShowWinner(false);
@@ -251,120 +215,16 @@ export default function LuckyWheelDisplay() {
     setWinner("");
   }, []);
 
-  // Cleanup RAF và timeouts khi component unmount hoặc khi zoom/resize
+  // Simple cleanup on unmount - no zoom blocking needed
   useEffect(() => {
     isMountedRef.current = true;
-    
-    // Prevent trackpad zoom gestures
-    const preventZoom = (e: WheelEvent | TouchEvent) => {
-      // Prevent pinch zoom (trackpad gesture)
-      if (e instanceof WheelEvent) {
-        // Trackpad zoom usually has ctrlKey or metaKey
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
-        }
-      }
-      // Prevent touch pinch zoom
-      if (e instanceof TouchEvent && e.touches.length > 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-    
-    // Prevent zoom via CSS
-    const preventZoomCSS = (e: Event) => {
-      if (e instanceof WheelEvent && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    };
-    
-    // Add event listeners to prevent zoom
-    document.addEventListener('wheel', preventZoom, { passive: false });
-    document.addEventListener('touchstart', preventZoom, { passive: false });
-    document.addEventListener('touchmove', preventZoom, { passive: false });
-    document.addEventListener('gesturestart', preventZoomCSS, { passive: false });
-    document.addEventListener('gesturechange', preventZoomCSS, { passive: false });
-    document.addEventListener('gestureend', preventZoomCSS, { passive: false });
-    
-    // Detect zoom changes
-    let lastZoomLevel = window.devicePixelRatio || 1;
-    let zoomCheckInterval: ReturnType<typeof setInterval> | null = null;
-    
-    const checkZoom = () => {
-      const currentZoom = window.devicePixelRatio || 1;
-      if (Math.abs(currentZoom - lastZoomLevel) > 0.01) {
-        // Zoom detected
-        isZoomingRef.current = true;
-        lastZoomLevel = currentZoom;
-        
-        // Stop RAF immediately when zooming
-        stopRAF();
-        
-        // Reset zoom flag after zoom stabilizes
-        setTimeout(() => {
-          isZoomingRef.current = false;
-        }, 300);
-      }
-    };
-    
-    // Check zoom every 100ms
-    zoomCheckInterval = setInterval(checkZoom, 100);
-    
-    // Handle zoom/resize events to prevent crashes
-    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-    let resizeStartTime = 0;
-    
-    const handleResizeStart = () => {
-      resizeStartTime = performance.now();
-      isZoomingRef.current = true;
-      // Stop RAF immediately when resize starts
-      stopRAF();
-    };
-    
-    const handleResizeEnd = () => {
-      const resizeDuration = performance.now() - resizeStartTime;
-      // Reset zoom flag after resize stabilizes (debounce)
-      if (resizeTimeout) clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        isZoomingRef.current = false;
-      }, Math.max(300, resizeDuration));
-    };
-    
-    // Throttled resize handler with start/end detection
-    let lastResizeTime = 0;
-    const throttledResize = () => {
-      const now = performance.now();
-      if (now - lastResizeTime > 50) {
-        handleResizeStart();
-      }
-      lastResizeTime = now;
-      handleResizeEnd();
-    };
-    
-    window.addEventListener('resize', throttledResize, { passive: true });
-    
+
     return () => {
       isMountedRef.current = false;
-      isZoomingRef.current = false;
-      // Cleanup khi component unmount
       stopRAF();
       clearAllTimeouts();
-      window.removeEventListener('resize', throttledResize);
-      document.removeEventListener('wheel', preventZoom);
-      document.removeEventListener('touchstart', preventZoom);
-      document.removeEventListener('touchmove', preventZoom);
-      document.removeEventListener('gesturestart', preventZoomCSS);
-      document.removeEventListener('gesturechange', preventZoomCSS);
-      document.removeEventListener('gestureend', preventZoomCSS);
-      if (resizeTimeout) clearTimeout(resizeTimeout);
-      if (zoomCheckInterval) clearInterval(zoomCheckInterval);
     };
-  }, []);
+  }, [stopRAF, clearAllTimeouts]);
 
   useEffect(() => {
     if (!showWinner) return;
@@ -494,10 +354,6 @@ export default function LuckyWheelDisplay() {
         py: { xs: 4, sm: 4, md: 2 }, // Giảm padding-y trên desktop
         overflow: 'hidden',
         position: 'relative',
-        touchAction: 'pan-x pan-y', // Allow panning but prevent pinch zoom
-        userSelect: 'none', // Prevent text selection that might trigger zoom
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
         '&::before': {
           content: '""',
           position: 'absolute',

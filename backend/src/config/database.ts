@@ -8,6 +8,16 @@ export const connectDatabase = async (): Promise<void> => {
   try {
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/caro-game';
 
+    // Log which database is being used (without exposing credentials)
+    if (process.env.MONGODB_URI) {
+      const uriWithoutCredentials = mongoUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+      console.log(`[Database] Connecting to MongoDB Atlas: ${uriWithoutCredentials}`);
+    } else {
+      console.warn('[Database] ⚠️  WARNING: MONGODB_URI not set! Using fallback localhost database.');
+      console.warn('[Database] ⚠️  This means local and deploy are using DIFFERENT databases!');
+      console.log(`[Database] Connecting to fallback: ${mongoUri}`);
+    }
+
     await mongoose.connect(mongoUri, {
       // Connection pool settings for production scale
       maxPoolSize: 100,           // Max 100 connections for HTTP requests
@@ -27,7 +37,10 @@ export const connectDatabase = async (): Promise<void> => {
       readPreference: 'primaryPreferred',
     });
 
-    console.log('MongoDB connected successfully with connection pooling');
+    // Log connection success with database name
+    const dbName = mongoose.connection.db?.databaseName || 'unknown';
+    console.log(`[Database] ✅ MongoDB connected successfully to database: "${dbName}"`);
+    console.log(`[Database] Connection pool: max=${100}, min=${10}`);
 
     // Monitor connection pool events in development
     if (process.env.NODE_ENV === 'development') {

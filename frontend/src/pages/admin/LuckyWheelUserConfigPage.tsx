@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -8,7 +8,6 @@ import {
   Slider,
   Button,
   IconButton,
-  TextField,
   CircularProgress,
   Alert,
   useTheme,
@@ -29,7 +28,7 @@ const LuckyWheelUserConfigPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  useMediaQuery(theme.breakpoints.down('md')); // For responsive re-render
 
   const [userInfo, setUserInfo] = useState<{
     id: string;
@@ -47,11 +46,7 @@ const LuckyWheelUserConfigPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    loadUserConfig();
-  }, [userId, guestId]);
-
-  const loadUserConfig = async () => {
+  const loadUserConfig = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -74,7 +69,11 @@ const LuckyWheelUserConfigPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, guestId, t]);
+
+  useEffect(() => {
+    loadUserConfig();
+  }, [loadUserConfig]);
 
   const handleWeightChange = (index: number, value: number) => {
     const newItems = [...items];

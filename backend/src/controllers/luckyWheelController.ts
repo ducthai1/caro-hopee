@@ -183,31 +183,48 @@ export const deleteGuestConfig = async (req: Request, res: Response): Promise<vo
 
 /**
  * Update last activity time for guest config
+ * Creates new config with default items if not exists (upsert)
  */
 export const updateActivity = async (req: Request, res: Response): Promise<void> => {
   try {
     const authReq = req as AuthRequest;
     const userId = authReq.user?.userId;
     const guestId = req.body.guestId || req.query.guestId as string;
+    const guestName = req.body.guestName as string | undefined;
 
     if (!userId && !guestId) {
       res.status(400).json({ message: 'Either userId or guestId is required' });
       return;
     }
 
-    const query = userId 
+    const query = userId
       ? { userId }
       : { guestId };
 
-    const config = await LuckyWheelConfig.findOne(query);
-    
-    if (config) {
-      config.lastActivityAt = new Date();
-      await config.save();
-      res.json({ message: 'Activity updated successfully' });
-    } else {
-      res.status(404).json({ message: 'Config not found' });
-    }
+    // Use findOneAndUpdate with upsert to create config if not exists
+    const updateData: any = {
+      lastActivityAt: new Date(),
+    };
+
+    // Set default items only when creating new config (using $setOnInsert)
+    const config = await LuckyWheelConfig.findOneAndUpdate(
+      query,
+      {
+        $set: updateData,
+        $setOnInsert: {
+          items: defaultItems,
+          ...(guestId && { guestId }),
+          ...(guestName && { guestName }),
+          ...(userId && { userId }),
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      message: config ? 'Activity updated successfully' : 'Config created',
+      isNew: !config?.createdAt || (Date.now() - config.createdAt.getTime() < 1000),
+    });
   } catch (error: any) {
     res.status(500).json({ message: error.message || 'Failed to update activity' });
   }
