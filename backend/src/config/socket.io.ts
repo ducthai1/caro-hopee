@@ -3,6 +3,16 @@ import { Server as HTTPServer } from 'http';
 import { verifyToken } from '../utils/jwt';
 import { checkSocketRateLimit } from '../middleware/rateLimiter';
 
+// Shared io instance for use across the application
+let ioInstance: SocketIOServer | null = null;
+
+export const getIO = (): SocketIOServer => {
+  if (!ioInstance) {
+    throw new Error('Socket.IO not initialized. Call setupSocketIO first.');
+  }
+  return ioInstance;
+};
+
 export const setupSocketIO = (httpServer: HTTPServer): SocketIOServer => {
   const io = new SocketIOServer(httpServer, {
     cors: {
@@ -45,6 +55,8 @@ export const setupSocketIO = (httpServer: HTTPServer): SocketIOServer => {
     }
   });
 
+  // Store instance for getIO()
+  ioInstance = io;
   return io;
 };
 

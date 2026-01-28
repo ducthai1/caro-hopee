@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
 import { luckyWheelApi } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
+import { socketService } from "../../services/socketService";
 
 type WheelItem = { label: string; weight: number };
 
@@ -162,6 +163,39 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isInitialized, loadConfigFromServer]);
+
+  // Realtime socket listener for admin config updates
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    const handleConfigUpdated = (data: { targetId: string; targetType: 'guest' | 'user'; items: WheelItem[]; updatedAt: string }) => {
+      // Check if this update is for current user
+      const { getGuestId } = require('../../utils/guestId');
+      const currentGuestId = getGuestId();
+      const currentUserId = localStorage.getItem('userId');
+
+      const isTargetMatch =
+        (data.targetType === 'guest' && data.targetId === currentGuestId) ||
+        (data.targetType === 'user' && data.targetId === currentUserId);
+
+      if (isTargetMatch && data.items?.length > 0) {
+        // Mark as server update, not user change
+        itemsChangedByUserRef.current = false;
+        lastConfigHashRef.current = JSON.stringify(data.items);
+        setItems(data.items);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.items));
+      }
+    };
+
+    socket.on('lucky-wheel-config-updated', handleConfigUpdated);
+
+    return () => {
+      socket.off('lucky-wheel-config-updated', handleConfigUpdated);
+    };
+  }, [isInitialized]);
 
   // Lưu vào localStorage mỗi khi items thay đổi (cache) - debounced
   useEffect(() => {

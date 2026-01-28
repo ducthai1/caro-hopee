@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import LuckyWheelConfig from '../models/LuckyWheelConfig';
 import User from '../models/User';
 import { IWheelItem } from '../models/LuckyWheelConfig';
+import { getIO } from '../config/socket.io';
 
 /**
  * List all users (authenticated and guests) who have lucky wheel configs
@@ -224,6 +225,18 @@ export const updateUserConfig = async (req: Request, res: Response): Promise<voi
 
     config.updatedAt = new Date();
     await config.save();
+
+    // Emit realtime update to user's socket
+    // User can be identified by either guestId or userId
+    const targetId = config.guestId || config.userId?.toString();
+    if (targetId) {
+      getIO().emit('lucky-wheel-config-updated', {
+        targetId,
+        targetType: config.guestId ? 'guest' : 'user',
+        items: config.items,
+        updatedAt: config.updatedAt,
+      });
+    }
 
     res.json({
       message: 'Config updated successfully',
