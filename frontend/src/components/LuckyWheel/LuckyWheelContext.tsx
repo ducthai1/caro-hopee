@@ -34,6 +34,13 @@ type LuckyWheelContextType = {
 
 const LuckyWheelContext = createContext<LuckyWheelContextType | undefined>(undefined);
 
+// Wheel colors - moved outside component to prevent recreation on every render
+const WHEEL_COLORS = [
+  "#4CAF50", "#2196F3", "#9C27B0", "#F44336",
+  "#FF9800", "#FFC107", "#00BCD4", "#795548",
+  "#F44336", "#3F51B5", "#009688", "#E91E63"
+] as const;
+
 export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   const activityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,12 +285,6 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
     };
   }, [items, isInitialized]); // Direct API call to avoid function recreation
 
-  const colors = [
-    "#4CAF50", "#2196F3", "#9C27B0", "#F44336",
-    "#FF9800", "#FFC107", "#00BCD4", "#795548",
-    "#F44336", "#3F51B5", "#009688", "#E91E63"
-  ];
-
   const addItem = React.useCallback((label: string) => {
     itemsChangedByUserRef.current = true; // Mark as user change
     setItems((prevItems) => {
@@ -408,18 +409,19 @@ export const LuckyWheelProvider = ({ children }: { children: React.ReactNode }) 
   }, [isAuthenticated, updateActivity]);
 
   // Memoize context value to prevent unnecessary re-renders
+  // Note: WHEEL_COLORS is a constant outside component, so it doesn't need to be in deps
   const contextValue = useMemo(() => ({
-    items, 
-    setItems, 
-    addItem, 
-    removeItem, 
-    updateItemWeight, 
+    items,
+    setItems,
+    addItem,
+    removeItem,
+    updateItemWeight,
     saveConfigToServer,
     loadConfigFromServer,
     isLoading,
-    colors,
+    colors: WHEEL_COLORS as unknown as string[], // Use constant reference
     updateActivity
-  }), [items, setItems, addItem, removeItem, updateItemWeight, saveConfigToServer, loadConfigFromServer, isLoading, colors, updateActivity]);
+  }), [items, setItems, addItem, removeItem, updateItemWeight, saveConfigToServer, loadConfigFromServer, isLoading, updateActivity]);
 
   return (
     <LuckyWheelContext.Provider value={contextValue}>

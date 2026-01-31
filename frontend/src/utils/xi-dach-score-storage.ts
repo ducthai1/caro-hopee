@@ -17,6 +17,9 @@ import {
 
 const STORAGE_KEY = 'xi-dach-sessions';
 const STORAGE_VERSION = 1;
+const MAX_SESSIONS = 50; // Maximum sessions to keep in localStorage
+const SESSION_TTL_DAYS = 90; // Auto-delete sessions older than 90 days
+const MAX_MATCHES_PER_SESSION = 100; // Limit matches per session to prevent memory issues
 
 // ============== HELPERS ==============
 
@@ -32,6 +35,52 @@ export const generateId = (): string => {
  */
 export const getTimestamp = (): string => {
   return new Date().toISOString();
+};
+
+/**
+ * Prune matches within a session: keep only MAX_MATCHES_PER_SESSION most recent
+ * Archives older matches to prevent memory exhaustion
+ */
+const pruneMatches = (session: XiDachSession): XiDachSession => {
+  if (session.matches.length <= MAX_MATCHES_PER_SESSION) {
+    return session;
+  }
+
+  // Keep only the most recent matches
+  const prunedMatches = session.matches.slice(-MAX_MATCHES_PER_SESSION);
+
+  console.warn(
+    `[XiDachStorage] Pruned ${session.matches.length - MAX_MATCHES_PER_SESSION} old matches from session ${session.id}`
+  );
+
+  return {
+    ...session,
+    matches: prunedMatches,
+  };
+};
+
+/**
+ * Prune sessions: remove expired and keep only MAX_SESSIONS most recent
+ * - Removes sessions older than SESSION_TTL_DAYS
+ * - Keeps only MAX_SESSIONS most recently updated sessions
+ */
+const pruneSessions = (sessions: XiDachSession[]): XiDachSession[] => {
+  const now = Date.now();
+  const ttlMs = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+  // 1. Remove expired sessions (older than TTL)
+  const validSessions = sessions.filter((session) => {
+    const updatedAt = new Date(session.updatedAt).getTime();
+    return now - updatedAt < ttlMs;
+  });
+
+  // 2. Sort by updatedAt (most recent first)
+  const sorted = validSessions.sort((a, b) =>
+    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+
+  // 3. Keep only MAX_SESSIONS most recent
+  return sorted.slice(0, MAX_SESSIONS);
 };
 
 // ============== STORAGE CRUD ==============
@@ -68,20 +117,27 @@ export const getSession = (id: string): XiDachSession | null => {
 
 /**
  * Save session (create or update)
+ * Automatically prunes old/expired sessions and matches before saving
  */
 export const saveSession = (session: XiDachSession): void => {
   try {
-    const sessions = getAllSessions();
+    let sessions = getAllSessions();
     const index = sessions.findIndex((s) => s.id === session.id);
 
     // Update timestamp
     session.updatedAt = getTimestamp();
 
+    // Prune matches within session to prevent memory issues
+    const prunedSession = pruneMatches(session);
+
     if (index >= 0) {
-      sessions[index] = session;
+      sessions[index] = prunedSession;
     } else {
-      sessions.push(session);
+      sessions.push(prunedSession);
     }
+
+    // Prune old/expired sessions before saving
+    sessions = pruneSessions(sessions);
 
     const data: XiDachStorageData = {
       version: STORAGE_VERSION,
@@ -114,19 +170,58 @@ export const deleteSession = (id: string): void => {
   }
 };
 
+/**
+ * Manually cleanup old sessions
+ * Removes expired sessions and enforces MAX_SESSIONS limit
+ * Can be called on app start or periodically
+ */
+export const cleanupSessions = (): { removed: number; remaining: number } => {
+  try {
+    const sessions = getAllSessions();
+    const originalCount = sessions.length;
+
+    const prunedSessions = pruneSessions(sessions);
+    const removedCount = originalCount - prunedSessions.length;
+
+    if (removedCount > 0) {
+      const data: XiDachStorageData = {
+        version: STORAGE_VERSION,
+        sessions: prunedSessions,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    return { removed: removedCount, remaining: prunedSessions.length };
+  } catch (error) {
+    console.error('[XiDachStorage] Error during cleanup:', error);
+    return { removed: 0, remaining: 0 };
+  }
+};
+
 // ============== SESSION FACTORY ==============
+
+/**
+ * Options for creating a session
+ */
+interface CreateSessionOptions {
+  sessionCode?: string;
+  hasPassword?: boolean;
+}
 
 /**
  * Create new session with default values
  */
 export const createSession = (
   name: string,
-  settings: Partial<XiDachSettings> = {}
+  settings: Partial<XiDachSettings> = {},
+  options: CreateSessionOptions = {}
 ): XiDachSession => {
   const now = getTimestamp();
 
   return {
     id: generateId(),
+    sessionCode: options.sessionCode,
+    hasPassword: options.hasPassword,
     name: name.trim() || 'Bàn mới',
     players: [],
     matches: [],
@@ -155,38 +250,64 @@ export const createPlayer = (name: string, baseScore: number = 0): XiDachPlayer 
 // ============== SCORE CALCULATION ==============
 
 /**
+ * Calculate effective tu count including multipliers
+ * Formula: tuCount + xiBanCount + nguLinhCount
+ * (xiBan and nguLinh each add ×2, so effectively tuCount - xiBan - nguLinh + xiBan×2 + nguLinh×2)
+ */
+const calculateEffectiveTu = (tuCount: number, xiBanCount: number, nguLinhCount: number): number => {
+  return tuCount + xiBanCount + nguLinhCount;
+};
+
+/**
  * Calculate score change for a player result
- * Formula:
- * - tuCount = total number of tụ (wins/losses)
- * - xiBanCount = number of tụ with xì bàn (×2 multiplier)
- * - nguLinhCount = number of tụ with ngũ linh (×2 multiplier)
- * - normalTu = tuCount - xiBanCount - nguLinhCount (regular tụ, ×1)
- * - score = (normalTu × 1 + xiBanCount × 2 + nguLinhCount × 2) × pointsPerTu
- *         = (tuCount + xiBanCount + nguLinhCount) × pointsPerTu
+ * New formula with separate win/lose:
+ * - winScore = (winTuCount + winXiBanCount + winNguLinhCount) × pointsPerTu
+ * - loseScore = (loseTuCount + loseXiBanCount + loseNguLinhCount) × pointsPerTu
+ * - score = winScore - loseScore - penalty28
  */
 export const calculateScoreChange = (
   result: Omit<XiDachPlayerResult, 'scoreChange'>,
   settings: XiDachSettings
 ): number => {
-  // Normal tụ (×1) + xiBan tụ (×2) + nguLinh tụ (×2)
-  // = (tuCount - xiBan - nguLinh) + (xiBan × 2) + (nguLinh × 2)
-  // = tuCount + xiBan + nguLinh
-  const totalMultipliedTu = result.tuCount + result.xiBanCount + result.nguLinhCount;
-  let score = totalMultipliedTu * settings.pointsPerTu;
-
-  // Apply outcome (negative if lose)
-  if (result.outcome === 'lose') {
-    score = -score;
+  // Handle legacy data format (old format with single tuCount and outcome)
+  if (result.tuCount !== undefined && result.outcome !== undefined) {
+    const totalMultipliedTu = result.tuCount + (result.xiBanCount || 0) + (result.nguLinhCount || 0);
+    let score = totalMultipliedTu * settings.pointsPerTu;
+    if (result.outcome === 'lose') {
+      score = -score;
+    }
+    // Apply penalty 28
+    if (result.penalty28 && result.penalty28Recipients.length > 0) {
+      const betAmount = totalMultipliedTu * settings.pointsPerTu;
+      const penaltyPerRecipient = settings.penalty28Enabled
+        ? settings.penalty28Amount
+        : betAmount;
+      score -= penaltyPerRecipient * result.penalty28Recipients.length;
+    }
+    return score;
   }
 
-  // Apply penalty 28 (paid to others when busting)
+  // New format with separate win/lose
+  const winEffectiveTu = calculateEffectiveTu(
+    result.winTuCount,
+    result.winXiBanCount,
+    result.winNguLinhCount
+  );
+  const loseEffectiveTu = calculateEffectiveTu(
+    result.loseTuCount,
+    result.loseXiBanCount,
+    result.loseNguLinhCount
+  );
+
+  const winScore = winEffectiveTu * settings.pointsPerTu;
+  const loseScore = loseEffectiveTu * settings.pointsPerTu;
+  let score = winScore - loseScore;
+
+  // Apply penalty 28 (based on lose amount)
   if (result.penalty28 && result.penalty28Recipients.length > 0) {
-    // If penalty28Enabled: use fixed amount
-    // If not: use the bet amount (same as score amount)
-    const betAmount = totalMultipliedTu * settings.pointsPerTu;
     const penaltyPerRecipient = settings.penalty28Enabled
       ? settings.penalty28Amount
-      : betAmount;
+      : loseScore; // Use lose bet amount as penalty
     score -= penaltyPerRecipient * result.penalty28Recipients.length;
   }
 
@@ -194,15 +315,17 @@ export const calculateScoreChange = (
 };
 
 /**
- * Create player result with calculated score
+ * Create player result with calculated score (new format with separate win/lose)
  */
 export const createPlayerResult = (
   playerId: string,
   input: {
-    tuCount: number;
-    outcome: 'win' | 'lose';
-    xiBanCount?: number;
-    nguLinhCount?: number;
+    winTuCount: number;
+    winXiBanCount?: number;
+    winNguLinhCount?: number;
+    loseTuCount: number;
+    loseXiBanCount?: number;
+    loseNguLinhCount?: number;
     penalty28?: boolean;
     penalty28Recipients?: string[];
   },
@@ -210,10 +333,12 @@ export const createPlayerResult = (
 ): XiDachPlayerResult => {
   const result: Omit<XiDachPlayerResult, 'scoreChange'> = {
     playerId,
-    tuCount: input.tuCount,
-    outcome: input.outcome,
-    xiBanCount: input.xiBanCount || 0,
-    nguLinhCount: input.nguLinhCount || 0,
+    winTuCount: input.winTuCount,
+    winXiBanCount: input.winXiBanCount || 0,
+    winNguLinhCount: input.winNguLinhCount || 0,
+    loseTuCount: input.loseTuCount,
+    loseXiBanCount: input.loseXiBanCount || 0,
+    loseNguLinhCount: input.loseNguLinhCount || 0,
     penalty28: input.penalty28 || false,
     penalty28Recipients: input.penalty28Recipients || [],
   };
@@ -302,8 +427,15 @@ export const recalculatePlayerScores = (session: XiDachSession): XiDachSession =
       // Handle penalty 28 recipients (they receive the penalty amount)
       if (result.penalty28 && result.penalty28Recipients.length > 0) {
         // Calculate penalty per recipient based on settings
-        // Formula: (tuCount + xiBanCount + nguLinhCount) × pointsPerTu
-        const betAmount = (result.tuCount + result.xiBanCount + result.nguLinhCount) * session.settings.pointsPerTu;
+        // For new format: use lose amount; for legacy: use tuCount
+        let betAmount: number;
+        if (result.loseTuCount !== undefined) {
+          // New format
+          betAmount = (result.loseTuCount + (result.loseXiBanCount || 0) + (result.loseNguLinhCount || 0)) * session.settings.pointsPerTu;
+        } else {
+          // Legacy format
+          betAmount = ((result.tuCount || 0) + (result.xiBanCount || 0) + (result.nguLinhCount || 0)) * session.settings.pointsPerTu;
+        }
         const amountPerRecipient = session.settings.penalty28Enabled
           ? session.settings.penalty28Amount
           : betAmount;

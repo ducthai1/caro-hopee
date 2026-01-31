@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(ls:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(python:*)",
+      "Bash(git -C /Users/admin/Downloads/caro-hopee/frontend log --oneline --since=\"7 days ago\" --name-status)"
     ]
   }
 }

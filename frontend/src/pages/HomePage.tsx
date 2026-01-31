@@ -183,7 +183,25 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     isMountedRef.current = true;
     loadWaitingGames();
-    const interval = setInterval(() => loadWaitingGames(true), 30000);
+
+    // Visibility-aware polling: pause when tab hidden, resume when visible
+    let isPollingPaused = document.visibilityState !== 'visible';
+
+    const interval = setInterval(() => {
+      if (!isPollingPaused) {
+        loadWaitingGames(true);
+      }
+    }, 30000);
+
+    // Refresh data when tab becomes visible after being hidden
+    const handleVisibilityChange = () => {
+      const wasHidden = isPollingPaused;
+      isPollingPaused = document.visibilityState !== 'visible';
+      if (wasHidden && !isPollingPaused && isMountedRef.current) {
+        loadWaitingGames(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Store current timeout ref value for cleanup
     const capturedTimeoutRef = updateTimeoutRef.current;
@@ -191,6 +209,7 @@ const HomePage: React.FC = () => {
     // Define cleanup function first
     const cleanup = () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (capturedTimeoutRef) {
         clearTimeout(capturedTimeoutRef);
       }
@@ -358,7 +377,6 @@ const HomePage: React.FC = () => {
         isAuthenticated={isAuthenticated}
         user={user}
         logout={logout}
-        onHistoryClick={() => setHistoryModalOpen(true)}
         onEditGuestName={!isAuthenticated ? () => setShowGuestNameDialog(true) : undefined}
       />
 

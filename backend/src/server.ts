@@ -13,6 +13,7 @@ import leaderboardRoutes from './routes/leaderboardRoutes';
 import userRoutes from './routes/userRoutes';
 import luckyWheelRoutes from './routes/luckyWheelRoutes';
 import adminRoutes from './routes/adminRoutes';
+import xiDachRoutes from './routes/xiDachRoutes';
 import { authLimiter, gameCreationLimiter, gameJoinLimiter, apiLimiter } from './middleware/rateLimiter';
 import { cleanupInactiveGuests } from './controllers/luckyWheelController';
 
@@ -43,6 +44,7 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/lucky-wheel', luckyWheelRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/xi-dach', xiDachRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

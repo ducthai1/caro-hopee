@@ -140,7 +140,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/game/:roomId',
-    element: <MainLayout><GameRoomPage /></MainLayout>,
+    element: <GameRoomPage />,
   },
   {
     path: '/leaderboard',

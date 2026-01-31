@@ -1,6 +1,7 @@
 /**
  * Xì Dách Score Tracker - Edit Match Modal
  * Modal to edit the last match results (pre-filled with existing data)
+ * Supports both new format (separate win/lose) and legacy format
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -20,8 +21,9 @@ import {
 } from '@mui/material';
 import { useXiDachScore } from './XiDachScoreContext';
 import PlayerResultInput, { PlayerResultInputData } from './PlayerResultInput';
-import { createPlayerResult } from '../../utils/xi-dach-score-storage';
+import { createPlayerResult, calculateScoreChange } from '../../utils/xi-dach-score-storage';
 import { useLanguage } from '../../i18n';
+import { XiDachPlayerResult } from '../../types/xi-dach-score.types';
 
 interface EditMatchModalProps {
   open: boolean;
@@ -53,27 +55,100 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
     [currentSession?.players]
   );
 
+  // Non-dealer players
+  const nonDealerPlayers = useMemo(
+    () => activePlayers.filter((p) => p.id !== matchToEdit?.dealerId),
+    [activePlayers, matchToEdit?.dealerId]
+  );
+
   const dealer = useMemo(
     () => activePlayers.find((p) => p.id === matchToEdit?.dealerId),
     [activePlayers, matchToEdit?.dealerId]
   );
+
+  // Convert legacy format result to new format
+  const convertLegacyResult = (result: XiDachPlayerResult): PlayerResultInputData => {
+    // New format: has winTuCount/loseTuCount
+    if (result.winTuCount !== undefined && result.loseTuCount !== undefined) {
+      return {
+        playerId: result.playerId,
+        winTuCount: result.winTuCount,
+        winXiBanCount: result.winXiBanCount,
+        winNguLinhCount: result.winNguLinhCount,
+        loseTuCount: result.loseTuCount,
+        loseXiBanCount: result.loseXiBanCount,
+        loseNguLinhCount: result.loseNguLinhCount,
+        penalty28: result.penalty28,
+        penalty28Recipients: result.penalty28Recipients,
+      };
+    }
+
+    // Legacy format: convert based on outcome
+    if (result.outcome === 'win') {
+      return {
+        playerId: result.playerId,
+        winTuCount: result.tuCount || 0,
+        winXiBanCount: result.xiBanCount || 0,
+        winNguLinhCount: result.nguLinhCount || 0,
+        loseTuCount: 0,
+        loseXiBanCount: 0,
+        loseNguLinhCount: 0,
+        penalty28: result.penalty28,
+        penalty28Recipients: result.penalty28Recipients,
+      };
+    } else {
+      return {
+        playerId: result.playerId,
+        winTuCount: 0,
+        winXiBanCount: 0,
+        winNguLinhCount: 0,
+        loseTuCount: result.tuCount || 0,
+        loseXiBanCount: result.xiBanCount || 0,
+        loseNguLinhCount: result.nguLinhCount || 0,
+        penalty28: result.penalty28,
+        penalty28Recipients: result.penalty28Recipients,
+      };
+    }
+  };
+
+  // Calculate dealer preview score (inverse of other players)
+  const dealerPreviewScore = useMemo(() => {
+    if (!currentSession || !dealer) return 0;
+
+    let totalOtherPlayersScore = 0;
+
+    for (const player of nonDealerPlayers) {
+      const data = playerResults[player.id];
+      if (data) {
+        const score = calculateScoreChange(
+          {
+            playerId: data.playerId,
+            winTuCount: data.winTuCount,
+            winXiBanCount: data.winXiBanCount,
+            winNguLinhCount: data.winNguLinhCount,
+            loseTuCount: data.loseTuCount,
+            loseXiBanCount: data.loseXiBanCount,
+            loseNguLinhCount: data.loseNguLinhCount,
+            penalty28: data.penalty28,
+            penalty28Recipients: data.penalty28Recipients,
+          },
+          currentSession.settings
+        );
+        totalOtherPlayersScore += score;
+      }
+    }
+
+    return -totalOtherPlayersScore;
+  }, [playerResults, nonDealerPlayers, currentSession, dealer]);
 
   // Initialize player results when modal opens with existing match data
   useEffect(() => {
     if (open && matchToEdit && currentSession) {
       const initialResults: Record<string, PlayerResultInputData> = {};
 
-      // Pre-fill with existing match results
+      // Pre-fill with existing match results (convert legacy if needed)
       matchToEdit.results.forEach((result) => {
-        initialResults[result.playerId] = {
-          playerId: result.playerId,
-          outcome: result.outcome,
-          tuCount: result.tuCount,
-          xiBanCount: result.xiBanCount,
-          nguLinhCount: result.nguLinhCount,
-          penalty28: result.penalty28,
-          penalty28Recipients: result.penalty28Recipients,
-        };
+        initialResults[result.playerId] = convertLegacyResult(result);
       });
 
       // Add any players who weren't in the original match (unlikely but safe)
@@ -81,10 +156,12 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
         if (!initialResults[player.id]) {
           initialResults[player.id] = {
             playerId: player.id,
-            outcome: null,
-            tuCount: 1,
-            xiBanCount: 0,
-            nguLinhCount: 0,
+            winTuCount: 0,
+            winXiBanCount: 0,
+            winNguLinhCount: 0,
+            loseTuCount: 0,
+            loseXiBanCount: 0,
+            loseNguLinhCount: 0,
             penalty28: false,
             penalty28Recipients: [],
           };
@@ -105,16 +182,11 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
   };
 
   const validateResults = (): string | null => {
-    for (const player of activePlayers) {
+    // Only validate penalty28 if used
+    for (const player of nonDealerPlayers) {
       const result = playerResults[player.id];
       if (!result) {
         return t('xiDachScore.match.missingResult', { name: player.name });
-      }
-      if (!result.outcome) {
-        return t('xiDachScore.match.noOutcome', { name: player.name });
-      }
-      if (result.tuCount < 1) {
-        return t('xiDachScore.match.tuMin', { name: player.name });
       }
       if (result.penalty28 && result.penalty28Recipients.length === 0) {
         return t('xiDachScore.match.penalty28NoRecipient', { name: player.name });
@@ -130,27 +202,47 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
       return;
     }
 
-    if (!currentSession || !matchId) return;
+    if (!currentSession || !matchId || !dealer) return;
 
-    // Create player results with calculated scores
-    const results = activePlayers.map((player) => {
+    const allResults: XiDachPlayerResult[] = [];
+
+    // Create dealer result (auto-calculated)
+    const dealerResult: XiDachPlayerResult = {
+      playerId: dealer.id,
+      winTuCount: dealerPreviewScore >= 0 ? 0 : 0,
+      winXiBanCount: 0,
+      winNguLinhCount: 0,
+      loseTuCount: 0,
+      loseXiBanCount: 0,
+      loseNguLinhCount: 0,
+      penalty28: false,
+      penalty28Recipients: [],
+      scoreChange: dealerPreviewScore,
+    };
+    allResults.push(dealerResult);
+
+    // Create results for non-dealer players
+    for (const player of nonDealerPlayers) {
       const data = playerResults[player.id];
-      return createPlayerResult(
+      const result = createPlayerResult(
         player.id,
         {
-          tuCount: data.tuCount,
-          outcome: data.outcome as 'win' | 'lose',
-          xiBanCount: data.xiBanCount,
-          nguLinhCount: data.nguLinhCount,
+          winTuCount: data.winTuCount,
+          winXiBanCount: data.winXiBanCount,
+          winNguLinhCount: data.winNguLinhCount,
+          loseTuCount: data.loseTuCount,
+          loseXiBanCount: data.loseXiBanCount,
+          loseNguLinhCount: data.loseNguLinhCount,
           penalty28: data.penalty28,
           penalty28Recipients: data.penalty28Recipients,
         },
         currentSession.settings
       );
-    });
+      allResults.push(result);
+    }
 
     // Edit match
-    editMatch(matchId, results);
+    editMatch(matchId, allResults);
     setShowSuccess(true);
 
     // Close modal after short delay
@@ -235,13 +327,57 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
               {currentSession.settings.pointsPerTu}{t('xiDachScore.game.perTu')}
             </Typography>
             <Typography variant="caption" sx={{ color: '#95a5a6' }}>
-              {t('xiDachScore.penalty28Short')}: {currentSession.settings.penalty28Amount}đ
+              {currentSession.settings.penalty28Enabled
+                ? `${t('xiDachScore.penalty28Short')}: ${currentSession.settings.penalty28Amount}đ`
+                : t('xiDachScore.penalty28ByBet')}
             </Typography>
           </Box>
 
+          {/* Dealer Card - Score preview */}
+          {dealer && (
+            <Box
+              sx={{
+                mb: 2,
+                p: 2,
+                bgcolor: '#fff',
+                borderRadius: 2,
+                border: '2px solid #FF8A65',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <span style={{ marginRight: 8 }}>👑</span>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+                  {dealer.name}
+                </Typography>
+                <Box
+                  sx={{
+                    ml: 'auto',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 2,
+                    bgcolor: dealerPreviewScore >= 0 ? 'rgba(39, 174, 96, 0.1)' : 'rgba(255, 138, 101, 0.1)',
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: dealerPreviewScore >= 0 ? '#2e7d32' : '#E64A19',
+                    }}
+                  >
+                    {dealerPreviewScore >= 0 ? '+' : ''}{dealerPreviewScore}đ
+                  </Typography>
+                </Box>
+              </Box>
+              <Typography variant="caption" sx={{ color: '#95a5a6' }}>
+                {t('xiDachScore.dealer.autoCalculateHint')}
+              </Typography>
+            </Box>
+          )}
+
           {/* Player Results */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {activePlayers.map((player) => {
+            {nonDealerPlayers.map((player) => {
               const otherPlayers = activePlayers.filter(
                 (p) => p.id !== player.id
               );
@@ -252,10 +388,12 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
                   data={
                     playerResults[player.id] || {
                       playerId: player.id,
-                      outcome: null,
-                      tuCount: 1,
-                      xiBanCount: 0,
-                      nguLinhCount: 0,
+                      winTuCount: 0,
+                      winXiBanCount: 0,
+                      winNguLinhCount: 0,
+                      loseTuCount: 0,
+                      loseXiBanCount: 0,
+                      loseNguLinhCount: 0,
                       penalty28: false,
                       penalty28Recipients: [],
                     }
@@ -263,7 +401,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
                   settings={currentSession.settings}
                   otherPlayers={otherPlayers}
                   onChange={handlePlayerResultChange}
-                  isDealer={player.id === matchToEdit.dealerId}
+                  isDealer={false}
                 />
               );
             })}

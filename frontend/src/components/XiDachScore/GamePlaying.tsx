@@ -21,6 +21,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
+import ShareIcon from '@mui/icons-material/Share';
 import { useXiDachScore } from './XiDachScoreContext';
 import Scoreboard from './Scoreboard';
 import AddPlayerModal from './AddPlayerModal';
@@ -30,6 +31,7 @@ import EndMatchModal from './EndMatchModal';
 import EditMatchModal from './EditMatchModal';
 import MatchHistory from './MatchHistory';
 import DealerRotationModal from './DealerRotationModal';
+import ShareSessionDialog from './ShareSessionDialog';
 import { XiDachPlayer } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
 
@@ -57,6 +59,8 @@ const GamePlaying: React.FC = () => {
   const [editMatchId, setEditMatchId] = useState<string | null>(null);
   const [endSessionConfirm, setEndSessionConfirm] = useState(false);
   const [removePlayerConfirm, setRemovePlayerConfirm] = useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sessionHasPassword, setSessionHasPassword] = useState(currentSession?.hasPassword ?? false);
 
   if (!currentSession) {
     return null;
@@ -140,6 +144,20 @@ const GamePlaying: React.FC = () => {
                 {currentSession.name}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {currentSession.sessionCode && (
+                  <Chip
+                    size="small"
+                    label={currentSession.sessionCode}
+                    sx={{
+                      height: 20,
+                      fontSize: '0.65rem',
+                      fontFamily: 'monospace',
+                      fontWeight: 600,
+                      bgcolor: 'rgba(255, 138, 101, 0.1)',
+                      color: '#FF8A65',
+                    }}
+                  />
+                )}
                 <Chip
                   size="small"
                   label={
@@ -167,6 +185,19 @@ const GamePlaying: React.FC = () => {
               </Box>
             </Box>
           </Box>
+
+          {/* Share Button - only for online sessions */}
+          {currentSession.sessionCode && (
+            <IconButton
+              onClick={() => setShareDialogOpen(true)}
+              sx={{
+                color: '#FF8A65',
+                '&:hover': { bgcolor: 'rgba(255, 138, 101, 0.1)' },
+              }}
+            >
+              <ShareIcon />
+            </IconButton>
+          )}
         </Box>
 
         {/* Match Info Bar */}
@@ -508,6 +539,17 @@ const GamePlaying: React.FC = () => {
 
       {/* Dealer Rotation Confirmation Modal */}
       <DealerRotationModal />
+
+      {/* Share Session Dialog - only for online sessions */}
+      {currentSession.sessionCode && (
+        <ShareSessionDialog
+          open={shareDialogOpen}
+          onClose={() => setShareDialogOpen(false)}
+          sessionCode={currentSession.sessionCode}
+          hasPassword={sessionHasPassword}
+          onPasswordChange={(hasPassword) => setSessionHasPassword(hasPassword)}
+        />
+      )}
     </Box>
   );
 };

@@ -1,20 +1,19 @@
 /**
  * Blackjack Score Tracker - Player Result Input
  * Form to input match result for a single player (non-dealer only)
- * Uses button-based input with +/- controls
+ * Uses separate win/lose input with +/- controls
  */
 
 import React from 'react';
 import {
   Box,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
   Checkbox,
   FormControlLabel,
   Chip,
   Collapse,
   IconButton,
+  Divider,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -24,10 +23,15 @@ import { useLanguage } from '../../i18n';
 
 export interface PlayerResultInputData {
   playerId: string;
-  outcome: 'win' | 'lose' | null;
-  tuCount: number;          // Number of wins (thắng)
-  xiBanCount: number;       // Blackjack multiplier
-  nguLinhCount: number;     // Five card multiplier
+  // Win side
+  winTuCount: number;
+  winXiBanCount: number;
+  winNguLinhCount: number;
+  // Lose side
+  loseTuCount: number;
+  loseXiBanCount: number;
+  loseNguLinhCount: number;
+  // Penalty
   penalty28: boolean;
   penalty28Recipients: string[];
 }
@@ -52,9 +56,12 @@ const CounterButton: React.FC<{
   disabled?: boolean;
   onChange: (value: number) => void;
   color?: string;
-}> = ({ label, value, maxValue, minValue = 0, disabled = false, onChange, color = '#FF8A65' }) => {
+  size?: 'small' | 'normal';
+}> = ({ label, value, maxValue, minValue = 0, disabled = false, onChange, color = '#FF8A65', size = 'normal' }) => {
   const canDecrease = value > minValue && !disabled;
   const canIncrease = value < maxValue && !disabled;
+
+  const isSmall = size === 'small';
 
   return (
     <Box
@@ -62,9 +69,9 @@ const CounterButton: React.FC<{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        p: 1,
+        p: isSmall ? 0.5 : 1,
         bgcolor: disabled ? '#f5f5f5' : '#fff',
-        borderRadius: 2,
+        borderRadius: isSmall ? 1 : 2,
         border: `1px solid ${disabled ? '#e0e0e0' : '#eee'}`,
         opacity: disabled ? 0.5 : 1,
       }}
@@ -76,15 +83,16 @@ const CounterButton: React.FC<{
         sx={{
           bgcolor: canDecrease ? `${color}15` : 'transparent',
           '&:hover': { bgcolor: canDecrease ? `${color}25` : 'transparent' },
+          p: isSmall ? 0.25 : 0.5,
         }}
       >
-        <RemoveIcon sx={{ fontSize: 18, color: canDecrease ? color : '#ccc' }} />
+        <RemoveIcon sx={{ fontSize: isSmall ? 14 : 18, color: canDecrease ? color : '#ccc' }} />
       </IconButton>
-      <Box sx={{ textAlign: 'center', minWidth: 60 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, color: disabled ? '#999' : '#2c3e50' }}>
+      <Box sx={{ textAlign: 'center', minWidth: isSmall ? 40 : 60 }}>
+        <Typography variant={isSmall ? 'caption' : 'body2'} sx={{ fontWeight: 600, color: disabled ? '#999' : '#2c3e50' }}>
           {value}
         </Typography>
-        <Typography variant="caption" sx={{ color: '#95a5a6', fontSize: '0.65rem' }}>
+        <Typography variant="caption" sx={{ color: '#95a5a6', fontSize: isSmall ? '0.55rem' : '0.65rem', display: 'block' }}>
           {label}
         </Typography>
       </Box>
@@ -95,9 +103,10 @@ const CounterButton: React.FC<{
         sx={{
           bgcolor: canIncrease ? `${color}15` : 'transparent',
           '&:hover': { bgcolor: canIncrease ? `${color}25` : 'transparent' },
+          p: isSmall ? 0.25 : 0.5,
         }}
       >
-        <AddIcon sx={{ fontSize: 18, color: canIncrease ? color : '#ccc' }} />
+        <AddIcon sx={{ fontSize: isSmall ? 14 : 18, color: canIncrease ? color : '#ccc' }} />
       </IconButton>
     </Box>
   );
@@ -113,63 +122,42 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
 }) => {
   const { t } = useLanguage();
 
-  // Calculate preview score for non-dealers
-  const previewScore = data.outcome
-    ? calculateScoreChange(
-        {
-          playerId: data.playerId,
-          tuCount: data.tuCount,
-          outcome: data.outcome,
-          xiBanCount: data.xiBanCount,
-          nguLinhCount: data.nguLinhCount,
-          penalty28: data.penalty28,
-          penalty28Recipients: data.penalty28Recipients,
-        },
-        settings
-      )
-    : null;
+  // Calculate preview score
+  const previewScore = calculateScoreChange(
+    {
+      playerId: data.playerId,
+      winTuCount: data.winTuCount,
+      winXiBanCount: data.winXiBanCount,
+      winNguLinhCount: data.winNguLinhCount,
+      loseTuCount: data.loseTuCount,
+      loseXiBanCount: data.loseXiBanCount,
+      loseNguLinhCount: data.loseNguLinhCount,
+      penalty28: data.penalty28,
+      penalty28Recipients: data.penalty28Recipients,
+    },
+    settings
+  );
 
-  // Calculate penalty amount (either fixed or based on bet)
-  // Bet amount = (tuCount + xiBanCount + nguLinhCount) × pointsPerTu
-  const betAmount = (data.tuCount + data.xiBanCount + data.nguLinhCount) * settings.pointsPerTu;
+  // Calculate penalty amount (based on lose amount)
+  const loseAmount = (data.loseTuCount + data.loseXiBanCount + data.loseNguLinhCount) * settings.pointsPerTu;
   const penaltyAmountPerRecipient = settings.penalty28Enabled
     ? settings.penalty28Amount
-    : betAmount;
+    : loseAmount;
 
-  // Max constraint: xiBan + nguLinh <= tuCount
-  const maxBonusTotal = data.tuCount;
-  const currentBonusTotal = data.xiBanCount + data.nguLinhCount;
+  // Max constraint: xiBan + nguLinh <= tuCount (for each side)
+  const maxWinXiBan = Math.max(0, data.winTuCount - data.winNguLinhCount);
+  const maxWinNguLinh = Math.max(0, data.winTuCount - data.winXiBanCount);
+  const maxLoseXiBan = Math.max(0, data.loseTuCount - data.loseNguLinhCount);
+  const maxLoseNguLinh = Math.max(0, data.loseTuCount - data.loseXiBanCount);
 
-  // Max xiBan = tuCount - nguLinhCount
-  const maxXiBan = Math.max(0, data.tuCount - data.nguLinhCount);
-  // Max nguLinh = tuCount - xiBanCount
-  const maxNguLinh = Math.max(0, data.tuCount - data.xiBanCount);
+  // Handle win tu count change
+  const handleWinTuCountChange = (value: number) => {
+    const newTuCount = Math.max(0, value);
+    let newXiBan = data.winXiBanCount;
+    let newNguLinh = data.winNguLinhCount;
 
-  const handleOutcomeChange = (
-    _: React.MouseEvent<HTMLElement>,
-    newOutcome: 'win' | 'lose' | null
-  ) => {
-    if (newOutcome !== null) {
-      // Reset bonus counts when changing outcome
-      onChange({
-        ...data,
-        outcome: newOutcome,
-        tuCount: newOutcome === 'win' ? Math.max(1, data.tuCount) : data.tuCount,
-        xiBanCount: 0,
-        nguLinhCount: 0,
-      });
-    }
-  };
-
-  const handleTuCountChange = (value: number) => {
-    // When reducing tuCount, also reduce bonuses if they exceed new max
-    const newTuCount = Math.max(data.outcome === 'win' ? 1 : 0, value);
-    let newXiBan = data.xiBanCount;
-    let newNguLinh = data.nguLinhCount;
-
-    // Adjust bonuses if they exceed new tuCount
+    // Adjust multipliers if they exceed new tuCount
     if (newXiBan + newNguLinh > newTuCount) {
-      // Reduce xiBan first, then nguLinh
       const excess = (newXiBan + newNguLinh) - newTuCount;
       if (newXiBan >= excess) {
         newXiBan -= excess;
@@ -181,18 +169,35 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
 
     onChange({
       ...data,
-      tuCount: newTuCount,
-      xiBanCount: Math.max(0, newXiBan),
-      nguLinhCount: Math.max(0, newNguLinh),
+      winTuCount: newTuCount,
+      winXiBanCount: Math.max(0, newXiBan),
+      winNguLinhCount: Math.max(0, newNguLinh),
     });
   };
 
-  const handleXiBanChange = (value: number) => {
-    onChange({ ...data, xiBanCount: Math.max(0, Math.min(value, maxXiBan)) });
-  };
+  // Handle lose tu count change
+  const handleLoseTuCountChange = (value: number) => {
+    const newTuCount = Math.max(0, value);
+    let newXiBan = data.loseXiBanCount;
+    let newNguLinh = data.loseNguLinhCount;
 
-  const handleNguLinhChange = (value: number) => {
-    onChange({ ...data, nguLinhCount: Math.max(0, Math.min(value, maxNguLinh)) });
+    // Adjust multipliers if they exceed new tuCount
+    if (newXiBan + newNguLinh > newTuCount) {
+      const excess = (newXiBan + newNguLinh) - newTuCount;
+      if (newXiBan >= excess) {
+        newXiBan -= excess;
+      } else {
+        newNguLinh -= (excess - newXiBan);
+        newXiBan = 0;
+      }
+    }
+
+    onChange({
+      ...data,
+      loseTuCount: newTuCount,
+      loseXiBanCount: Math.max(0, newXiBan),
+      loseNguLinhCount: Math.max(0, newNguLinh),
+    });
   };
 
   const handlePenalty28Toggle = (checked: boolean) => {
@@ -276,214 +281,206 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
         </Typography>
       </Box>
 
-      {/* Win/Lose Toggle */}
+      {/* Win Section */}
       <Box sx={{ mb: 2 }}>
-        <ToggleButtonGroup
-          value={data.outcome}
-          exclusive
-          onChange={handleOutcomeChange}
-          fullWidth
-          size="small"
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: '#2e7d32',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            mb: 1,
+            display: 'block',
+          }}
         >
-          <ToggleButton
-            value="win"
-            sx={{
-              flex: 1,
-              py: 1,
-              '&.Mui-selected': {
-                bgcolor: '#2e7d32',
-                color: '#fff',
-                '&:hover': { bgcolor: '#1b5e20' },
-              },
-            }}
-          >
-            {t('xiDachScore.match.win')}
-          </ToggleButton>
-          <ToggleButton
-            value="lose"
-            sx={{
-              flex: 1,
-              py: 1,
-              '&.Mui-selected': {
-                bgcolor: '#E64A19',
-                color: '#fff',
-                '&:hover': { bgcolor: '#BF360C' },
-              },
-            }}
-          >
-            {t('xiDachScore.match.lose')}
-          </ToggleButton>
-        </ToggleButtonGroup>
+          {t('xiDachScore.match.win')}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ flex: 2 }}>
+            <CounterButton
+              label={t('xiDachScore.match.tuCount')}
+              value={data.winTuCount}
+              maxValue={10}
+              minValue={0}
+              onChange={handleWinTuCountChange}
+              color="#2e7d32"
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <CounterButton
+              label={t('xiDachScore.match.xiBanShort')}
+              value={data.winXiBanCount}
+              maxValue={maxWinXiBan}
+              minValue={0}
+              disabled={data.winTuCount === 0}
+              onChange={(v) => onChange({ ...data, winXiBanCount: Math.max(0, Math.min(v, maxWinXiBan)) })}
+              color="#66bb6a"
+              size="small"
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <CounterButton
+              label={t('xiDachScore.match.nguLinhShort')}
+              value={data.winNguLinhCount}
+              maxValue={maxWinNguLinh}
+              minValue={0}
+              disabled={data.winTuCount === 0}
+              onChange={(v) => onChange({ ...data, winNguLinhCount: Math.max(0, Math.min(v, maxWinNguLinh)) })}
+              color="#81c784"
+              size="small"
+            />
+          </Box>
+        </Box>
       </Box>
 
-      {/* Show counters only when outcome is selected */}
-      <Collapse in={data.outcome !== null}>
-        {/* Tu count - label changes based on win/lose */}
-        <Box sx={{ mb: 2 }}>
-          <CounterButton
-            label={data.outcome === 'win'
-              ? t('xiDachScore.match.winCount')
-              : t('xiDachScore.match.loseCount')}
-            value={data.tuCount}
-            maxValue={10}
-            minValue={data.outcome === 'win' ? 1 : 0}
-            onChange={handleTuCountChange}
-            color={data.outcome === 'win' ? '#2e7d32' : '#E64A19'}
-          />
-        </Box>
+      <Divider sx={{ my: 1.5 }} />
 
-        {/* Xì Bàn & Ngũ Linh - only show when there are wins */}
-        <Collapse in={data.tuCount > 0}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-            <Box sx={{ flex: 1 }}>
-              <CounterButton
-                label={t('xiDachScore.match.xiBanShort')}
-                value={data.xiBanCount}
-                maxValue={maxXiBan}
-                minValue={0}
-                disabled={maxXiBan === 0}
-                onChange={handleXiBanChange}
-                color="#FFB74D"
-              />
-            </Box>
-            <Box sx={{ flex: 1 }}>
-              <CounterButton
-                label={t('xiDachScore.match.nguLinhShort')}
-                value={data.nguLinhCount}
-                maxValue={maxNguLinh}
-                minValue={0}
-                disabled={maxNguLinh === 0}
-                onChange={handleNguLinhChange}
-                color="#FFCC80"
-              />
-            </Box>
+      {/* Lose Section */}
+      <Box sx={{ mb: 2 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: '#E64A19',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            mb: 1,
+            display: 'block',
+          }}
+        >
+          {t('xiDachScore.match.lose')}
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ flex: 2 }}>
+            <CounterButton
+              label={t('xiDachScore.match.tuCount')}
+              value={data.loseTuCount}
+              maxValue={10}
+              minValue={0}
+              onChange={handleLoseTuCountChange}
+              color="#E64A19"
+            />
           </Box>
+          <Box sx={{ flex: 1 }}>
+            <CounterButton
+              label={t('xiDachScore.match.xiBanShort')}
+              value={data.loseXiBanCount}
+              maxValue={maxLoseXiBan}
+              minValue={0}
+              disabled={data.loseTuCount === 0}
+              onChange={(v) => onChange({ ...data, loseXiBanCount: Math.max(0, Math.min(v, maxLoseXiBan)) })}
+              color="#ff7043"
+              size="small"
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <CounterButton
+              label={t('xiDachScore.match.nguLinhShort')}
+              value={data.loseNguLinhCount}
+              maxValue={maxLoseNguLinh}
+              minValue={0}
+              disabled={data.loseTuCount === 0}
+              onChange={(v) => onChange({ ...data, loseNguLinhCount: Math.max(0, Math.min(v, maxLoseNguLinh)) })}
+              color="#ff8a65"
+              size="small"
+            />
+          </Box>
+        </Box>
+      </Box>
 
-          {/* Bonus constraint hint */}
-          {data.tuCount > 0 && (
-            <Typography
-              variant="caption"
+      {/* Penalty 28 - only show when there are losses */}
+      <Collapse in={data.loseTuCount > 0}>
+        <Box sx={{ mb: 2 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={data.penalty28}
+                onChange={(e) => handlePenalty28Toggle(e.target.checked)}
+                sx={{
+                  color: '#FF8A65',
+                  '&.Mui-checked': { color: '#FF8A65' },
+                }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
+                {settings.penalty28Enabled
+                  ? t('xiDachScore.match.penalty28LabelFixed', { amount: settings.penalty28Amount })
+                  : t('xiDachScore.match.penalty28LabelBet', { amount: penaltyAmountPerRecipient })}
+              </Typography>
+            }
+          />
+
+          <Collapse in={data.penalty28}>
+            <Box
               sx={{
-                display: 'block',
-                textAlign: 'center',
-                color: currentBonusTotal >= maxBonusTotal ? '#FF8A65' : '#95a5a6',
-                mb: 2,
+                ml: 4,
+                mt: 1,
+                p: 1.5,
+                bgcolor: '#f8f9fa',
+                borderRadius: 1,
               }}
             >
-              {t('xiDachScore.match.bonusConstraint', {
-                current: currentBonusTotal,
-                max: maxBonusTotal,
-              })}
-            </Typography>
-          )}
-        </Collapse>
-
-        {/* Penalty 28 - only show for lose outcome */}
-        <Collapse in={data.outcome === 'lose'}>
-          <Box sx={{ mb: 2 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={data.penalty28}
-                  onChange={(e) => handlePenalty28Toggle(e.target.checked)}
-                  sx={{
-                    color: '#FF8A65',
-                    '&.Mui-checked': { color: '#FF8A65' },
-                  }}
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
-                  {settings.penalty28Enabled
-                    ? t('xiDachScore.match.penalty28LabelFixed', { amount: settings.penalty28Amount })
-                    : t('xiDachScore.match.penalty28LabelBet', { amount: penaltyAmountPerRecipient })}
-                </Typography>
-              }
-            />
-
-            <Collapse in={data.penalty28}>
-              <Box
-                sx={{
-                  ml: 4,
-                  mt: 1,
-                  p: 1.5,
-                  bgcolor: '#f8f9fa',
-                  borderRadius: 1,
-                }}
-              >
-                <Typography variant="caption" sx={{ color: '#7f8c8d', mb: 1, display: 'block' }}>
-                  {t('xiDachScore.match.penalty28To')}
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {otherPlayers.map((p) => (
-                    <Chip
-                      key={p.id}
-                      label={p.name}
-                      size="small"
-                      onClick={() => handleRecipientToggle(p.id)}
-                      sx={{
-                        cursor: 'pointer',
+              <Typography variant="caption" sx={{ color: '#7f8c8d', mb: 1, display: 'block' }}>
+                {t('xiDachScore.match.penalty28To')}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {otherPlayers.map((p) => (
+                  <Chip
+                    key={p.id}
+                    label={p.name}
+                    size="small"
+                    onClick={() => handleRecipientToggle(p.id)}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor: data.penalty28Recipients.includes(p.id)
+                        ? '#FF8A65'
+                        : '#e0e0e0',
+                      color: data.penalty28Recipients.includes(p.id)
+                        ? '#fff'
+                        : '#666',
+                      '&:hover': {
                         bgcolor: data.penalty28Recipients.includes(p.id)
-                          ? '#FF8A65'
-                          : '#e0e0e0',
-                        color: data.penalty28Recipients.includes(p.id)
-                          ? '#fff'
-                          : '#666',
-                        '&:hover': {
-                          bgcolor: data.penalty28Recipients.includes(p.id)
-                            ? '#E64A19'
-                            : '#d0d0d0',
-                        },
-                      }}
-                    />
-                  ))}
-                </Box>
+                          ? '#E64A19'
+                          : '#d0d0d0',
+                      },
+                    }}
+                  />
+                ))}
               </Box>
-            </Collapse>
-          </Box>
-        </Collapse>
+            </Box>
+          </Collapse>
+        </Box>
+      </Collapse>
 
-        {/* Score Preview */}
-        {data.outcome && (
-          <Box
+      {/* Score Preview */}
+      <Box
+        sx={{
+          p: 1.5,
+          bgcolor: previewScore >= 0 ? 'rgba(39, 174, 96, 0.1)' : 'rgba(255, 138, 101, 0.1)',
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
+          {t('xiDachScore.match.scoreChange')}
+        </Typography>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography
+            variant="h6"
             sx={{
-              p: 1.5,
-              bgcolor: previewScore && previewScore >= 0 ? 'rgba(39, 174, 96, 0.1)' : 'rgba(255, 138, 101, 0.1)',
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              fontWeight: 700,
+              color: previewScore >= 0 ? '#2e7d32' : '#E64A19',
             }}
           >
-            <Typography variant="body2" sx={{ color: '#7f8c8d' }}>
-              {t('xiDachScore.match.scoreChange')}
-            </Typography>
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  color: previewScore && previewScore >= 0 ? '#2e7d32' : '#E64A19',
-                }}
-              >
-                {previewScore !== null ? (
-                  <>
-                    {previewScore >= 0 ? '+' : ''}
-                    {previewScore}đ
-                  </>
-                ) : (
-                  '—'
-                )}
-              </Typography>
-              {(data.xiBanCount > 0 || data.nguLinhCount > 0) && (
-                <Typography variant="caption" sx={{ color: '#95a5a6' }}>
-                  ×{1 + data.xiBanCount + data.nguLinhCount}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-        )}
-      </Collapse>
+            {previewScore >= 0 ? '+' : ''}
+            {previewScore}đ
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 };

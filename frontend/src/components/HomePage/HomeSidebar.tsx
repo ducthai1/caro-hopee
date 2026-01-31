@@ -18,7 +18,6 @@ import {
 import PersonIcon from '@mui/icons-material/Person';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import LoginIcon from '@mui/icons-material/Login';
-import HistoryIcon from '@mui/icons-material/History';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import EditIcon from '@mui/icons-material/Edit';
@@ -39,7 +38,6 @@ interface HomeSidebarProps {
   isAuthenticated: boolean;
   user: { username?: string } | null;
   logout: () => void;
-  onHistoryClick: () => void;
   onEditGuestName?: () => void;
 }
 
@@ -58,7 +56,6 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
   isAuthenticated,
   user,
   logout,
-  onHistoryClick,
   onEditGuestName,
 }) => {
   const { t } = useLanguage();
@@ -178,12 +175,6 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
         isAuthenticated={isAuthenticated}
         user={user}
         logout={handleLogoutClick}
-        onHistoryClick={() => {
-          onHistoryClick();
-          if (isMobile) {
-            setSidebarOpen(false);
-          }
-        }}
         sidebarCollapsed={sidebarCollapsed}
         setSidebarCollapsed={setSidebarCollapsed}
         isMobile={isMobile}
@@ -586,7 +577,6 @@ interface AuthSectionProps {
   isAuthenticated: boolean;
   user: { username?: string } | null;
   logout: () => void;
-  onHistoryClick: () => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   isMobile: boolean;
@@ -598,7 +588,6 @@ const AuthSection: React.FC<AuthSectionProps> = React.memo(({
   isAuthenticated,
   user,
   logout,
-  onHistoryClick,
   sidebarCollapsed,
   setSidebarCollapsed,
   isMobile,
@@ -632,7 +621,6 @@ const AuthSection: React.FC<AuthSectionProps> = React.memo(({
     {isAuthenticated ? (
       <AuthenticatedSection
         logout={logout}
-        onHistoryClick={onHistoryClick}
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
         t={t}
@@ -640,7 +628,6 @@ const AuthSection: React.FC<AuthSectionProps> = React.memo(({
       />
     ) : (
       <UnauthenticatedSection
-        onHistoryClick={onHistoryClick}
         sidebarCollapsed={sidebarCollapsed}
         isMobile={isMobile}
         t={t}
@@ -654,7 +641,6 @@ AuthSection.displayName = 'AuthSection';
 // Authenticated user section - Only action buttons (user info moved to UserNameDisplay) - memoized
 interface AuthenticatedSectionProps {
   logout: () => void;
-  onHistoryClick: () => void;
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
@@ -663,7 +649,6 @@ interface AuthenticatedSectionProps {
 
 const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = React.memo(({
   logout,
-  onHistoryClick,
   sidebarCollapsed,
   isMobile,
   t,
@@ -710,18 +695,14 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = React.memo(({
           <PersonIcon sx={iconMargin} />
           <Box component="span" sx={textSx}>{t('home.profile')}</Box>
         </Button>
-        <Button 
-          component={Link} 
-          to="/leaderboard" 
+        <Button
+          component={Link}
+          to="/leaderboard"
           sx={buttonSx}
           onClick={onClose}
         >
           <LeaderboardIcon sx={iconMargin} />
           <Box component="span" sx={textSx}>{t('home.leaderboard')}</Box>
-        </Button>
-        <Button onClick={onHistoryClick} sx={buttonSx}>
-          <HistoryIcon sx={iconMargin} />
-          <Box component="span" sx={textSx}>{t('home.history')}</Box>
         </Button>
         <Button
           onClick={logout}
@@ -747,7 +728,6 @@ AuthenticatedSection.displayName = 'AuthenticatedSection';
 
 // Unauthenticated user section - Only action buttons (guest name moved to UserNameDisplay) - memoized
 interface UnauthenticatedSectionProps {
-  onHistoryClick: () => void;
   sidebarCollapsed: boolean;
   isMobile: boolean;
   t: (key: string) => string;
@@ -755,7 +735,6 @@ interface UnauthenticatedSectionProps {
 }
 
 const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = React.memo(({
-  onHistoryClick,
   sidebarCollapsed,
   isMobile,
   t,
@@ -772,30 +751,6 @@ const UnauthenticatedSection: React.FC<UnauthenticatedSectionProps> = React.memo
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Button
-        onClick={onHistoryClick}
-        sx={{
-          py: 1.5,
-          px: 2,
-          borderRadius: 2.5,
-          textTransform: 'none',
-          fontWeight: 600,
-          fontSize: '0.9rem',
-          background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
-          border: '1px solid rgba(126, 200, 227, 0.3)',
-          color: '#2c3e50',
-          justifyContent: 'center',
-          width: '100%',
-          minHeight: 56,
-          '&:hover': {
-            background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.2) 0%, rgba(168, 230, 207, 0.2) 100%)',
-            borderColor: 'rgba(126, 200, 227, 0.5)',
-          },
-        }}
-      >
-        <HistoryIcon sx={iconMargin} />
-        <Box component="span" sx={textSx}>{t('home.history')}</Box>
-      </Button>
       <Button
         component={Link}
         to="/login"

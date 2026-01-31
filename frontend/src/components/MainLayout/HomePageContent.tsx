@@ -12,7 +12,6 @@ import { socketService } from '../../services/socketService';
 import { useSocket } from '../../contexts/SocketContext';
 import { logger } from '../../utils/logger';
 import { getGuestName } from '../../utils/guestName';
-import { useMainLayout } from './MainLayoutContext';
 import {
   HeroSection,
   CreateGameCard,
@@ -26,7 +25,6 @@ const HomePageContent: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { isConnected: socketConnected } = useSocket();
-  const { openHistoryModal, openGuestNameDialog } = useMainLayout();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -335,6 +333,7 @@ const HomePageContent: React.FC = () => {
               joinError={joinError}
               joinLoading={joinLoading}
               onJoinGame={handleJoinGame}
+              onHistoryClick={() => setHistoryModalOpen(true)}
             />
           </Box>
 

@@ -3,7 +3,7 @@
  * Displays single player with score and dealer indicator
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
@@ -13,8 +13,8 @@ import { useLanguage } from '../../i18n';
 interface PlayerCardProps {
   player: XiDachPlayer;
   isDealer: boolean;
-  onEdit: () => void;
-  onRemove: () => void;
+  onEdit: (player: XiDachPlayer) => void;
+  onRemove: (playerId: string) => void;
 }
 
 const PlayerCard: React.FC<PlayerCardProps> = ({
@@ -26,6 +26,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   const { t } = useLanguage();
   const netScore = player.currentScore - player.baseScore;
   const isPositive = netScore >= 0;
+
+  // Stable callbacks that call parent with player data
+  const handleEdit = useCallback(() => onEdit(player), [onEdit, player]);
+  const handleRemove = useCallback(() => onRemove(player.id), [onRemove, player.id]);
 
   return (
     <Box
@@ -47,7 +51,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Remove Button */}
       <IconButton
         size="small"
-        onClick={onRemove}
+        onClick={handleRemove}
         sx={{
           position: 'absolute',
           top: 4,
@@ -130,7 +134,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
         <IconButton
           size="small"
-          onClick={onEdit}
+          onClick={handleEdit}
           sx={{
             color: '#7f8c8d',
             '&:hover': {
@@ -146,4 +150,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   );
 };
 
-export default PlayerCard;
+// Memoize to prevent unnecessary re-renders when parent re-renders
+// PlayerCard will only re-render when its props (player, isDealer, onEdit, onRemove) change
+export default React.memo(PlayerCard);

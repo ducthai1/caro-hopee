@@ -3,7 +3,7 @@
  * Grid display of all players with scores
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PlayerCard from './PlayerCard';
@@ -26,7 +26,23 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
   onAddPlayer,
 }) => {
   const { t } = useLanguage();
-  const activePlayers = players.filter((p) => p.isActive);
+
+  // Memoize active players to prevent recalculation on every render
+  const activePlayers = useMemo(
+    () => players.filter((p) => p.isActive),
+    [players]
+  );
+
+  // Stable callbacks to work with memoized PlayerCard
+  const handleEditPlayer = useCallback(
+    (player: XiDachPlayer) => onEditPlayer(player),
+    [onEditPlayer]
+  );
+
+  const handleRemovePlayer = useCallback(
+    (playerId: string) => onRemovePlayer(playerId),
+    [onRemovePlayer]
+  );
 
   return (
     <Box>
@@ -75,8 +91,8 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
               key={player.id}
               player={player}
               isDealer={player.id === currentDealerId}
-              onEdit={() => onEditPlayer(player)}
-              onRemove={() => onRemovePlayer(player.id)}
+              onEdit={handleEditPlayer}
+              onRemove={handleRemovePlayer}
             />
           ))}
         </Box>

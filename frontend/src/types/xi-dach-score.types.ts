@@ -18,13 +18,29 @@ export interface XiDachPlayer {
 
 export interface XiDachPlayerResult {
   playerId: string;
-  tuCount: number;                    // Number of "tụ" (hands) played
-  outcome: 'win' | 'lose';
-  xiBanCount: number;                 // Number of xì bàn (x2 each)
-  nguLinhCount: number;               // Number of ngũ linh (x2 each)
+  // Win side
+  winTuCount: number;                 // Number of "tụ" won
+  winXiBanCount: number;              // Number of xì bàn in wins (×2 each)
+  winNguLinhCount: number;            // Number of ngũ linh in wins (×2 each)
+  // Lose side
+  loseTuCount: number;                // Number of "tụ" lost
+  loseXiBanCount: number;             // Number of xì bàn in losses (×2 each)
+  loseNguLinhCount: number;           // Number of ngũ linh in losses (×2 each)
+  // Penalty
   penalty28: boolean;                 // Has to pay penalty for >28 points
   penalty28Recipients: string[];      // Player IDs who receive penalty
+  // Calculated
   scoreChange: number;                // Final calculated score change
+
+  // Legacy fields (for backwards compatibility with old data)
+  /** @deprecated Use winTuCount/loseTuCount instead */
+  tuCount?: number;
+  /** @deprecated Calculated from result */
+  outcome?: 'win' | 'lose';
+  /** @deprecated Use winXiBanCount/loseXiBanCount instead */
+  xiBanCount?: number;
+  /** @deprecated Use winNguLinhCount/loseNguLinhCount instead */
+  nguLinhCount?: number;
 }
 
 // ============== MATCH ==============
@@ -62,7 +78,9 @@ export type XiDachSessionStatus = 'setup' | 'playing' | 'paused' | 'ended';
 
 export interface XiDachSession {
   id: string;
+  sessionCode?: string;               // 6-char code for multiplayer sharing
   name: string;
+  hasPassword?: boolean;              // Whether session requires password
   players: XiDachPlayer[];
   matches: XiDachMatch[];
   currentDealerId: string | null;

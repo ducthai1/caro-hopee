@@ -1,7 +1,18 @@
-import axios from 'axios';
+import axios, { isCancel } from 'axios';
 import { API_BASE_URL } from '../utils/constants';
 import { AuthResponse, User, UpdateProfileData, ChangePasswordData } from '../types/user.types';
 import { Game, GameHistory } from '../types/game.types';
+
+// Re-export axios isCancel for consumers to check if error is cancellation
+export { isCancel };
+
+/**
+ * Helper to check if error is an axios cancellation
+ * Use this to silently ignore cancelled requests in catch blocks
+ */
+export const isCancelled = (error: unknown): boolean => {
+  return isCancel(error);
+};
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -97,8 +108,8 @@ export const gameApi = {
     const response = await api.post(`/games/${roomId}/leave`, { guestId });
     return response.data;
   },
-  getWaitingGames: async (): Promise<any[]> => {
-    const response = await api.get('/games/waiting');
+  getWaitingGames: async (signal?: AbortSignal): Promise<any[]> => {
+    const response = await api.get('/games/waiting', { signal });
     return response.data;
   },
   getGameHistory: async (): Promise<{ history: GameHistory[]; total: number }> => {
@@ -161,8 +172,8 @@ export const gameStatsApi = {
 
 // Leaderboard APIs
 export const leaderboardApi = {
-  getLeaderboard: async (gameId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time', limit: number = 50, offset: number = 0) => {
-    const response = await api.get(`/leaderboard/${gameId}?period=${period}&limit=${limit}&offset=${offset}`);
+  getLeaderboard: async (gameId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time', limit: number = 50, offset: number = 0, signal?: AbortSignal) => {
+    const response = await api.get(`/leaderboard/${gameId}?period=${period}&limit=${limit}&offset=${offset}`, { signal });
     return response.data;
   },
   getUserRank: async (gameId: string, userId: string, period: 'daily' | 'weekly' | 'all-time' = 'all-time') => {
@@ -240,10 +251,10 @@ export const luckyWheelApi = {
     });
     return response.data;
   },
-  getMyConfig: async (): Promise<{ config: any; items: WheelItem[]; isDefault: boolean }> => {
+  getMyConfig: async (signal?: AbortSignal): Promise<{ config: any; items: WheelItem[]; isDefault: boolean }> => {
     const { getGuestId } = await import('../utils/guestId');
     const guestId = getGuestId();
-    const response = await api.get(`/lucky-wheel/config?guestId=${guestId}`);
+    const response = await api.get(`/lucky-wheel/config?guestId=${guestId}`, { signal });
     return response.data;
   },
   getUserConfig: async (userId: string): Promise<{ config: any; items: WheelItem[] }> => {
@@ -325,6 +336,88 @@ export const adminApi = {
       items,
       guestId,
     });
+    return response.data;
+  },
+};
+
+// Xi Dach Session APIs
+export interface XiDachSessionResponse {
+  id: string;
+  sessionCode: string;
+  name: string;
+  hasPassword: boolean;
+  players: any[];
+  matches: any[];
+  currentDealerId: string | null;
+  settings: any;
+  status: 'setup' | 'playing' | 'paused' | 'ended';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface XiDachSessionListItem {
+  id: string;
+  sessionCode: string;
+  name: string;
+  hasPassword: boolean;
+  playerCount: number;
+  matchCount: number;
+  status: 'setup' | 'playing' | 'paused' | 'ended';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const xiDachApi = {
+  // Create a new session
+  createSession: async (name: string, password?: string, settings?: any): Promise<XiDachSessionResponse> => {
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.post('/xi-dach/sessions', {
+      name,
+      password,
+      settings,
+      guestId,
+    });
+    return response.data;
+  },
+
+  // Get all sessions
+  getSessions: async (status?: string, limit?: number): Promise<{ sessions: XiDachSessionListItem[] }> => {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (limit) params.append('limit', limit.toString());
+    const response = await api.get(`/xi-dach/sessions?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get session by code (requires password if protected)
+  getSession: async (sessionCode: string, password?: string): Promise<XiDachSessionResponse> => {
+    const params = password ? `?password=${encodeURIComponent(password)}` : '';
+    const response = await api.get(`/xi-dach/sessions/${sessionCode}${params}`);
+    return response.data;
+  },
+
+  // Join session with password
+  joinSession: async (sessionCode: string, password?: string): Promise<XiDachSessionResponse> => {
+    const response = await api.post(`/xi-dach/sessions/${sessionCode}/join`, { password });
+    return response.data;
+  },
+
+  // Update session (players, matches, settings, etc.)
+  updateSession: async (sessionCode: string, updates: any): Promise<XiDachSessionResponse> => {
+    const response = await api.put(`/xi-dach/sessions/${sessionCode}`, updates);
+    return response.data;
+  },
+
+  // Set/change session password
+  setPassword: async (sessionCode: string, password: string | null): Promise<{ message: string; hasPassword: boolean }> => {
+    const response = await api.post(`/xi-dach/sessions/${sessionCode}/password`, { password });
+    return response.data;
+  },
+
+  // Delete session
+  deleteSession: async (sessionCode: string): Promise<{ message: string }> => {
+    const response = await api.delete(`/xi-dach/sessions/${sessionCode}`);
     return response.data;
   },
 };

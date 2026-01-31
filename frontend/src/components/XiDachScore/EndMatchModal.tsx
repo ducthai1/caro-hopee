@@ -2,6 +2,7 @@
  * Blackjack Score Tracker - End Match Modal
  * Modal to input results for all players after a match
  * Features:
+ * - Separate win/lose input for each player
  * - Dealer score is auto-calculated as inverse of other players' total
  * - Dealer xì bàn/xì lác mode: win from all or selected players
  */
@@ -57,40 +58,63 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const [dealerWinScope, setDealerWinScope] = useState<DealerWinScope>('all');
   const [dealerWinTargets, setDealerWinTargets] = useState<string[]>([]); // Player IDs dealer wins from
 
-  // Get active players and dealer
-  const activePlayers = useMemo(
-    () => currentSession?.players.filter((p) => p.isActive) || [],
+  // Get stable IDs for memoization (prevents infinite re-render loops)
+  const activePlayerIds = useMemo(
+    () => (currentSession?.players.filter((p) => p.isActive) || []).map(p => p.id).join(','),
     [currentSession?.players]
   );
 
+  // Get active players and dealer using stable IDs
+  const activePlayers = useMemo(
+    () => currentSession?.players.filter((p) => p.isActive) || [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePlayerIds, currentSession?.players]
+  );
+
+  const currentDealerId = currentSession?.currentDealerId;
+
   const currentDealer = useMemo(
-    () => activePlayers.find((p) => p.id === currentSession?.currentDealerId),
-    [activePlayers, currentSession?.currentDealerId]
+    () => activePlayers.find((p) => p.id === currentDealerId),
+    [activePlayers, currentDealerId]
   );
 
   // Non-dealer players (those who need to input results)
   const nonDealerPlayers = useMemo(
-    () => activePlayers.filter((p) => p.id !== currentSession?.currentDealerId),
-    [activePlayers, currentSession?.currentDealerId]
+    () => activePlayers.filter((p) => p.id !== currentDealerId),
+    [activePlayers, currentDealerId]
+  );
+
+  // Stable ID string for nonDealerPlayers
+  const nonDealerPlayerIds = useMemo(
+    () => nonDealerPlayers.map(p => p.id).join(','),
+    [nonDealerPlayers]
   );
 
   // Check if dealer is in special mode (xì bàn or ngũ linh)
   const isDealerSpecialMode = dealerMode !== 'normal';
 
-  // Players who are disabled (auto-lose to dealer in special mode)
-  const disabledPlayerIds = useMemo(() => {
-    if (!isDealerSpecialMode) return [];
-    if (dealerWinScope === 'all') return nonDealerPlayers.map(p => p.id);
-    return dealerWinTargets;
-  }, [isDealerSpecialMode, dealerWinScope, dealerWinTargets, nonDealerPlayers]);
+  // Players who are disabled (auto-lose to dealer in special mode) - use stable ID string
+  const disabledPlayerIdStr = useMemo(() => {
+    if (!isDealerSpecialMode) return '';
+    if (dealerWinScope === 'all') return nonDealerPlayerIds;
+    return dealerWinTargets.join(',');
+  }, [isDealerSpecialMode, dealerWinScope, dealerWinTargets, nonDealerPlayerIds]);
+
+  // Convert to array for use in component
+  const disabledPlayerIds = useMemo(
+    () => disabledPlayerIdStr ? disabledPlayerIdStr.split(',') : [],
+    [disabledPlayerIdStr]
+  );
 
   // Players who can still input (not disabled)
   const enabledPlayers = useMemo(
     () => nonDealerPlayers.filter(p => !disabledPlayerIds.includes(p.id)),
-    [nonDealerPlayers, disabledPlayerIds]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nonDealerPlayerIds, disabledPlayerIdStr]
   );
 
   // Calculate dealer's score as inverse of all other players' scores
+  // Using stable ID strings instead of arrays to prevent infinite re-render loops
   const dealerPreviewScore = useMemo(() => {
     if (!currentSession || !currentDealer) return 0;
 
@@ -100,19 +124,25 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       const dealerWinPerTu = currentSession.settings.pointsPerTu * multiplier;
 
       // Score from disabled players (they all lose to dealer)
-      let dealerScore = disabledPlayerIds.length * dealerTuCount * dealerWinPerTu;
+      const disabledCount = disabledPlayerIdStr ? disabledPlayerIdStr.split(',').length : 0;
+      let dealerScore = disabledCount * dealerTuCount * dealerWinPerTu;
 
       // Score from enabled players (inverse of their results)
-      for (const player of enabledPlayers) {
-        const data = playerResults[player.id];
-        if (data && data.outcome) {
+      const enabledIds = nonDealerPlayerIds.split(',').filter(id =>
+        !disabledPlayerIdStr.split(',').includes(id)
+      );
+      for (const playerId of enabledIds) {
+        const data = playerResults[playerId];
+        if (data) {
           const score = calculateScoreChange(
             {
               playerId: data.playerId,
-              tuCount: data.tuCount,
-              outcome: data.outcome,
-              xiBanCount: data.xiBanCount,
-              nguLinhCount: data.nguLinhCount,
+              winTuCount: data.winTuCount,
+              winXiBanCount: data.winXiBanCount,
+              winNguLinhCount: data.winNguLinhCount,
+              loseTuCount: data.loseTuCount,
+              loseXiBanCount: data.loseXiBanCount,
+              loseNguLinhCount: data.loseNguLinhCount,
               penalty28: data.penalty28,
               penalty28Recipients: data.penalty28Recipients,
             },
@@ -128,17 +158,20 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     // Normal mode: dealer score = inverse of all players' total
     let totalOtherPlayersScore = 0;
 
-    // Sum up all non-dealer players' scores
-    for (const player of nonDealerPlayers) {
-      const data = playerResults[player.id];
-      if (data && data.outcome) {
+    // Sum up all non-dealer players' scores using stable IDs
+    const nonDealerIds = nonDealerPlayerIds ? nonDealerPlayerIds.split(',') : [];
+    for (const playerId of nonDealerIds) {
+      const data = playerResults[playerId];
+      if (data) {
         const score = calculateScoreChange(
           {
             playerId: data.playerId,
-            tuCount: data.tuCount,
-            outcome: data.outcome,
-            xiBanCount: data.xiBanCount,
-            nguLinhCount: data.nguLinhCount,
+            winTuCount: data.winTuCount,
+            winXiBanCount: data.winXiBanCount,
+            winNguLinhCount: data.winNguLinhCount,
+            loseTuCount: data.loseTuCount,
+            loseXiBanCount: data.loseXiBanCount,
+            loseNguLinhCount: data.loseNguLinhCount,
             penalty28: data.penalty28,
             penalty28Recipients: data.penalty28Recipients,
           },
@@ -150,20 +183,24 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
     // Dealer's score is the inverse
     return -totalOtherPlayersScore;
-  }, [playerResults, nonDealerPlayers, enabledPlayers, currentSession, currentDealer, isDealerSpecialMode, dealerMode, dealerTuCount, disabledPlayerIds]);
+  }, [playerResults, nonDealerPlayerIds, currentSession, currentDealer, isDealerSpecialMode, dealerMode, dealerTuCount, disabledPlayerIdStr]);
 
   // Initialize player results when modal opens
+  // Using stable ID string instead of array to prevent infinite loops
   useEffect(() => {
-    if (open && currentSession) {
+    if (open && currentSession && nonDealerPlayerIds) {
       const initialResults: Record<string, PlayerResultInputData> = {};
-      // Only initialize for non-dealer players
-      nonDealerPlayers.forEach((player) => {
-        initialResults[player.id] = {
-          playerId: player.id,
-          outcome: null,
-          tuCount: 1,
-          xiBanCount: 0,
-          nguLinhCount: 0,
+      // Only initialize for non-dealer players using stable IDs
+      const ids = nonDealerPlayerIds.split(',').filter(Boolean);
+      ids.forEach((playerId) => {
+        initialResults[playerId] = {
+          playerId: playerId,
+          winTuCount: 0,
+          winXiBanCount: 0,
+          winNguLinhCount: 0,
+          loseTuCount: 0,
+          loseXiBanCount: 0,
+          loseNguLinhCount: 0,
           penalty28: false,
           penalty28Recipients: [],
         };
@@ -176,7 +213,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       setDealerWinScope('all');
       setDealerWinTargets([]);
     }
-  }, [open, currentSession, nonDealerPlayers]);
+  }, [open, currentSession, nonDealerPlayerIds]);
 
   const handlePlayerResultChange = (data: PlayerResultInputData) => {
     setPlayerResults((prev) => ({
@@ -197,18 +234,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       }
     }
 
-    // Only validate enabled players (not disabled by dealer special mode)
+    // Enabled players can have any combination of win/lose (including 0/0)
+    // Only validate penalty28 if used
     for (const player of enabledPlayers) {
       const result = playerResults[player.id];
       if (!result) {
         return t('xiDachScore.match.missingResult', { name: player.name });
-      }
-      if (!result.outcome) {
-        return t('xiDachScore.match.noOutcome', { name: player.name });
-      }
-      // tuCount can be 0 for lose, but must be >= 1 for win
-      if (result.outcome === 'win' && result.tuCount < 1) {
-        return t('xiDachScore.match.tuMin', { name: player.name });
       }
       if (result.penalty28 && result.penalty28Recipients.length === 0) {
         return t('xiDachScore.match.penalty28NoRecipient', { name: player.name });
@@ -233,10 +264,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     const dealerNguLinh = dealerMode === 'nguLinh' ? dealerTuCount : 0;
     const dealerResult: XiDachPlayerResult = {
       playerId: currentDealer.id,
-      tuCount: isDealerSpecialMode ? dealerTuCount : 0,
-      outcome: dealerPreviewScore >= 0 ? 'win' : 'lose',
-      xiBanCount: dealerXiBan,
-      nguLinhCount: dealerNguLinh,
+      winTuCount: dealerPreviewScore >= 0 ? (isDealerSpecialMode ? dealerTuCount : 0) : 0,
+      winXiBanCount: dealerPreviewScore >= 0 ? dealerXiBan : 0,
+      winNguLinhCount: dealerPreviewScore >= 0 ? dealerNguLinh : 0,
+      loseTuCount: dealerPreviewScore < 0 ? (isDealerSpecialMode ? dealerTuCount : 0) : 0,
+      loseXiBanCount: dealerPreviewScore < 0 ? dealerXiBan : 0,
+      loseNguLinhCount: dealerPreviewScore < 0 ? dealerNguLinh : 0,
       penalty28: false,
       penalty28Recipients: [],
       scoreChange: dealerPreviewScore,
@@ -251,10 +284,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       for (const playerId of disabledPlayerIds) {
         const disabledResult: XiDachPlayerResult = {
           playerId,
-          tuCount: dealerTuCount,
-          outcome: 'lose',
-          xiBanCount: dealerXiBan,
-          nguLinhCount: dealerNguLinh,
+          winTuCount: 0,
+          winXiBanCount: 0,
+          winNguLinhCount: 0,
+          loseTuCount: dealerTuCount,
+          loseXiBanCount: dealerXiBan,
+          loseNguLinhCount: dealerNguLinh,
           penalty28: false,
           penalty28Recipients: [],
           scoreChange: -lossPerPlayer,
@@ -269,10 +304,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       const result = createPlayerResult(
         player.id,
         {
-          tuCount: data.tuCount,
-          outcome: data.outcome as 'win' | 'lose',
-          xiBanCount: data.xiBanCount,
-          nguLinhCount: data.nguLinhCount,
+          winTuCount: data.winTuCount,
+          winXiBanCount: data.winXiBanCount,
+          winNguLinhCount: data.winNguLinhCount,
+          loseTuCount: data.loseTuCount,
+          loseXiBanCount: data.loseXiBanCount,
+          loseNguLinhCount: data.loseNguLinhCount,
           penalty28: data.penalty28,
           penalty28Recipients: data.penalty28Recipients,
         },
@@ -290,10 +327,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
         const result = createPlayerResult(
           player.id,
           {
-            tuCount: data.tuCount,
-            outcome: data.outcome as 'win' | 'lose',
-            xiBanCount: data.xiBanCount,
-            nguLinhCount: data.nguLinhCount,
+            winTuCount: data.winTuCount,
+            winXiBanCount: data.winXiBanCount,
+            winNguLinhCount: data.winNguLinhCount,
+            loseTuCount: data.loseTuCount,
+            loseXiBanCount: data.loseXiBanCount,
+            loseNguLinhCount: data.loseNguLinhCount,
             penalty28: data.penalty28,
             penalty28Recipients: data.penalty28Recipients,
           },
@@ -639,10 +678,12 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                   data={
                     playerResults[player.id] || {
                       playerId: player.id,
-                      outcome: null,
-                      tuCount: 1,
-                      xiBanCount: 0,
-                      nguLinhCount: 0,
+                      winTuCount: 0,
+                      winXiBanCount: 0,
+                      winNguLinhCount: 0,
+                      loseTuCount: 0,
+                      loseXiBanCount: 0,
+                      loseNguLinhCount: 0,
                       penalty28: false,
                       penalty28Recipients: [],
                     }

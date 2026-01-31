@@ -21,7 +21,7 @@ interface MatchHistoryItemProps {
   t: TranslateFunction;
 }
 
-// Format player result for display
+// Format player result for display (supports both new and legacy formats)
 const formatPlayerResult = (
   result: XiDachMatch['results'][0],
   player: XiDachPlayer | undefined,
@@ -35,16 +35,43 @@ const formatPlayerResult = (
 
   const details: string[] = [];
 
-  // Tụ count and outcome
-  const outcomeText = result.outcome === 'win' ? t('xiDachScore.match.win').toLowerCase() : t('xiDachScore.match.lose').toLowerCase();
-  details.push(`${result.tuCount} ${t('xiDachScore.history.tu')} ${outcomeText}`);
+  // New format with separate win/lose
+  if (result.winTuCount !== undefined && result.loseTuCount !== undefined) {
+    // Win tu info
+    if (result.winTuCount > 0) {
+      let winDetail = `+${result.winTuCount} ${t('xiDachScore.history.tu')}`;
+      if (result.winXiBanCount > 0) {
+        winDetail += ` (${result.winXiBanCount} ${t('xiDachScore.history.xiBan')})`;
+      }
+      if (result.winNguLinhCount > 0) {
+        winDetail += ` (${result.winNguLinhCount} ${t('xiDachScore.history.nguLinh')})`;
+      }
+      details.push(winDetail);
+    }
 
-  // Bonuses
-  if (result.xiBanCount > 0) {
-    details.push(`${result.xiBanCount} ${t('xiDachScore.history.xiBan')}`);
-  }
-  if (result.nguLinhCount > 0) {
-    details.push(`${result.nguLinhCount} ${t('xiDachScore.history.nguLinh')}`);
+    // Lose tu info
+    if (result.loseTuCount > 0) {
+      let loseDetail = `-${result.loseTuCount} ${t('xiDachScore.history.tu')}`;
+      if (result.loseXiBanCount > 0) {
+        loseDetail += ` (${result.loseXiBanCount} ${t('xiDachScore.history.xiBan')})`;
+      }
+      if (result.loseNguLinhCount > 0) {
+        loseDetail += ` (${result.loseNguLinhCount} ${t('xiDachScore.history.nguLinh')})`;
+      }
+      details.push(loseDetail);
+    }
+  } else {
+    // Legacy format with single tuCount and outcome
+    const outcomeText = result.outcome === 'win' ? t('xiDachScore.match.win').toLowerCase() : t('xiDachScore.match.lose').toLowerCase();
+    details.push(`${result.tuCount || 0} ${t('xiDachScore.history.tu')} ${outcomeText}`);
+
+    // Bonuses (legacy)
+    if (result.xiBanCount && result.xiBanCount > 0) {
+      details.push(`${result.xiBanCount} ${t('xiDachScore.history.xiBan')}`);
+    }
+    if (result.nguLinhCount && result.nguLinhCount > 0) {
+      details.push(`${result.nguLinhCount} ${t('xiDachScore.history.nguLinh')}`);
+    }
   }
 
   // Penalty 28
@@ -186,4 +213,6 @@ const MatchHistoryItem: React.FC<MatchHistoryItemProps> = ({
   );
 };
 
-export default MatchHistoryItem;
+// Memoize to prevent unnecessary re-renders in large match history lists
+// Component only re-renders when its props change
+export default React.memo(MatchHistoryItem);

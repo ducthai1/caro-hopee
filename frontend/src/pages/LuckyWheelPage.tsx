@@ -66,7 +66,6 @@ const LuckyWheelPage: React.FC = () => {
           isAuthenticated={isAuthenticated}
           user={user}
           logout={logout}
-          onHistoryClick={() => {}}
         />
 
         {/* Main Content */}

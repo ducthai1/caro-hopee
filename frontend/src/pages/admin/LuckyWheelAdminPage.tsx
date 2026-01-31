@@ -73,13 +73,29 @@ const LuckyWheelAdminPage: React.FC = () => {
   }, [loadUsers]);
 
   // Auto-refresh list every 10 seconds to show real-time updates
+  // Visibility-aware: pause when tab hidden, resume when visible
   useEffect(() => {
+    let isPollingPaused = document.visibilityState !== 'visible';
+
     const interval = setInterval(() => {
-      loadUsers();
+      if (!isPollingPaused) {
+        loadUsers();
+      }
     }, 10000); // Refresh every 10 seconds (reduced from 5s, socket handles realtime)
+
+    // Refresh data when tab becomes visible after being hidden
+    const handleVisibilityChange = () => {
+      const wasHidden = isPollingPaused;
+      isPollingPaused = document.visibilityState !== 'visible';
+      if (wasHidden && !isPollingPaused) {
+        loadUsers();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [loadUsers]);
 

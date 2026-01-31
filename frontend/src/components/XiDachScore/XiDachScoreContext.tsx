@@ -1,21 +1,18 @@
 /**
  * Xì Dách Score Tracker - Context Provider
  * Manages state and actions for the score tracker
+ * All sessions are online (API) - no localStorage persistence
  */
 
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import {
   XiDachSession,
   XiDachPlayer,
   XiDachMatch,
   XiDachPlayerResult,
-  XiDachSettings,
+  DEFAULT_XI_DACH_SETTINGS,
 } from '../../types/xi-dach-score.types';
 import {
-  getAllSessions,
-  saveSession,
-  deleteSession as deleteSessionFromStorage,
-  createSession,
   createPlayer,
   generateId,
   getTimestamp,
@@ -23,6 +20,7 @@ import {
   shouldAutoRotateDealer,
   getNextDealerId,
 } from '../../utils/xi-dach-score-storage';
+import { xiDachApi, XiDachSessionResponse } from '../../services/api';
 
 // ============== TYPES ==============
 
@@ -66,7 +64,7 @@ interface XiDachContextValue extends XiDachState {
   goToHistory: () => void;
   goToSummary: () => void;
   // Session CRUD
-  createNewSession: (name: string, settings?: Partial<XiDachSettings>) => XiDachSession;
+  setSessionFromApi: (apiResponse: XiDachSessionResponse) => void;
   deleteSession: (id: string) => void;
   updateCurrentSession: (updates: Partial<XiDachSession>) => void;
   // Player management
@@ -82,9 +80,31 @@ interface XiDachContextValue extends XiDachState {
   addMatch: (results: XiDachPlayerResult[]) => void;
   editMatch: (matchId: string, results: XiDachPlayerResult[]) => void;
   deleteLastMatch: () => void;
-  // Refresh
-  refreshSessions: () => void;
 }
+
+// ============== HELPERS ==============
+
+/** Convert API response to XiDachSession format (use sessionCode as id) */
+const apiResponseToSession = (r: XiDachSessionResponse): XiDachSession => ({
+  id: r.sessionCode,
+  sessionCode: r.sessionCode,
+  name: r.name,
+  hasPassword: r.hasPassword,
+  players: (r.players || []) as XiDachPlayer[],
+  matches: (r.matches || []).map((m: any) => ({
+    id: m.id,
+    matchNumber: m.matchNumber,
+    dealerId: m.dealerId,
+    results: m.results || [],
+    timestamp: m.timestamp || m.createdAt,
+    editedAt: m.editedAt,
+  })) as XiDachMatch[],
+  currentDealerId: r.currentDealerId,
+  settings: { ...DEFAULT_XI_DACH_SETTINGS, ...(r.settings || {}) },
+  status: r.status,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
+});
 
 // ============== INITIAL STATE ==============
 
@@ -92,7 +112,7 @@ const initialState: XiDachState = {
   sessions: [],
   currentSessionId: null,
   viewMode: 'list',
-  loading: true,
+  loading: false,
   error: null,
 };
 
@@ -140,17 +160,48 @@ const XiDachContext = createContext<XiDachContextValue | null>(null);
 
 // ============== PROVIDER ==============
 
+// Debounce delay for localStorage writes (ms)
+const SAVE_DEBOUNCE_MS = 300;
+
 export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [state, dispatch] = useReducer(xiDachReducer, initialState);
   const [pendingDealerRotation, setPendingDealerRotation] = useState<PendingDealerRotation | null>(null);
 
-  // Load sessions on mount
-  useEffect(() => {
-    const sessions = getAllSessions();
-    dispatch({ type: 'SET_SESSIONS', payload: sessions });
-    dispatch({ type: 'SET_LOADING', payload: false });
+  // Refs for debounced API sync
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSaveRef = useRef<XiDachSession | null>(null);
+
+  // Sync to API (debounced) - only for sessions with sessionCode
+  const debouncedSave = useCallback((session: XiDachSession) => {
+    if (!session.sessionCode) return;
+    pendingSaveRef.current = session;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      if (pendingSaveRef.current?.sessionCode) {
+        xiDachApi.updateSession(pendingSaveRef.current.sessionCode, pendingSaveRef.current).catch(console.error);
+        pendingSaveRef.current = null;
+      }
+    }, SAVE_DEBOUNCE_MS);
+  }, []);
+
+  // Immediate API sync for critical operations (match end, game end)
+  const immediateSave = useCallback((session: XiDachSession) => {
+    if (!session.sessionCode) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    pendingSaveRef.current = null;
+    xiDachApi.updateSession(session.sessionCode, session).catch(console.error);
+  }, []);
+
+  useEffect(() => () => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    if (pendingSaveRef.current?.sessionCode) {
+      xiDachApi.updateSession(pendingSaveRef.current.sessionCode, pendingSaveRef.current).catch(() => {});
+    }
   }, []);
 
   // Computed current session
@@ -171,13 +222,8 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const goToPlaying = useCallback((sessionId: string) => {
     dispatch({ type: 'SET_CURRENT_SESSION', payload: sessionId });
-    // Check if session is ended - if so, show summary instead
     const session = state.sessions.find((s) => s.id === sessionId);
-    if (session?.status === 'ended') {
-      dispatch({ type: 'SET_VIEW_MODE', payload: 'summary' });
-    } else {
-      dispatch({ type: 'SET_VIEW_MODE', payload: 'playing' });
-    }
+    dispatch({ type: 'SET_VIEW_MODE', payload: session?.status === 'ended' ? 'summary' : 'playing' });
   }, [state.sessions]);
 
   const goToHistory = useCallback(() => {
@@ -190,20 +236,24 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // ============== SESSION CRUD ==============
 
-  const createNewSession = useCallback(
-    (name: string, settings?: Partial<XiDachSettings>): XiDachSession => {
-      const session = createSession(name, settings);
-      saveSession(session);
-      dispatch({ type: 'ADD_SESSION', payload: session });
-      return session;
-    },
-    []
-  );
-
-  const deleteSessionAction = useCallback((id: string) => {
-    deleteSessionFromStorage(id);
-    dispatch({ type: 'DELETE_SESSION', payload: id });
+  const setSessionFromApi = useCallback((apiResponse: XiDachSessionResponse) => {
+    const session = apiResponseToSession(apiResponse);
+    dispatch({ type: 'ADD_SESSION', payload: session });
+    dispatch({ type: 'SET_CURRENT_SESSION', payload: session.id });
+    dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });
   }, []);
+
+  const deleteSessionAction = useCallback(async (id: string) => {
+    const session = state.sessions.find((s) => s.id === id);
+    if (session?.sessionCode) {
+      try {
+        await xiDachApi.deleteSession(session.sessionCode);
+      } catch (e) {
+        console.error('Failed to delete session from server:', e);
+      }
+    }
+    dispatch({ type: 'DELETE_SESSION', payload: id });
+  }, [state.sessions]);
 
   const updateCurrentSession = useCallback(
     (updates: Partial<XiDachSession>) => {
@@ -214,10 +264,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         ...updates,
         updatedAt: getTimestamp(),
       };
-      saveSession(updated);
+      debouncedSave(updated); // Use debounced save for settings updates
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, debouncedSave]
   );
 
   // ============== PLAYER MANAGEMENT ==============
@@ -232,10 +282,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         players: [...currentSession.players, player],
         updatedAt: getTimestamp(),
       };
-      saveSession(updated);
+      debouncedSave(updated); // Use debounced save for non-critical operation
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, debouncedSave]
   );
 
   const removePlayer = useCallback(
@@ -249,10 +299,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         ),
         updatedAt: getTimestamp(),
       };
-      saveSession(updated);
+      debouncedSave(updated); // Use debounced save for non-critical operation
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, debouncedSave]
   );
 
   const updatePlayer = useCallback(
@@ -274,10 +324,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         updated = recalculatePlayerScores(updated);
       }
 
-      saveSession(updated);
+      debouncedSave(updated); // Use debounced save for non-critical operation
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, debouncedSave]
   );
 
   const setDealer = useCallback(
@@ -289,10 +339,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         currentDealerId: playerId,
         updatedAt: getTimestamp(),
       };
-      saveSession(updated);
+      debouncedSave(updated); // Use debounced save for non-critical operation
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, debouncedSave]
   );
 
   // ============== GAME ACTIONS ==============
@@ -309,9 +359,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'playing' as const,
       updatedAt: getTimestamp(),
     };
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession]);
+  }, [currentSession, immediateSave]);
 
   const pauseGame = useCallback(() => {
     if (!currentSession) return;
@@ -321,9 +371,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'paused' as const,
       updatedAt: getTimestamp(),
     };
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession]);
+  }, [currentSession, immediateSave]);
 
   const resumeGame = useCallback(() => {
     if (!currentSession) return;
@@ -333,9 +383,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'playing' as const,
       updatedAt: getTimestamp(),
     };
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession]);
+  }, [currentSession, immediateSave]);
 
   const endGame = useCallback(() => {
     if (!currentSession) return;
@@ -345,9 +395,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'ended' as const,
       updatedAt: getTimestamp(),
     };
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession]);
+  }, [currentSession, immediateSave]);
 
   const addMatch = useCallback(
     (results: XiDachPlayerResult[]) => {
@@ -370,8 +420,8 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       // Recalculate scores
       updated = recalculatePlayerScores(updated);
 
-      // Save session first (without dealer change)
-      saveSession(updated);
+      // Save session immediately (match data is critical)
+      immediateSave(updated);
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
 
       // Check for auto-rotate dealer - show confirmation modal instead of auto-rotating
@@ -388,7 +438,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     },
-    [currentSession]
+    [currentSession, immediateSave]
   );
 
   const editMatch = useCallback(
@@ -410,10 +460,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       // Recalculate all scores
       updated = recalculatePlayerScores(updated);
 
-      saveSession(updated);
+      immediateSave(updated); // Critical operation - save immediately
       dispatch({ type: 'UPDATE_SESSION', payload: updated });
     },
-    [currentSession]
+    [currentSession, immediateSave]
   );
 
   const deleteLastMatch = useCallback(() => {
@@ -430,9 +480,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     // Recalculate all scores
     updated = recalculatePlayerScores(updated);
 
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession]);
+  }, [currentSession, immediateSave]);
 
   // ============== DEALER ROTATION HANDLERS ==============
 
@@ -444,10 +494,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       currentDealerId: pendingDealerRotation.suggestedDealerId,
       updatedAt: getTimestamp(),
     };
-    saveSession(updated);
+    immediateSave(updated); // Critical operation - save immediately
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
     setPendingDealerRotation(null);
-  }, [currentSession, pendingDealerRotation]);
+  }, [currentSession, pendingDealerRotation, immediateSave]);
 
   const cancelDealerRotation = useCallback(() => {
     setPendingDealerRotation(null);
@@ -464,16 +514,11 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [currentSession]);
 
-  // ============== REFRESH ==============
 
-  const refreshSessions = useCallback(() => {
-    const sessions = getAllSessions();
-    dispatch({ type: 'SET_SESSIONS', payload: sessions });
-  }, []);
+  // ============== MEMOIZED VALUE ==============
+  // Memoize context value to prevent unnecessary re-renders of consuming components
 
-  // ============== VALUE ==============
-
-  const value: XiDachContextValue = {
+  const value = useMemo<XiDachContextValue>(() => ({
     ...state,
     currentSession,
     pendingDealerRotation,
@@ -485,7 +530,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     goToPlaying,
     goToHistory,
     goToSummary,
-    createNewSession,
+    setSessionFromApi,
     deleteSession: deleteSessionAction,
     updateCurrentSession,
     addPlayer,
@@ -499,8 +544,33 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     addMatch,
     editMatch,
     deleteLastMatch,
-    refreshSessions,
-  };
+  }), [
+    state,
+    currentSession,
+    pendingDealerRotation,
+    confirmDealerRotation,
+    cancelDealerRotation,
+    changePendingDealer,
+    goToList,
+    goToSetup,
+    goToPlaying,
+    goToHistory,
+    goToSummary,
+    setSessionFromApi,
+    deleteSessionAction,
+    updateCurrentSession,
+    addPlayer,
+    removePlayer,
+    updatePlayer,
+    setDealer,
+    startGame,
+    pauseGame,
+    resumeGame,
+    endGame,
+    addMatch,
+    editMatch,
+    deleteLastMatch,
+  ]);
 
   return (
     <XiDachContext.Provider value={value}>{children}</XiDachContext.Provider>

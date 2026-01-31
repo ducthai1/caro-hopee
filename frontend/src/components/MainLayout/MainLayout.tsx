@@ -18,7 +18,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
-  const { openHistoryModal, openGuestNameDialog } = useMainLayout();
+  const { openGuestNameDialog } = useMainLayout();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -144,7 +144,6 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
         isAuthenticated={isAuthenticated}
         user={user}
         logout={logout}
-        onHistoryClick={openHistoryModal}
         onEditGuestName={!isAuthenticated ? openGuestNameDialog : undefined}
       />
 

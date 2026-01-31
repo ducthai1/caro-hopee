@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { Box, Typography, Button, Paper, TextField, CircularProgress } from '@mui/material';
+import HistoryIcon from '@mui/icons-material/History';
 import { useLanguage } from '../../i18n';
 
 interface JoinGameCardProps {
@@ -11,6 +12,7 @@ interface JoinGameCardProps {
   joinError: string;
   joinLoading: boolean;
   onJoinGame: () => void;
+  onHistoryClick?: () => void;
 }
 
 const JoinGameCard: React.FC<JoinGameCardProps> = ({
@@ -19,6 +21,7 @@ const JoinGameCard: React.FC<JoinGameCardProps> = ({
   joinError,
   joinLoading,
   onJoinGame,
+  onHistoryClick,
 }) => {
   const { t } = useLanguage();
 
@@ -163,7 +166,7 @@ const JoinGameCard: React.FC<JoinGameCardProps> = ({
         onClick={onJoinGame}
         disabled={joinLoading || joinRoomCode.length !== 6}
         sx={{
-          mb: 1.5,
+          mb: 2,
           py: 2,
           borderRadius: 2.5,
           textTransform: 'none',
@@ -193,6 +196,32 @@ const JoinGameCard: React.FC<JoinGameCardProps> = ({
           t('home.joinGame')
         )}
       </Button>
+
+      {/* History Button */}
+      {onHistoryClick && (
+        <Button
+          variant="outlined"
+          size="medium"
+          fullWidth
+          onClick={onHistoryClick}
+          startIcon={<HistoryIcon />}
+          sx={{
+            py: 1.5,
+            borderRadius: 2.5,
+            textTransform: 'none',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            borderColor: 'rgba(126, 200, 227, 0.4)',
+            color: '#7ec8e3',
+            '&:hover': {
+              borderColor: '#7ec8e3',
+              background: 'rgba(126, 200, 227, 0.08)',
+            },
+          }}
+        >
+          {t('home.history')}
+        </Button>
+      )}
     </Paper>
   );
 };

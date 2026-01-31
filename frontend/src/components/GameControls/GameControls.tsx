@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import HistoryIcon from '@mui/icons-material/History';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
@@ -13,6 +14,7 @@ import { logger } from '../../utils/logger';
 import { gameApi } from '../../services/api';
 import { UndoRequestDialog, WinnerModal, LeaveGameDialog } from './dialogs';
 import SetPasswordDialog from '../SetPasswordDialog/SetPasswordDialog';
+import HistoryModal from '../HistoryModal/HistoryModal';
 
 interface GameControlsProps {
   onLeaveGame?: () => Promise<void>;
@@ -39,6 +41,7 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
   const [isLeaving, setIsLeaving] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSetPasswordDialog, setShowSetPasswordDialog] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const canStartGame = game?.gameStatus === 'waiting' && players.length === 2 && myPlayerNumber === 1;
   const showWinnerModal = game?.gameStatus === 'finished' && game.winner !== null;
@@ -242,6 +245,24 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
             {isLeaving ? t('gameControls.leaving') : t('game.leaveGame')}
           </Button>
         )}
+        {/* History Button - Caro game specific */}
+        <Button
+          variant="outlined"
+          size="medium"
+          onClick={() => setShowHistoryModal(true)}
+          fullWidth
+          startIcon={<HistoryIcon />}
+          sx={{
+            borderColor: 'rgba(126, 200, 227, 0.5)',
+            color: '#7ec8e3',
+            '&:hover': {
+              borderColor: '#7ec8e3',
+              background: 'rgba(126, 200, 227, 0.1)',
+            },
+          }}
+        >
+          {t('home.history')}
+        </Button>
       </Box>
 
       {/* Undo Request Dialog */}
@@ -285,6 +306,12 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
           hasPassword={hasPassword}
         />
       )}
+
+      {/* History Modal - Caro game specific */}
+      <HistoryModal
+        open={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+      />
     </Box>
   );
 };

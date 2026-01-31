@@ -3,29 +3,29 @@
  * Displays all sessions with ability to open, create, or delete
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
   Card,
   CardContent,
-  CardActionArea,
   IconButton,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 import PeopleIcon from '@mui/icons-material/People';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
+import SearchIcon from '@mui/icons-material/Search';
+import LockIcon from '@mui/icons-material/Lock';
+import CloudIcon from '@mui/icons-material/Cloud';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { useXiDachScore } from './XiDachScoreContext';
-import { XiDachSession, XiDachSessionStatus } from '../../types/xi-dach-score.types';
+import { XiDachSessionStatus } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
+import JoinSessionDialog from './JoinSessionDialog';
+import { xiDachApi, XiDachSessionListItem } from '../../services/api';
 
 // ============== HELPERS ==============
 
@@ -59,168 +59,70 @@ const getStatusColor = (status: XiDachSessionStatus): string => {
   }
 };
 
-const formatDate = (isoString: string, t: (key: string, params?: Record<string, string | number>) => string, locale: string): string => {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return t('xiDachScore.time.justNow');
-  if (minutes < 60) return t('xiDachScore.time.minutesAgo', { count: minutes });
-  if (hours < 24) return t('xiDachScore.time.hoursAgo', { count: hours });
-  if (days < 7) return t('xiDachScore.time.daysAgo', { count: days });
-
-  return date.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
-
-// ============== SESSION CARD ==============
-
-interface SessionCardProps {
-  session: XiDachSession;
-  onSelect: () => void;
-  onDelete: () => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  locale: string;
-}
-
-const SessionCard: React.FC<SessionCardProps> = ({ session, onSelect, onDelete, t, locale }) => {
-  const activePlayers = session.players.filter((p) => p.isActive).length;
-  const matchCount = session.matches.length;
-
-  return (
-    <Card
-      sx={{
-        mb: 2,
-        borderRadius: 3,
-        overflow: 'hidden',
-        boxShadow: '0 2px 8px rgba(255, 138, 101, 0.15)',
-        border: '1px solid rgba(255, 138, 101, 0.1)',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 16px rgba(255, 138, 101, 0.2)',
-        },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
-        <CardActionArea onClick={onSelect} sx={{ flex: 1 }}>
-          <CardContent sx={{ py: 2, px: 2.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: '#2c3e50',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {session.name}
-              </Typography>
-              <Chip
-                label={getStatusLabel(session.status, t)}
-                size="small"
-                sx={{
-                  bgcolor: getStatusColor(session.status),
-                  color: '#fff',
-                  fontWeight: 500,
-                  fontSize: '0.75rem',
-                  height: 24,
-                }}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                color: '#7f8c8d',
-                fontSize: '0.875rem',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <PeopleIcon sx={{ fontSize: 18 }} />
-                <span>{activePlayers} {t('xiDachScore.players')}</span>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <SportsEsportsIcon sx={{ fontSize: 18 }} />
-                <span>#{matchCount}</span>
-              </Box>
-              <Typography variant="caption" sx={{ ml: 'auto', color: '#95a5a6' }}>
-                {formatDate(session.updatedAt, t, locale)}
-              </Typography>
-            </Box>
-          </CardContent>
-        </CardActionArea>
-
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            px: 1,
-            borderLeft: '1px solid rgba(255, 138, 101, 0.1)',
-          }}
-        >
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            sx={{
-              color: '#FF8A65',
-              '&:hover': {
-                bgcolor: 'rgba(255, 138, 101, 0.1)',
-              },
-            }}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Box>
-      </Box>
-    </Card>
-  );
-};
-
 // ============== MAIN COMPONENT ==============
 
 const SessionList: React.FC = () => {
-  const { t, language } = useLanguage();
-  const { sessions, goToSetup, goToPlaying, deleteSession } = useXiDachScore();
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { t } = useLanguage();
+  const { goToSetup, setSessionFromApi } = useXiDachScore();
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
 
-  // Handle session selection - ended sessions go to summary view
-  const handleSelectSession = (session: XiDachSession) => {
-    // goToPlaying handles the routing - if session is ended, it will show summary
-    goToPlaying(session.id);
-  };
+  // Online sessions state
+  const [onlineSessions, setOnlineSessions] = useState<XiDachSessionListItem[]>([]);
+  const [loadingOnline, setLoadingOnline] = useState(false);
+  const [onlineError, setOnlineError] = useState<string | null>(null);
 
-  // Sort sessions: playing/paused first, then by updatedAt
-  const sortedSessions = [...sessions].sort((a, b) => {
-    const statusOrder = { playing: 0, paused: 1, setup: 2, ended: 3 };
-    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-    if (statusDiff !== 0) return statusDiff;
-    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-  });
+  // Fetch online sessions
+  const fetchOnlineSessions = useCallback(async () => {
+    setLoadingOnline(true);
+    setOnlineError(null);
+    try {
+      const response = await xiDachApi.getSessions(undefined, 20);
+      setOnlineSessions(response.sessions);
+    } catch (err: any) {
+      console.error('Failed to fetch online sessions:', err);
+      setOnlineError(err.message || 'Failed to load online sessions');
+    } finally {
+      setLoadingOnline(false);
+    }
+  }, []);
 
-  const handleDelete = () => {
-    if (deleteConfirm) {
-      deleteSession(deleteConfirm);
-      setDeleteConfirm(null);
+  // Fetch on mount and periodically
+  useEffect(() => {
+    fetchOnlineSessions();
+    const interval = setInterval(fetchOnlineSessions, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, [fetchOnlineSessions]);
+
+  const [joiningSessionCode, setJoiningSessionCode] = useState<string | null>(null);
+
+  const handleJoinSuccess = async (sessionCode: string, sessionData?: any) => {
+    if (sessionData && sessionData.settings) {
+      setSessionFromApi(sessionData);
+      return;
+    }
+    try {
+      const response = await xiDachApi.getSession(sessionCode);
+      setSessionFromApi(response);
+    } catch (err: any) {
+      if (err.response?.status === 401 && err.response?.data?.requiresPassword) {
+        setJoiningSessionCode(sessionCode);
+        setJoinDialogOpen(true);
+      } else {
+        console.error('Failed to join session:', err);
+      }
     }
   };
 
-  const sessionToDelete = deleteConfirm
-    ? sessions.find((s) => s.id === deleteConfirm)
-    : null;
+  // Handle clicking on online session
+  const handleOnlineSessionClick = async (session: XiDachSessionListItem) => {
+    if (session.hasPassword) {
+      setJoiningSessionCode(session.sessionCode);
+      setJoinDialogOpen(true);
+    } else {
+      // Join directly without password
+      await handleJoinSuccess(session.sessionCode, session);
+    }
+  };
 
   return (
     <Box
@@ -253,106 +155,187 @@ const SessionList: React.FC = () => {
           </Typography>
         </Box>
 
-        {/* Session List */}
-        {sortedSessions.length > 0 ? (
-          <Box sx={{ mb: 3 }}>
-            {sortedSessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                onSelect={() => handleSelectSession(session)}
-                onDelete={() => setDeleteConfirm(session.id)}
-                t={t}
-                locale={language}
-              />
-            ))}
+        {/* Online Sessions Section */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CloudIcon sx={{ color: '#FF8A65', fontSize: 20 }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+                {t('xiDachScore.multiplayer.onlineSessions')}
+              </Typography>
+              {onlineSessions.length > 0 && (
+                <Chip
+                  label={onlineSessions.length}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    bgcolor: 'rgba(255, 138, 101, 0.1)',
+                    color: '#FF8A65',
+                  }}
+                />
+              )}
+            </Box>
+            <IconButton
+              size="small"
+              onClick={fetchOnlineSessions}
+              disabled={loadingOnline}
+              sx={{ color: '#FF8A65' }}
+            >
+              {loadingOnline ? <CircularProgress size={18} sx={{ color: '#FF8A65' }} /> : <RefreshIcon fontSize="small" />}
+            </IconButton>
           </Box>
-        ) : (
-          <Box
-            sx={{
-              textAlign: 'center',
-              py: 6,
-              color: '#95a5a6',
-            }}
-          >
-            <Typography variant="body1" sx={{ mb: 1 }}>
-              {t('xiDachScore.noSessions')}
-            </Typography>
-            <Typography variant="body2">
-              {t('xiDachScore.noSessionsHint')}
-            </Typography>
-          </Box>
-        )}
 
-        {/* Create Button - Tạo bàn mới: màu chủ đạo route xi-dach-score */}
-        <Button
-          variant="contained"
-          fullWidth
-          startIcon={<AddIcon />}
-          onClick={goToSetup}
-          sx={{
-            py: 1.5,
-            borderRadius: 3,
-            background: '#FF8A65',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: '1rem',
-            boxShadow: '0 4px 12px rgba(255, 138, 101, 0.3)',
-            '&:hover': {
-              background: '#E64A19',
-              boxShadow: '0 6px 16px rgba(255, 138, 101, 0.4)',
-            },
-          }}
-        >
-          {t('xiDachScore.createSession')}
-        </Button>
-      </Box>
+          {loadingOnline && onlineSessions.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <CircularProgress size={24} sx={{ color: '#FF8A65' }} />
+            </Box>
+          ) : onlineError ? (
+            <Box sx={{ textAlign: 'center', py: 2, color: '#e74c3c' }}>
+              <Typography variant="body2">{onlineError}</Typography>
+            </Box>
+          ) : onlineSessions.length > 0 ? (
+            <Box sx={{ mb: 2 }}>
+              {onlineSessions.map((session) => (
+                <Card
+                  key={session.id}
+                  sx={{
+                    mb: 1.5,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 6px rgba(255, 138, 101, 0.1)',
+                    border: '1px solid rgba(255, 138, 101, 0.15)',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(255, 138, 101, 0.15)',
+                    },
+                  }}
+                  onClick={() => handleOnlineSessionClick(session)}
+                >
+                  <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          fontWeight: 600,
+                          color: '#2c3e50',
+                          flex: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {session.name}
+                      </Typography>
+                      <Chip
+                        label={session.sessionCode}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          fontSize: '0.7rem',
+                          fontFamily: 'monospace',
+                          fontWeight: 700,
+                          bgcolor: '#FF8A65',
+                          color: '#fff',
+                        }}
+                      />
+                      {session.hasPassword && (
+                        <LockIcon sx={{ fontSize: 18, color: '#FF8A65' }} titleAccess={t('xiDachScore.multiplayer.hasPassword')} />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: '#7f8c8d', fontSize: '0.8rem' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <PeopleIcon sx={{ fontSize: 14 }} />
+                        <span>{session.playerCount}</span>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <SportsEsportsIcon sx={{ fontSize: 14 }} />
+                        <span>#{session.matchCount}</span>
+                      </Box>
+                      <Chip
+                        label={getStatusLabel(session.status, t)}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          fontSize: '0.65rem',
+                          bgcolor: getStatusColor(session.status),
+                          color: '#fff',
+                        }}
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 2, color: '#95a5a6' }}>
+              <Typography variant="body2">
+                {t('xiDachScore.noSessions')}
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        PaperProps={{
-          sx: { borderRadius: 3 },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 600 }}>{t('xiDachScore.deleteSession')}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {t('xiDachScore.deleteSessionConfirm', { name: sessionToDelete?.name || '' })}
-            <br />
-            {t('xiDachScore.deleteSessionWarning')}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {/* Create Button */}
           <Button
-            variant="outlined"
-            onClick={() => setDeleteConfirm(null)}
+            variant="contained"
+            fullWidth
+            startIcon={<AddIcon />}
+            onClick={goToSetup}
             sx={{
-              borderColor: '#FF8A65',
-              color: '#FF8A65',
-              background: '#fff',
+              py: 1.5,
+              borderRadius: 3,
+              background: '#FF8A65',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '1rem',
+              boxShadow: '0 4px 12px rgba(255, 138, 101, 0.3)',
               '&:hover': {
-                borderColor: '#E64A19',
-                background: 'rgba(0, 0, 0, 0.04)',
+                background: '#E64A19',
+                boxShadow: '0 6px 16px rgba(255, 138, 101, 0.4)',
               },
             }}
           >
-            {t('xiDachScore.actions.cancel')}
+            {t('xiDachScore.createSession')}
           </Button>
+
+          {/* Join Button */}
           <Button
-            onClick={handleDelete}
-            variant="contained"
+            variant="outlined"
+            fullWidth
+            startIcon={<SearchIcon />}
+            onClick={() => setJoinDialogOpen(true)}
             sx={{
-              background: '#FF8A65',
-              color: '#fff',
-              '&:hover': { background: '#E64A19' },
+              py: 1.5,
+              borderRadius: 3,
+              borderColor: '#FF8A65',
+              color: '#FF8A65',
+              fontWeight: 600,
+              fontSize: '1rem',
+              '&:hover': {
+                borderColor: '#E64A19',
+                bgcolor: 'rgba(255, 138, 101, 0.04)',
+              },
             }}
           >
-            {t('xiDachScore.actions.delete')}
+            {t('xiDachScore.multiplayer.joinSession')}
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </Box>
+
+      <JoinSessionDialog
+        open={joinDialogOpen}
+        onClose={() => {
+          setJoinDialogOpen(false);
+          setJoiningSessionCode(null);
+        }}
+        onJoinSuccess={handleJoinSuccess}
+        initialSessionCode={joiningSessionCode || undefined}
+      />
     </Box>
   );
 };
