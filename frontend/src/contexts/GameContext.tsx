@@ -40,6 +40,7 @@ interface GamePlayContextType {
   lastMove: { row: number; col: number } | null;
   pendingUndoMove: number | null;
   undoRequestSent: boolean;
+  undoUsedCount: number;
 }
 
 interface GameActionsContextType {
@@ -110,6 +111,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [myPlayerNumber, setMyPlayerNumber] = useState<PlayerNumber | null>(null);
   const [pendingUndoMove, setPendingUndoMove] = useState<number | null>(null);
   const [undoRequestSent, setUndoRequestSent] = useState<boolean>(false);
+  const [undoUsedCount, setUndoUsedCount] = useState<number>(0);
   const [lastMove, setLastMove] = useState<{ row: number; col: number } | null>(null);
   const [reactions, setReactions] = useState<ReceivedReaction[]>([]);
 
@@ -149,6 +151,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Debounce refs to prevent rapid API calls during join/leave spam
   const reloadGameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingReloadRef = useRef<boolean>(false);
+  // Ref to track undo request state for socket event handlers
+  const undoRequestSentRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
@@ -157,6 +161,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
   useEffect(() => { playersRef.current = players; }, [players]);
   useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { undoRequestSentRef.current = undoRequestSent; }, [undoRequestSent]);
 
   // Update players when game changes
   useEffect(() => {
@@ -726,21 +731,31 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    const handleUndoApproved = (data: { moveNumber: number; board: number[][] }) => {
+    const handleUndoApproved = (data: { moveNumber: number; board: number[][]; currentPlayer: PlayerNumber }) => {
       if (!isMountedRef.current) return;
-      
+
       // Safety check: validate data structure
       if (!data || !Array.isArray(data.board) || typeof data.moveNumber !== 'number') {
         logger.error('[GameContext] Invalid undo-approved data:', data);
         return;
       }
-      
+
       setGame(prevGame => {
         if (!prevGame) return prevGame;
-        return { ...prevGame, board: data.board };
+        return {
+          ...prevGame,
+          board: data.board,
+          currentPlayer: data.currentPlayer || prevGame.currentPlayer,
+        };
       });
-      setPendingUndoMove(null);
+
+      // Only increment MY undo count if I was the one who requested (not the approver)
+      // Use ref to check synchronously before resetting state
+      if (undoRequestSentRef.current) {
+        setUndoUsedCount(count => count + 1);
+      }
       setUndoRequestSent(false);
+      setPendingUndoMove(null);
       setLastMove(null);
     };
 
@@ -756,6 +771,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { ...prevGame, gameStatus: 'playing', currentPlayer: data.currentPlayer };
       });
       setLastMove(null);
+      // Reset undo state when game starts
+      setUndoUsedCount(0);
+      setUndoRequestSent(false);
+      setPendingUndoMove(null);
     };
 
     const handleGameReset = (data: {
@@ -785,6 +804,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
       });
       setLastMove(null); // Clear last move highlight
+      setUndoUsedCount(0); // Reset undo count for new game
     };
 
     const handleGameError = (data: { message: string }) => {
@@ -1023,6 +1043,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     socket.emit('join-room', { roomId: newRoomId, playerId, isGuest });
     setRoomId(newRoomId);
+    // Reset undo state when joining a new room
+    setUndoUsedCount(0);
+    setUndoRequestSent(false);
+    setPendingUndoMove(null);
   }, []);
 
   const makeMove = useCallback((row: number, col: number): void => {
@@ -1126,12 +1150,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setGame(null);
       setPlayers([]);
       setMyPlayerNumber(null);
+      // Reset undo state when leaving
+      setUndoUsedCount(0);
+      setUndoRequestSent(false);
+      setPendingUndoMove(null);
     } catch (error) {
       logger.error('Failed to leave game:', error);
       setRoomId(null);
       setGame(null);
       setPlayers([]);
       setMyPlayerNumber(null);
+      // Reset undo state when leaving (even on error)
+      setUndoUsedCount(0);
+      setUndoRequestSent(false);
+      setPendingUndoMove(null);
       throw error;
     }
   }, []);
@@ -1258,7 +1290,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     lastMove,
     pendingUndoMove,
     undoRequestSent,
-  }), [currentPlayer, isMyTurn, lastMove, pendingUndoMove, undoRequestSent]);
+    undoUsedCount,
+  }), [currentPlayer, isMyTurn, lastMove, pendingUndoMove, undoRequestSent, undoUsedCount]);
 
   // Actions context - never changes (functions are memoized with useCallback)
   const actionsValue = useMemo<GameActionsContextType>(() => ({

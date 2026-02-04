@@ -40,7 +40,7 @@ export interface ServerToClientEvents {
   'move-made': (data: { move: GameMove | null; board: number[][]; currentPlayer: PlayerNumber }) => void;
   'move-validated': (data: { valid: boolean; message?: string }) => void;
   'undo-requested': (data: { moveNumber: number; requestedBy: PlayerNumber }) => void;
-  'undo-approved': (data: { moveNumber: number; board: number[][] }) => void;
+  'undo-approved': (data: { moveNumber: number; board: number[][]; currentPlayer: PlayerNumber }) => void;
   'undo-rejected': (data: { moveNumber: number }) => void;
   'game-finished': (data: { winner: Winner; reason: string }) => void;
   'game-started': (data: { currentPlayer: PlayerNumber }) => void;

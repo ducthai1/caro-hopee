@@ -123,14 +123,15 @@ export const undoMove = async (
     return { success: false, message: 'Move not found' };
   }
 
-  // Check undo count
-  const undoneMoves = await GameMove.countDocuments({
+  // Check undo count for this player (each player has their own undo limit)
+  const playerUndoCount = await GameMove.countDocuments({
     gameId: game._id,
+    player: move.player,
     isUndone: true,
   });
 
-  if (undoneMoves >= game.rules.maxUndoPerGame) {
-    return { success: false, message: 'Maximum undo limit reached' };
+  if (playerUndoCount >= game.rules.maxUndoPerGame) {
+    return { success: false, message: 'Maximum undo limit reached for this player' };
   }
 
   // Undo the move

@@ -321,6 +321,7 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
         io.to(roomId).emit('undo-approved', {
           moveNumber,
           board: game.board,
+          currentPlayer: game.currentPlayer,
         });
       } catch (error: any) {
         socket.emit('game-error', { message: error.message });
@@ -487,6 +488,9 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
         game.winner = null;
         game.winningLine = undefined; // Clear winning line for new game
         game.finishedAt = null;
+
+        // Delete all moves from previous game (reset undo count)
+        await GameMove.deleteMany({ gameId: game._id });
 
         await game.save();
 

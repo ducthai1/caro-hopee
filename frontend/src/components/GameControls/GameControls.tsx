@@ -33,6 +33,7 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     myPlayerNumber,
     pendingUndoMove,
     undoRequestSent,
+    undoUsedCount,
     clearPendingUndo,
     players,
   } = useGame();
@@ -145,8 +146,21 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
 
   const canRequestUndo = (): boolean => {
     if (!myPlayerNumber) return false;
+    // Chỉ xin đi lại khi KHÔNG phải lượt mình (tức là mình vừa đi xong)
+    // Nếu đang là lượt mình → đối thủ vừa đi → không thể xin đi lại nước của đối thủ
+    if (game.currentPlayer === myPlayerNumber) return false;
+    // Kiểm tra đã dùng hết lượt undo chưa
+    if (undoUsedCount >= game.rules.maxUndoPerGame) return false;
     const myMoveCount = getMyMoveCount();
     return myMoveCount >= 1;
+  };
+
+  const getUndoLabel = (): string => {
+    const remaining = game.rules.maxUndoPerGame - undoUsedCount;
+    if (undoRequestSent) {
+      return t('gameControls.waitingForResponse');
+    }
+    return `${t('game.requestUndo')} (${remaining}/${game.rules.maxUndoPerGame})`;
   };
 
   const handleApproveUndo = (): void => {
@@ -203,12 +217,12 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
         )}
         {game.gameStatus === 'playing' && (
           <>
-            {game.rules.allowUndo && canRequestUndo() && (
+            {game.rules.allowUndo && (
               <Button
                 variant="outlined"
                 size="medium"
                 onClick={handleRequestUndo}
-                disabled={!myPlayerNumber || undoRequestSent}
+                disabled={!canRequestUndo() || undoRequestSent}
                 fullWidth
                 startIcon={undoRequestSent ? <CircularProgress size={16} /> : null}
                 sx={{
@@ -219,7 +233,7 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
                   }),
                 }}
               >
-                {undoRequestSent ? t('gameControls.waitingForResponse') : t('game.requestUndo')}
+                {getUndoLabel()}
               </Button>
             )}
             <Button variant="outlined" color="error" size="medium" onClick={handleSurrender} fullWidth>

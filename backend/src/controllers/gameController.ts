@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import Game from '../models/Game';
+import GameMove from '../models/GameMove';
 import GameHistory from '../models/GameHistory';
 import { initializeBoard, generateRoomCode } from '../services/gameEngine';
 import { AuthRequest } from '../middleware/authMiddleware';
@@ -657,6 +658,9 @@ export const leaveGame = async (req: Request, res: Response): Promise<void> => {
         }
       }
       
+      // Delete all game moves first (cleanup)
+      await GameMove.deleteMany({ gameId: updatedGame._id });
+
       // Delete the game
       const deleteResult = await Game.deleteOne({ roomId });
       console.log(`[leaveGame] Game deleted - roomId: ${roomId}, finalHasNoPlayers: ${finalHasNoPlayers}, hasNoPlayers: ${hasNoPlayers}, hasNoPlayersLocal: ${hasNoPlayersLocal}, wasFinished: ${wasFinished}, deleteResult.deletedCount: ${deleteResult.deletedCount}`);
@@ -752,6 +756,11 @@ export const leaveGame = async (req: Request, res: Response): Promise<void> => {
         }
       }
       
+      // Delete game moves if game was reset (to reset undo count)
+      if (gameReset) {
+        await GameMove.deleteMany({ gameId: updatedGame._id });
+      }
+
       await updatedGame.save();
 
       // Emit socket event to notify other players in room
