@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, IconButton, useTheme, useMediaQuery, Fade } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -32,9 +32,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     return 'caro';
   });
   const [isScrolled, setIsScrolled] = useState(false);
-  const [contentKey, setContentKey] = useState(selectedGame); // Key để trigger fade animation
-  const [fadeIn, setFadeIn] = useState(true);
-  const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [contentKey, setContentKey] = useState(selectedGame); // Key để trigger animation
 
   // Sync selectedGame với route changes (cho các route khác như /game/:roomId)
   useEffect(() => {
@@ -59,47 +57,22 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile]);
 
-  // Handle game selection - chỉ thay đổi state, không navigate
+  // Handle game selection - navigate to game route (instant, no delay)
   const handleGameSelection = useCallback((gameId: string) => {
-    if (gameId === selectedGame) return; // Đã chọn rồi thì không làm gì
-    
-    // Clear timeout cũ nếu có
-    if (fadeTimeoutRef.current) {
-      clearTimeout(fadeTimeoutRef.current);
-    }
-    
-    // Fade out trước
-    setFadeIn(false);
-    
-    // Sau khi fade out, thay đổi content và fade in
-    fadeTimeoutRef.current = setTimeout(() => {
-      setContentKey(gameId);
-      setSelectedGame(gameId);
-      
-      // Chỉ update URL để sync với browser history, không reload page
-      if (gameId === 'lucky-wheel') {
-        navigate('/lucky-wheel', { replace: true });
-      } else if (gameId === 'xi-dach-score') {
-        navigate('/xi-dach-score', { replace: true });
-      } else if (gameId === 'caro') {
-        navigate('/', { replace: true });
-      }
-      
-      // Fade in sau khi content đã thay đổi
-      requestAnimationFrame(() => {
-        setFadeIn(true);
-      });
-    }, 200); // Thời gian fade out (phù hợp với timeout 300ms của Fade)
-  }, [selectedGame, navigate]);
+    // Determine target path for gameId
+    const targetPath = gameId === 'lucky-wheel' ? '/lucky-wheel'
+      : gameId === 'xi-dach-score' ? '/xi-dach-score'
+      : '/';
 
-  // Cleanup timeout khi unmount
-  useEffect(() => {
-    return () => {
-      if (fadeTimeoutRef.current) {
-        clearTimeout(fadeTimeoutRef.current);
-      }
-    };
-  }, []);
+    // Skip if already on target route
+    if (location.pathname === targetPath) return;
+
+    // Instant switch - no fade delay
+    setContentKey(gameId);
+    setSelectedGame(gameId);
+    navigate(targetPath, { replace: true });
+  }, [location.pathname, navigate]);
+
 
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
 
@@ -223,7 +196,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
             position: 'relative',
           }}
         >
-          <Fade in={fadeIn} timeout={300} key={contentKey}>
+          <Fade in={true} timeout={150} key={contentKey}>
             <Box
               sx={{
                 width: '100%',
