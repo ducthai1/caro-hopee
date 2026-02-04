@@ -16,6 +16,7 @@ import adminRoutes from './routes/adminRoutes';
 import xiDachRoutes from './routes/xiDachRoutes';
 import { authLimiter, gameCreationLimiter, gameJoinLimiter, apiLimiter } from './middleware/rateLimiter';
 import { cleanupInactiveGuests } from './controllers/luckyWheelController';
+import { cleanupAllInactiveGames } from './services/gameCleanupService';
 
 // Load environment variables
 dotenv.config();
@@ -64,7 +65,7 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 5001;
 
-// Scheduled cleanup job: Delete inactive guest configs every hour
+// Scheduled cleanup jobs
 const startCleanupJob = () => {
   // Run cleanup immediately on startup
   cleanupInactiveGuests()
@@ -73,7 +74,9 @@ const startCleanupJob = () => {
     })
     .catch(() => {});
 
-  // Then run every hour; ignore connection errors (cleanup is best-effort)
+  cleanupAllInactiveGames().catch(() => {});
+
+  // Guest cleanup: every hour
   setInterval(async () => {
     try {
       const count = await cleanupInactiveGuests();
@@ -81,9 +84,18 @@ const startCleanupJob = () => {
         console.log(`[Cleanup] Deleted ${count} inactive guest configs`);
       }
     } catch {
-      // Already handled inside cleanupInactiveGuests; avoid unhandled rejection
+      // Best-effort cleanup
     }
   }, 60 * 60 * 1000); // 1 hour
+
+  // Game room cleanup: every 6 hours (less frequent, larger data)
+  setInterval(async () => {
+    try {
+      await cleanupAllInactiveGames();
+    } catch {
+      // Best-effort cleanup
+    }
+  }, 6 * 60 * 60 * 1000); // 6 hours
 };
 
 const startServer = async () => {
