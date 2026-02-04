@@ -20,8 +20,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
 import ShareIcon from '@mui/icons-material/Share';
+import SettingsIcon from '@mui/icons-material/Settings';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useXiDachScore } from './XiDachScoreContext';
 import Scoreboard from './Scoreboard';
 import AddPlayerModal from './AddPlayerModal';
@@ -32,6 +33,7 @@ import EditMatchModal from './EditMatchModal';
 import MatchHistory from './MatchHistory';
 import DealerRotationModal from './DealerRotationModal';
 import ShareSessionDialog from './ShareSessionDialog';
+import SessionSettingsModal from './SessionSettingsModal';
 import { XiDachPlayer } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
 
@@ -60,6 +62,7 @@ const GamePlaying: React.FC = () => {
   const [endSessionConfirm, setEndSessionConfirm] = useState(false);
   const [removePlayerConfirm, setRemovePlayerConfirm] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessionHasPassword, setSessionHasPassword] = useState(currentSession?.hasPassword ?? false);
 
   if (!currentSession) {
@@ -186,18 +189,31 @@ const GamePlaying: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Share Button - only for online sessions */}
-          {currentSession.sessionCode && (
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {/* Settings Button */}
             <IconButton
-              onClick={() => setShareDialogOpen(true)}
+              onClick={() => setSettingsOpen(true)}
               sx={{
                 color: '#FF8A65',
                 '&:hover': { bgcolor: 'rgba(255, 138, 101, 0.1)' },
               }}
             >
-              <ShareIcon />
+              <SettingsIcon />
             </IconButton>
-          )}
+            {/* Share Button - only for online sessions */}
+            {currentSession.sessionCode && (
+              <IconButton
+                onClick={() => setShareDialogOpen(true)}
+                sx={{
+                  color: '#FF8A65',
+                  '&:hover': { bgcolor: 'rgba(255, 138, 101, 0.1)' },
+                }}
+              >
+                <ShareIcon />
+              </IconButton>
+            )}
+          </Box>
         </Box>
 
         {/* Match Info Bar */}
@@ -231,7 +247,12 @@ const GamePlaying: React.FC = () => {
           </Box>
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="caption" sx={{ color: '#95a5a6', display: 'block' }}>
-              {currentSession.settings.pointsPerTu}{t('xiDachScore.game.perTu')} • {t('xiDachScore.penalty28Short')}: {currentSession.settings.penalty28Amount}đ
+              {t('xiDachScore.game.pointsPerTuInfo', { points: currentSession.settings.pointsPerTu })}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#95a5a6', display: 'block' }}>
+              {currentSession.settings.penalty28Enabled
+                ? t('xiDachScore.game.penalty28FixedInfo', { amount: currentSession.settings.penalty28Amount })
+                : t('xiDachScore.game.penalty28ByBetInfo')}
             </Typography>
             {currentSession.settings.autoRotateDealer && (
               <Typography variant="caption" sx={{ color: '#95a5a6' }}>
@@ -335,67 +356,48 @@ const GamePlaying: React.FC = () => {
             </Button>
           )}
 
-          {/* End Session - Kết thúc bàn: màu chủ đạo route */}
-          {isPlaying && (
+          {/* Paused state - kept for backwards compatibility but simplified */}
+          {isPaused && (
             <Button
-              variant="outlined"
+              variant="contained"
+              startIcon={<PlayArrowIcon />}
+              onClick={resumeGame}
               fullWidth
-              startIcon={<StopIcon />}
-              onClick={() => setEndSessionConfirm(true)}
               sx={{
                 py: 1.5,
                 borderRadius: 2,
-                borderColor: '#FF8A65',
-                color: '#FF8A65',
-                background: '#fff',
-                '&:hover': {
-                  borderColor: '#E64A19',
-                  background: '#fff',
-                },
+                background: '#FF8A65',
+                color: '#fff',
+                '&:hover': { background: '#E64A19' },
               }}
             >
-              {t('xiDachScore.game.endSession')}
+              {t('xiDachScore.game.resume')}
             </Button>
           )}
 
-          {/* Paused state - kept for backwards compatibility but simplified */}
-          {isPaused && (
-            <>
-              <Button
-                variant="contained"
-                startIcon={<PlayArrowIcon />}
-                onClick={resumeGame}
-                sx={{
-                  flex: 1,
-                  py: 1.5,
-                  borderRadius: 2,
-                  background: '#FF8A65',
-                  color: '#fff',
-                  '&:hover': { background: '#E64A19' },
-                }}
-              >
-                {t('xiDachScore.game.resume')}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<StopIcon />}
-                onClick={() => setEndSessionConfirm(true)}
-                sx={{
-                  flex: 1,
-                  py: 1.5,
-                  borderRadius: 2,
-                  borderColor: '#FF8A65',
-                  color: '#FF8A65',
-                  background: '#fff',
-                  '&:hover': {
-                    borderColor: '#E64A19',
-                    background: '#fff',
-                  },
-                }}
-              >
-                {t('xiDachScore.game.endSession')}
-              </Button>
-            </>
+          {/* End Session Button - visible, soft style */}
+          {(isPlaying || isPaused) && (
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<ExitToAppIcon />}
+              onClick={() => setEndSessionConfirm(true)}
+              sx={{
+                py: 1,
+                borderRadius: 2,
+                borderColor: '#e74c3c',
+                color: '#e74c3c',
+                bgcolor: 'rgba(231, 76, 60, 0.05)',
+                fontSize: '0.85rem',
+                textTransform: 'none',
+                '&:hover': {
+                  borderColor: '#c0392b',
+                  bgcolor: 'rgba(231, 76, 60, 0.1)',
+                },
+              }}
+            >
+              {t('xiDachScore.game.stopPlaying')}
+            </Button>
           )}
         </Box>
 
@@ -553,6 +555,12 @@ const GamePlaying: React.FC = () => {
           onPasswordChange={(hasPassword) => setSessionHasPassword(hasPassword)}
         />
       )}
+
+      {/* Session Settings Modal */}
+      <SessionSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </Box>
   );
 };

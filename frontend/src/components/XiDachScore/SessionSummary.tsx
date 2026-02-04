@@ -40,8 +40,9 @@ interface RankedPlayer extends XiDachPlayer {
 }
 
 const getRankings = (players: XiDachPlayer[]): RankedPlayer[] => {
+  // Include ALL players (even removed ones) to calculate total scores correctly
+  // Removed players still have match history and their scores should be counted
   return players
-    .filter((p) => p.isActive)
     .map((p) => ({
       ...p,
       netScore: p.currentScore - p.baseScore,

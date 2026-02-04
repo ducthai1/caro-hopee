@@ -189,7 +189,6 @@ const SessionSetup: React.FC = () => {
               value={onlinePassword}
               onChange={(e) => setOnlinePassword(e.target.value)}
               size="small"
-              helperText={t('xiDachScore.multiplayer.passwordOptionalHint')}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -197,7 +196,7 @@ const SessionSetup: React.FC = () => {
                   </InputAdornment>
                 ),
               }}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fff' } }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fff', height: 50 } }}
             />
           </Box>
 

@@ -147,6 +147,9 @@
       "paused": "Paused",
       "ended": "Ended"
     },
+    "settings": {
+      "title": "Session Settings"
+    },
     "players": "players",
     "playersCount": "{count} players",
     "matches": "matches",
@@ -193,9 +196,9 @@
       "autoCalculateHint": "Dealer score = inverse of other players' total",
       "modeLabel": "Dealer mode",
       "modeNormal": "Normal",
-      "modeXiBan": "Blackjack ×2",
-      "modeNguLinh": "Five Card ×2",
-      "xiBanInfo": "Dealer blackjack/five-card wins 1 tụ × 2 from each player (based on their individual bet)",
+      "modeXiLac": "Xi Lac ×1",
+      "modeXiBanNguLinh": "Blackjack/Five Card ×2",
+      "xiBanInfo": "Dealer Xi Lac wins 1 tụ × 1, Blackjack/Five Card wins 1 tụ × 2 from each player",
       "perPlayer": "player",
       "winScopeLabel": "Win from whom?",
       "winAll": "Everyone",
@@ -219,11 +222,15 @@
       "pause": "Pause",
       "resume": "Resume",
       "endSession": "End Session",
+      "stopPlaying": "Done playing? Let's calculate everyone's total!",
       "endMatch": "End Match",
       "changeDealer": "Change Dealer",
       "needMinPlayers": "Need at least 2 players to start",
       "needDealer": "Please select a dealer before starting",
       "perTu": "pts/hand",
+      "pointsPerTuInfo": "Base points: {points} pts/hand",
+      "penalty28FixedInfo": "Over 28 points: fixed {amount} penalty",
+      "penalty28ByBetInfo": "Over 28 points: penalty equals bet amount",
       "autoRotateInfo": "Auto rotate dealer after {count} matches"
     },
     "match": {
@@ -336,7 +343,7 @@
       "sessionCodeInvalid": "Session code must be 6 characters",
       "password": "Password",
       "passwordPlaceholder": "Enter password (if required)",
-      "passwordHint": "Set an optional password to protect the table. Others will see a lock icon when the table has a password.",
+      "passwordHint": "Set an optional password to protect the table.",
       "passwordOptionalHint": "Leave blank if no password needed",
       "passwordRequired": "This session requires a password",
       "passwordInvalid": "Incorrect password",

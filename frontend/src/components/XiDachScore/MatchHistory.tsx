@@ -89,7 +89,7 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({
         <Box
           sx={{
             p: 2,
-            pt: 0,
+            pt: 1.5,
             maxHeight: 400,
             overflowY: 'auto',
             display: 'flex',

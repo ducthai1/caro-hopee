@@ -363,7 +363,8 @@ export const createPlayerResult = (
  */
 export const calculateSettlement = (session: XiDachSession): XiDachSettlement[] => {
   const settlements: XiDachSettlement[] = [];
-  const players = session.players.filter((p) => p.isActive);
+  // Include ALL players (even removed ones) - they still have match history
+  const players = session.players;
 
   // Calculate net balance for each player (current - base)
   const balances = players.map((p) => ({

@@ -24,7 +24,10 @@ import {
   ToggleButtonGroup,
   Chip,
   Collapse,
+  IconButton,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import { useXiDachScore } from './XiDachScoreContext';
 import PlayerResultInput, { PlayerResultInputData } from './PlayerResultInput';
 import { createPlayerResult, calculateScoreChange } from '../../utils/xi-dach-score-storage';
@@ -32,7 +35,7 @@ import { useLanguage } from '../../i18n';
 import { XiDachPlayerResult } from '../../types/xi-dach-score.types';
 
 // Dealer special mode types
-type DealerMode = 'normal' | 'xiBan' | 'nguLinh';
+type DealerMode = 'normal' | 'xiLac' | 'xiBanNguLinh';
 type DealerWinScope = 'all' | 'selected';
 
 interface EndMatchModalProps {
@@ -56,6 +59,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const [dealerMode, setDealerMode] = useState<DealerMode>('normal');
   const [dealerWinScope, setDealerWinScope] = useState<DealerWinScope>('all');
   const [dealerWinTargets, setDealerWinTargets] = useState<string[]>([]); // Player IDs dealer wins from
+  const [disabledPlayerTuCounts, setDisabledPlayerTuCounts] = useState<Record<string, number>>({}); // Custom tụ count per disabled player
 
   // Get stable IDs for memoization (prevents infinite re-render loops)
   const activePlayerIds = useMemo(
@@ -119,16 +123,17 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
     // In special mode (xì bàn/ngũ linh), calculate dealer's winning from disabled players
     if (isDealerSpecialMode) {
-      const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
+      const multiplier = dealerMode === 'xiBanNguLinh' ? 2 : 1;
 
-      // Score from disabled players (they all lose 1 tụ to dealer, using each player's bet amount)
+      // Score from disabled players (using custom tụ count, default 1)
       const disabledIds = disabledPlayerIdStr ? disabledPlayerIdStr.split(',') : [];
       let dealerScore = 0;
       for (const playerId of disabledIds) {
         const player = activePlayers.find(p => p.id === playerId);
         if (player) {
           const playerBet = player.betAmount ?? currentSession.settings.pointsPerTu;
-          dealerScore += playerBet * multiplier; // 1 tụ × betAmount × multiplier
+          const tuCount = disabledPlayerTuCounts[playerId] ?? 1;
+          dealerScore += playerBet * tuCount * multiplier; // tụCount × betAmount × multiplier
         }
       }
 
@@ -192,7 +197,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
     // Dealer's score is the inverse
     return -totalOtherPlayersScore;
-  }, [playerResults, nonDealerPlayerIds, currentSession, currentDealer, isDealerSpecialMode, dealerMode, disabledPlayerIdStr, activePlayers]);
+  }, [playerResults, nonDealerPlayerIds, currentSession, currentDealer, isDealerSpecialMode, dealerMode, disabledPlayerIdStr, activePlayers, disabledPlayerTuCounts]);
 
   // Initialize player results when modal opens
   // Using stable ID string instead of array to prevent infinite loops
@@ -266,10 +271,11 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     const allResults: XiDachPlayerResult[] = [];
 
     // Create dealer result
-    // Dealer xì bàn/ngũ linh always plays 1 tụ
+    // Dealer special mode always plays 1 tụ
     const dealerTuForResult = isDealerSpecialMode ? 1 : 0;
-    const dealerXiBan = dealerMode === 'xiBan' ? 1 : 0;
-    const dealerNguLinh = dealerMode === 'nguLinh' ? 1 : 0;
+    // xiBanNguLinh counts as xiBan for tracking (both are x2)
+    const dealerXiBan = dealerMode === 'xiBanNguLinh' ? 1 : 0;
+    const dealerNguLinh = 0; // Merged with xiBan
     const dealerResult: XiDachPlayerResult = {
       playerId: currentDealer.id,
       winTuCount: dealerPreviewScore >= 0 ? dealerTuForResult : 0,
@@ -284,23 +290,24 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     };
     allResults.push(dealerResult);
 
-    // Create results for disabled players (auto-lose 1 tụ to dealer in special mode)
+    // Create results for disabled players (auto-lose to dealer in special mode)
     if (isDealerSpecialMode) {
-      const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
+      const multiplier = dealerMode === 'xiBanNguLinh' ? 2 : 1;
 
       for (const playerId of disabledPlayerIds) {
         const player = activePlayers.find(p => p.id === playerId);
         const playerBet = player?.betAmount ?? currentSession.settings.pointsPerTu;
-        const lossAmount = playerBet * multiplier; // 1 tụ × betAmount × multiplier
+        const tuCount = disabledPlayerTuCounts[playerId] ?? 1;
+        const lossAmount = playerBet * tuCount * multiplier; // tuCount × betAmount × multiplier
 
         const disabledResult: XiDachPlayerResult = {
           playerId,
           winTuCount: 0,
           winXiBanCount: 0,
           winNguLinhCount: 0,
-          loseTuCount: 1, // Dealer xì bàn/ngũ linh always wins 1 tụ
-          loseXiBanCount: dealerMode === 'xiBan' ? 1 : 0,
-          loseNguLinhCount: dealerMode === 'nguLinh' ? 1 : 0,
+          loseTuCount: tuCount, // Custom tụ count
+          loseXiBanCount: dealerMode === 'xiBanNguLinh' ? tuCount : 0,
+          loseNguLinhCount: 0, // Merged with xiBan
           penalty28: false,
           penalty28Recipients: [],
           scoreChange: -lossAmount,
@@ -491,24 +498,24 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                     {t('xiDachScore.dealer.modeNormal')}
                   </ToggleButton>
                   <ToggleButton
-                    value="xiBan"
+                    value="xiLac"
+                    sx={{
+                      flex: 1,
+                      fontSize: '0.75rem',
+                      '&.Mui-selected': { bgcolor: '#81C784', color: '#fff', '&:hover': { bgcolor: '#66BB6A' } },
+                    }}
+                  >
+                    {t('xiDachScore.dealer.modeXiLac')}
+                  </ToggleButton>
+                  <ToggleButton
+                    value="xiBanNguLinh"
                     sx={{
                       flex: 1,
                       fontSize: '0.75rem',
                       '&.Mui-selected': { bgcolor: '#FFB74D', color: '#fff', '&:hover': { bgcolor: '#F57C00' } },
                     }}
                   >
-                    {t('xiDachScore.dealer.modeXiBan')}
-                  </ToggleButton>
-                  <ToggleButton
-                    value="nguLinh"
-                    sx={{
-                      flex: 1,
-                      fontSize: '0.75rem',
-                      '&.Mui-selected': { bgcolor: '#FFCC80', color: '#fff', '&:hover': { bgcolor: '#FF9800' } },
-                    }}
-                  >
-                    {t('xiDachScore.dealer.modeNguLinh')}
+                    {t('xiDachScore.dealer.modeXiBanNguLinh')}
                   </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
@@ -615,10 +622,11 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {nonDealerPlayers.map((player) => {
               const isDisabled = disabledPlayerIds.includes(player.id);
-              const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
+              const multiplier = dealerMode === 'xiBanNguLinh' ? 2 : 1;
               // Use player's individual bet amount or session default
               const playerBet = player.betAmount ?? currentSession.settings.pointsPerTu;
-              const lossAmount = playerBet * multiplier; // 1 tụ × betAmount × multiplier
+              const tuCount = disabledPlayerTuCounts[player.id] ?? 1;
+              const lossAmount = playerBet * tuCount * multiplier; // tuCount × betAmount × multiplier
 
               // Show disabled player card (auto-lose to dealer)
               if (isDisabled) {
@@ -630,10 +638,9 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                       borderRadius: 2,
                       p: 2,
                       border: '1px solid #e0e0e0',
-                      opacity: 0.7,
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                       <Box>
                         <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#7f8c8d' }}>
                           {player.name}
@@ -660,9 +667,80 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                         </Typography>
                       </Box>
                     </Box>
-                    <Typography variant="caption" sx={{ color: '#95a5a6' }}>
-                      {t('xiDachScore.dealer.autoLose')}
-                    </Typography>
+                    {/* Tụ count controls */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        mt: 1,
+                        p: 1,
+                        bgcolor: 'rgba(255, 138, 101, 0.08)',
+                        borderRadius: 1.5,
+                        border: '1px solid rgba(255, 138, 101, 0.2)',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: '#e67e22', fontWeight: 500 }}>
+                        {t('xiDachScore.dealer.autoLose')}
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          bgcolor: '#fff',
+                          borderRadius: 2,
+                          p: 0.5,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() => setDisabledPlayerTuCounts(prev => ({
+                            ...prev,
+                            [player.id]: Math.max(1, (prev[player.id] ?? 1) - 1)
+                          }))}
+                          disabled={tuCount <= 1}
+                          sx={{
+                            width: 26,
+                            height: 26,
+                            bgcolor: tuCount <= 1 ? 'rgba(0,0,0,0.05)' : '#FF8A65',
+                            color: tuCount <= 1 ? '#bdc3c7' : '#fff',
+                            '&:hover': { bgcolor: '#FF7043' },
+                            '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.05)' },
+                          }}
+                        >
+                          <RemoveIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            minWidth: 50,
+                            textAlign: 'center',
+                            color: '#e67e22',
+                          }}
+                        >
+                          {tuCount} tụ
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => setDisabledPlayerTuCounts(prev => ({
+                            ...prev,
+                            [player.id]: (prev[player.id] ?? 1) + 1
+                          }))}
+                          sx={{
+                            width: 26,
+                            height: 26,
+                            bgcolor: '#FF8A65',
+                            color: '#fff',
+                            '&:hover': { bgcolor: '#FF7043' },
+                          }}
+                        >
+                          <AddIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    </Box>
                   </Box>
                 );
               }
