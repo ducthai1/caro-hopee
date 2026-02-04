@@ -24,6 +24,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudIcon from '@mui/icons-material/Cloud';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import LockIcon from '@mui/icons-material/Lock';
 import { useXiDachScore } from './XiDachScoreContext';
 import { DEFAULT_XI_DACH_SETTINGS } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
@@ -189,6 +190,13 @@ const SessionSetup: React.FC = () => {
               onChange={(e) => setOnlinePassword(e.target.value)}
               size="small"
               helperText={t('xiDachScore.multiplayer.passwordOptionalHint')}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockIcon sx={{ fontSize: 18, color: '#95a5a6' }} />
+                  </InputAdornment>
+                ),
+              }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fff' } }}
             />
           </Box>

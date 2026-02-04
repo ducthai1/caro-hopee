@@ -363,6 +363,8 @@ export interface XiDachSessionListItem {
   playerCount: number;
   matchCount: number;
   status: 'setup' | 'playing' | 'paused' | 'ended';
+  creatorId: string | null;
+  creatorGuestId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -415,9 +417,11 @@ export const xiDachApi = {
     return response.data;
   },
 
-  // Delete session
+  // Delete session (only creator can delete)
   deleteSession: async (sessionCode: string): Promise<{ message: string }> => {
-    const response = await api.delete(`/xi-dach/sessions/${sessionCode}`);
+    const { getGuestId } = await import('../utils/guestId');
+    const guestId = getGuestId();
+    const response = await api.delete(`/xi-dach/sessions/${sessionCode}`, { data: { guestId } });
     return response.data;
   },
 };

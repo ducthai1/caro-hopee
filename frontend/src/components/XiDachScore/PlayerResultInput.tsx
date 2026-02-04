@@ -122,6 +122,9 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
 }) => {
   const { t } = useLanguage();
 
+  // Use player's individual bet amount or session default
+  const effectiveBetAmount = player.betAmount ?? settings.pointsPerTu;
+
   // Calculate preview score
   const previewScore = calculateScoreChange(
     {
@@ -135,11 +138,12 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
       penalty28: data.penalty28,
       penalty28Recipients: data.penalty28Recipients,
     },
-    settings
+    settings,
+    player.betAmount // Pass player's individual bet amount
   );
 
   // Calculate penalty amount (based on lose amount)
-  const loseAmount = (data.loseTuCount + data.loseXiBanCount + data.loseNguLinhCount) * settings.pointsPerTu;
+  const loseAmount = (data.loseTuCount + data.loseXiBanCount + data.loseNguLinhCount) * effectiveBetAmount;
   const penaltyAmountPerRecipient = settings.penalty28Enabled
     ? settings.penalty28Amount
     : loseAmount;
@@ -274,11 +278,24 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
         position: 'relative',
       }}
     >
-      {/* Player Name */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      {/* Player Name and Bet Amount */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c3e50' }}>
           {player.name}
         </Typography>
+        {player.betAmount && (
+          <Chip
+            label={`${player.betAmount}đ/tụ`}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              bgcolor: 'rgba(255, 138, 101, 0.1)',
+              color: '#FF8A65',
+              fontWeight: 600,
+            }}
+          />
+        )}
       </Box>
 
       {/* Win Section */}
@@ -296,7 +313,7 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
         >
           {t('xiDachScore.match.win')}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Box sx={{ flex: 2 }}>
             <CounterButton
               label={t('xiDachScore.match.tuCount')}
@@ -351,7 +368,7 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
         >
           {t('xiDachScore.match.lose')}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Box sx={{ flex: 2 }}>
             <CounterButton
               label={t('xiDachScore.match.tuCount')}

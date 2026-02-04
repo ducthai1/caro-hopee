@@ -11,6 +11,7 @@ export interface IXiDachPlayer {
   name: string;
   baseScore: number;
   currentScore: number;
+  betAmount?: number;     // Individual bet amount per tụ (optional)
   isActive: boolean;
   createdAt: string;
 }
@@ -69,6 +70,7 @@ const XiDachPlayerSchema: Schema = new Schema({
   name: { type: String, required: true, maxlength: 50 },
   baseScore: { type: Number, default: 0 },
   currentScore: { type: Number, default: 0 },
+  betAmount: { type: Number, default: null }, // Individual bet amount per tụ
   isActive: { type: Boolean, default: true },
   createdAt: { type: String, required: true },
 }, { _id: false });

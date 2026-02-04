@@ -79,11 +79,11 @@ const GamePlaying: React.FC = () => {
   const isEnded = currentSession.status === 'ended';
   const canStartGame = activePlayers.length >= 2 && currentSession.currentDealerId;
 
-  const handleAddPlayer = (name: string, baseScore: number) => {
-    addPlayer(name, baseScore);
+  const handleAddPlayer = (name: string, baseScore: number, betAmount?: number) => {
+    addPlayer(name, baseScore, betAmount);
   };
 
-  const handleEditPlayer = (playerId: string, updates: { name?: string; baseScore?: number }) => {
+  const handleEditPlayer = (playerId: string, updates: { name?: string; baseScore?: number; betAmount?: number }) => {
     updatePlayer(playerId, updates);
   };
 
@@ -431,6 +431,7 @@ const GamePlaying: React.FC = () => {
         onClose={() => setAddPlayerOpen(false)}
         onAdd={handleAddPlayer}
         existingNames={existingNames}
+        defaultBetAmount={currentSession.settings.pointsPerTu}
       />
 
       <EditPlayerModal
@@ -440,6 +441,8 @@ const GamePlaying: React.FC = () => {
         onSave={handleEditPlayer}
         onRemove={handleRemovePlayer}
         existingNames={existingNames}
+        defaultBetAmount={currentSession.settings.pointsPerTu}
+        isDealer={editPlayer?.id === currentSession.currentDealerId}
       />
 
       <ChangeDealerModal

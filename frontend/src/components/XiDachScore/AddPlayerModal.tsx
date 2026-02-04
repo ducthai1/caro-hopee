@@ -18,8 +18,9 @@ import { useLanguage } from '../../i18n';
 interface AddPlayerModalProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (name: string, baseScore: number) => void;
+  onAdd: (name: string, baseScore: number, betAmount?: number) => void;
   existingNames: string[];
+  defaultBetAmount?: number; // Session's default pointsPerTu for display
 }
 
 const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
@@ -27,15 +28,18 @@ const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
   onClose,
   onAdd,
   existingNames,
+  defaultBetAmount,
 }) => {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [baseScore, setBaseScore] = useState(0);
+  const [betAmount, setBetAmount] = useState<number | undefined>(undefined);
   const [error, setError] = useState('');
 
   const handleClose = () => {
     setName('');
     setBaseScore(0);
+    setBetAmount(undefined);
     setError('');
     onClose();
   };
@@ -53,7 +57,7 @@ const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
       return;
     }
 
-    onAdd(trimmedName, baseScore);
+    onAdd(trimmedName, baseScore, betAmount);
     handleClose();
   };
 
@@ -114,6 +118,30 @@ const AddPlayerModal: React.FC<AddPlayerModalProps> = ({
             sx: { borderRadius: 2 },
           }}
           helperText={t('xiDachScore.player.baseScoreHelper')}
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          fullWidth
+          label={t('xiDachScore.player.betAmount')}
+          type="number"
+          value={betAmount ?? ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === '') {
+              setBetAmount(undefined);
+            } else {
+              const num = parseInt(val);
+              setBetAmount(num > 0 ? num : undefined);
+            }
+          }}
+          onKeyPress={handleKeyPress}
+          InputProps={{
+            endAdornment: <InputAdornment position="end">đ</InputAdornment>,
+            sx: { borderRadius: 2 },
+          }}
+          placeholder={defaultBetAmount ? `${defaultBetAmount}` : ''}
+          helperText={t('xiDachScore.player.betAmountHelper')}
         />
       </DialogContent>
 

@@ -304,13 +304,30 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
- * Delete session
+ * Delete session (only creator can delete)
  */
 export const deleteSession = async (req: Request, res: Response): Promise<void> => {
   try {
     const { sessionCode } = req.params;
+    const { guestId } = req.body;
+    const authReq = req as AuthRequest;
 
-    const session = await XiDachSession.findOneAndDelete({
+    // Get user ID if authenticated
+    let userId: string | null = null;
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const { verifyToken } = await import('../utils/jwt');
+        const decoded = verifyToken(token);
+        userId = decoded.userId;
+      }
+    } catch {
+      // Continue as guest
+    }
+
+    const finalUserId = userId || authReq.user?.userId || null;
+
+    const session = await XiDachSession.findOne({
       sessionCode: sessionCode.toUpperCase(),
     });
 
@@ -319,10 +336,26 @@ export const deleteSession = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Check if user is the creator
+    const isCreator = finalUserId
+      ? session.creatorId && session.creatorId.toString() === finalUserId.toString()
+      : session.creatorGuestId === guestId;
+
+    if (!isCreator) {
+      res.status(403).json({ message: 'Only the creator can delete this session' });
+      return;
+    }
+
+    await XiDachSession.findOneAndDelete({
+      sessionCode: sessionCode.toUpperCase(),
+    });
+
     // Emit socket event for session deletion
     io.emit('xi-dach-session-deleted', {
       sessionCode: session.sessionCode,
     });
+
+    console.log(`[xiDach.deleteSession] Session deleted by creator - sessionCode: ${sessionCode}, userId: ${finalUserId}, guestId: ${guestId}`);
 
     res.json({ message: 'Session deleted successfully' });
   } catch (error: any) {
@@ -344,7 +377,7 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
     }
 
     const sessions = await XiDachSession.find(query)
-      .select('-password')
+      .select('+password') // Include password to check hasPassword
       .sort({ updatedAt: -1 })
       .limit(Number(limit));
 
@@ -353,10 +386,12 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
         id: s._id.toString(),
         sessionCode: s.sessionCode,
         name: s.name,
-        hasPassword: !!s.password,
+        hasPassword: !!s.password, // Check if password exists (don't return actual password)
         playerCount: s.players.filter((p) => p.isActive).length,
         matchCount: s.matches.length,
         status: s.status,
+        creatorId: s.creatorId ? s.creatorId.toString() : null,
+        creatorGuestId: s.creatorGuestId || null,
         createdAt: s.createdAt.toISOString(),
         updatedAt: s.updatedAt.toISOString(),
       })),

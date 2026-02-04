@@ -22,9 +22,11 @@ interface EditPlayerModalProps {
   open: boolean;
   player: XiDachPlayer | null;
   onClose: () => void;
-  onSave: (playerId: string, updates: { name?: string; baseScore?: number }) => void;
+  onSave: (playerId: string, updates: { name?: string; baseScore?: number; betAmount?: number }) => void;
   onRemove: (playerId: string) => void;
   existingNames: string[];
+  defaultBetAmount?: number; // Session's default pointsPerTu for display
+  isDealer?: boolean; // Whether this player is the dealer
 }
 
 const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
@@ -34,16 +36,20 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
   onSave,
   onRemove,
   existingNames,
+  defaultBetAmount,
+  isDealer = false,
 }) => {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [baseScore, setBaseScore] = useState(0);
+  const [betAmount, setBetAmount] = useState<number | undefined>(undefined);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (player) {
       setName(player.name);
       setBaseScore(player.baseScore);
+      setBetAmount(player.betAmount);
       setError('');
     }
   }, [player]);
@@ -70,7 +76,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
       return;
     }
 
-    const updates: { name?: string; baseScore?: number } = {};
+    const updates: { name?: string; baseScore?: number; betAmount?: number } = {};
 
     if (trimmedName !== player.name) {
       updates.name = trimmedName;
@@ -78,6 +84,11 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
 
     if (baseScore !== player.baseScore) {
       updates.baseScore = baseScore;
+    }
+
+    // Only save betAmount for non-dealers
+    if (!isDealer && betAmount !== player.betAmount) {
+      updates.betAmount = betAmount;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -153,6 +164,33 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
           helperText={t('xiDachScore.player.baseScoreEditHelper')}
           sx={{ mb: 2 }}
         />
+
+        {/* Bet Amount - only show for non-dealers */}
+        {!isDealer && (
+          <TextField
+            fullWidth
+            label={t('xiDachScore.player.betAmount')}
+            type="number"
+            value={betAmount ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '') {
+                setBetAmount(undefined);
+              } else {
+                const num = parseInt(val);
+                setBetAmount(num > 0 ? num : undefined);
+              }
+            }}
+            onKeyPress={handleKeyPress}
+            InputProps={{
+              endAdornment: <InputAdornment position="end">đ</InputAdornment>,
+              sx: { borderRadius: 2 },
+            }}
+            placeholder={defaultBetAmount ? `${defaultBetAmount}` : ''}
+            helperText={t('xiDachScore.player.betAmountEditHelper')}
+            sx={{ mb: 2 }}
+          />
+        )}
 
         {/* Current Score Info */}
         <Box

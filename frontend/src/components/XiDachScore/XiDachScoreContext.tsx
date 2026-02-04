@@ -68,7 +68,7 @@ interface XiDachContextValue extends XiDachState {
   deleteSession: (id: string) => void;
   updateCurrentSession: (updates: Partial<XiDachSession>) => void;
   // Player management
-  addPlayer: (name: string, baseScore?: number) => void;
+  addPlayer: (name: string, baseScore?: number, betAmount?: number) => void;
   removePlayer: (playerId: string) => void;
   updatePlayer: (playerId: string, updates: Partial<XiDachPlayer>) => void;
   setDealer: (playerId: string) => void;
@@ -106,12 +106,25 @@ const apiResponseToSession = (r: XiDachSessionResponse): XiDachSession => ({
   updatedAt: r.updatedAt,
 });
 
+// ============== CONSTANTS ==============
+
+const CURRENT_SESSION_KEY = 'xi-dach-current-session';
+
 // ============== INITIAL STATE ==============
+
+// Try to restore currentSessionId from localStorage
+const getSavedSessionId = (): string | null => {
+  try {
+    return localStorage.getItem(CURRENT_SESSION_KEY);
+  } catch {
+    return null;
+  }
+};
 
 const initialState: XiDachState = {
   sessions: [],
-  currentSessionId: null,
-  viewMode: 'list',
+  currentSessionId: getSavedSessionId(),
+  viewMode: getSavedSessionId() ? 'playing' : 'list',
   loading: false,
   error: null,
 };
@@ -204,6 +217,44 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // Persist currentSessionId to localStorage
+  useEffect(() => {
+    try {
+      if (state.currentSessionId) {
+        localStorage.setItem(CURRENT_SESSION_KEY, state.currentSessionId);
+      } else {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [state.currentSessionId]);
+
+  // Auto-fetch session on reload (when we have sessionId but no session data)
+  const initialSessionId = useRef(state.currentSessionId);
+  useEffect(() => {
+    const fetchSavedSession = async () => {
+      const sessionId = initialSessionId.current;
+      if (sessionId) {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        try {
+          const response = await xiDachApi.getSession(sessionId);
+          const session = apiResponseToSession(response);
+          dispatch({ type: 'ADD_SESSION', payload: session });
+          dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });
+        } catch (err) {
+          console.error('Failed to restore session:', err);
+          // Clear invalid session
+          dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
+          dispatch({ type: 'SET_VIEW_MODE', payload: 'list' });
+        } finally {
+          dispatch({ type: 'SET_LOADING', payload: false });
+        }
+      }
+    };
+    fetchSavedSession();
+  }, []); // Only run on mount - uses ref to avoid dependency
+
   // Computed current session
   const currentSession = state.currentSessionId
     ? state.sessions.find((s) => s.id === state.currentSessionId) || null
@@ -273,10 +324,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   // ============== PLAYER MANAGEMENT ==============
 
   const addPlayer = useCallback(
-    (name: string, baseScore: number = 0) => {
+    (name: string, baseScore: number = 0, betAmount?: number) => {
       if (!currentSession) return;
 
-      const player = createPlayer(name, baseScore);
+      const player = createPlayer(name, baseScore, betAmount);
       const updated = {
         ...currentSession,
         players: [...currentSession.players, player],

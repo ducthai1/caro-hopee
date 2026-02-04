@@ -236,12 +236,13 @@ export const createSession = (
 /**
  * Create new player
  */
-export const createPlayer = (name: string, baseScore: number = 0): XiDachPlayer => {
+export const createPlayer = (name: string, baseScore: number = 0, betAmount?: number): XiDachPlayer => {
   return {
     id: generateId(),
     name: name.trim(),
     baseScore,
     currentScore: baseScore,
+    betAmount,
     isActive: true,
     createdAt: getTimestamp(),
   };
@@ -267,18 +268,22 @@ const calculateEffectiveTu = (tuCount: number, xiBanCount: number, nguLinhCount:
  */
 export const calculateScoreChange = (
   result: Omit<XiDachPlayerResult, 'scoreChange'>,
-  settings: XiDachSettings
+  settings: XiDachSettings,
+  playerBetAmount?: number // Individual player's bet amount (overrides settings.pointsPerTu)
 ): number => {
+  // Use player's bet amount if provided, otherwise use session's default
+  const pointsPerTu = playerBetAmount ?? settings.pointsPerTu;
+
   // Handle legacy data format (old format with single tuCount and outcome)
   if (result.tuCount !== undefined && result.outcome !== undefined) {
     const totalMultipliedTu = result.tuCount + (result.xiBanCount || 0) + (result.nguLinhCount || 0);
-    let score = totalMultipliedTu * settings.pointsPerTu;
+    let score = totalMultipliedTu * pointsPerTu;
     if (result.outcome === 'lose') {
       score = -score;
     }
     // Apply penalty 28
     if (result.penalty28 && result.penalty28Recipients.length > 0) {
-      const betAmount = totalMultipliedTu * settings.pointsPerTu;
+      const betAmount = totalMultipliedTu * pointsPerTu;
       const penaltyPerRecipient = settings.penalty28Enabled
         ? settings.penalty28Amount
         : betAmount;
@@ -299,8 +304,8 @@ export const calculateScoreChange = (
     result.loseNguLinhCount
   );
 
-  const winScore = winEffectiveTu * settings.pointsPerTu;
-  const loseScore = loseEffectiveTu * settings.pointsPerTu;
+  const winScore = winEffectiveTu * pointsPerTu;
+  const loseScore = loseEffectiveTu * pointsPerTu;
   let score = winScore - loseScore;
 
   // Apply penalty 28 (based on lose amount)
@@ -329,7 +334,8 @@ export const createPlayerResult = (
     penalty28?: boolean;
     penalty28Recipients?: string[];
   },
-  settings: XiDachSettings
+  settings: XiDachSettings,
+  playerBetAmount?: number // Individual player's bet amount
 ): XiDachPlayerResult => {
   const result: Omit<XiDachPlayerResult, 'scoreChange'> = {
     playerId,
@@ -345,7 +351,7 @@ export const createPlayerResult = (
 
   return {
     ...result,
-    scoreChange: calculateScoreChange(result, settings),
+    scoreChange: calculateScoreChange(result, settings, playerBetAmount),
   };
 };
 
@@ -426,15 +432,19 @@ export const recalculatePlayerScores = (session: XiDachSession): XiDachSession =
 
       // Handle penalty 28 recipients (they receive the penalty amount)
       if (result.penalty28 && result.penalty28Recipients.length > 0) {
+        // Get the penalized player's bet amount (or session default)
+        const penalizedPlayer = session.players.find((p) => p.id === result.playerId);
+        const playerBetAmount = penalizedPlayer?.betAmount ?? session.settings.pointsPerTu;
+
         // Calculate penalty per recipient based on settings
         // For new format: use lose amount; for legacy: use tuCount
         let betAmount: number;
         if (result.loseTuCount !== undefined) {
-          // New format
-          betAmount = (result.loseTuCount + (result.loseXiBanCount || 0) + (result.loseNguLinhCount || 0)) * session.settings.pointsPerTu;
+          // New format - use player's individual bet amount
+          betAmount = (result.loseTuCount + (result.loseXiBanCount || 0) + (result.loseNguLinhCount || 0)) * playerBetAmount;
         } else {
           // Legacy format
-          betAmount = ((result.tuCount || 0) + (result.xiBanCount || 0) + (result.nguLinhCount || 0)) * session.settings.pointsPerTu;
+          betAmount = ((result.tuCount || 0) + (result.xiBanCount || 0) + (result.nguLinhCount || 0)) * playerBetAmount;
         }
         const amountPerRecipient = session.settings.penalty28Enabled
           ? session.settings.penalty28Amount

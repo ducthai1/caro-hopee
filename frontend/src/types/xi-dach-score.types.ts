@@ -10,6 +10,7 @@ export interface XiDachPlayer {
   name: string;
   baseScore: number;      // Starting score (can be edited)
   currentScore: number;   // Calculated from baseScore + all match results
+  betAmount?: number;     // Individual bet amount per tụ (optional, uses session's pointsPerTu if not set)
   isActive: boolean;      // False if player left mid-game
   createdAt: string;      // ISO string
 }

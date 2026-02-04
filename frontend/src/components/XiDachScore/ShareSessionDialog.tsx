@@ -192,7 +192,7 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
         </Box>
 
         {showPasswordInput ? (
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'stretch' }}>
             <TextField
               fullWidth
               size="small"
@@ -203,6 +203,7 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
+                  height: 40,
                   '&.Mui-focused fieldset': {
                     borderColor: '#FF8A65',
                   },
@@ -216,7 +217,8 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
               sx={{
                 bgcolor: '#FF8A65',
                 '&:hover': { bgcolor: '#E64A19' },
-                minWidth: 80,
+                minWidth: 60,
+                height: 40,
               }}
             >
               {loading ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : t('xiDachScore.actions.save')}
@@ -230,6 +232,7 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
               sx={{
                 borderColor: '#95a5a6',
                 color: '#95a5a6',
+                height: 40,
               }}
             >
               {t('xiDachScore.actions.cancel')}

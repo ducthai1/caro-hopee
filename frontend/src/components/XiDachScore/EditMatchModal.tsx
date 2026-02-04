@@ -132,7 +132,8 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
             penalty28: data.penalty28,
             penalty28Recipients: data.penalty28Recipients,
           },
-          currentSession.settings
+          currentSession.settings,
+          player.betAmount // Pass player's individual bet amount
         );
         totalOtherPlayersScore += score;
       }
@@ -236,7 +237,8 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
           penalty28: data.penalty28,
           penalty28Recipients: data.penalty28Recipients,
         },
-        currentSession.settings
+        currentSession.settings,
+        player.betAmount // Pass player's individual bet amount
       );
       allResults.push(result);
     }

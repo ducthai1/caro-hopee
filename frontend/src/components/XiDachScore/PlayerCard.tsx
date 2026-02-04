@@ -29,15 +29,20 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
 
   // Stable callbacks that call parent with player data
   const handleEdit = useCallback(() => onEdit(player), [onEdit, player]);
-  const handleRemove = useCallback(() => onRemove(player.id), [onRemove, player.id]);
+  const handleRemove = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering card click (edit)
+    onRemove(player.id);
+  }, [onRemove, player.id]);
 
   return (
     <Box
+      onClick={handleEdit}
       sx={{
         position: 'relative',
         bgcolor: '#fff',
         borderRadius: 3,
         p: 2,
+        cursor: 'pointer',
         boxShadow: isDealer
           ? '0 4px 16px rgba(255, 138, 101, 0.25)'
           : '0 2px 8px rgba(0, 0, 0, 0.08)',
@@ -130,21 +135,25 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         {t('xiDachScore.total')}: {player.currentScore}đ
       </Typography>
 
-      {/* Edit Button */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-        <IconButton
-          size="small"
-          onClick={handleEdit}
+      {/* Bet Amount - only show for non-dealers with custom bet */}
+      {!isDealer && player.betAmount && (
+        <Typography
+          variant="caption"
           sx={{
-            color: '#7f8c8d',
-            '&:hover': {
-              color: '#FF8A65',
-              bgcolor: 'rgba(255, 138, 101, 0.1)',
-            },
+            display: 'block',
+            textAlign: 'center',
+            color: '#FF8A65',
+            fontWeight: 500,
+            mt: 0.5,
           }}
         >
-          <EditIcon sx={{ fontSize: 18 }} />
-        </IconButton>
+          {t('xiDachScore.player.betAmount')}: {player.betAmount}đ
+        </Typography>
+      )}
+
+      {/* Edit Icon Indicator */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+        <EditIcon sx={{ fontSize: 18, color: '#bdc3c7' }} />
       </Box>
     </Box>
   );

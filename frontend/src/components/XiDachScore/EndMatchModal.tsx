@@ -54,7 +54,6 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
   // Dealer special mode states
   const [dealerMode, setDealerMode] = useState<DealerMode>('normal');
-  const [dealerTuCount, setDealerTuCount] = useState(1);
   const [dealerWinScope, setDealerWinScope] = useState<DealerWinScope>('all');
   const [dealerWinTargets, setDealerWinTargets] = useState<string[]>([]); // Player IDs dealer wins from
 
@@ -121,11 +120,17 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     // In special mode (xì bàn/ngũ linh), calculate dealer's winning from disabled players
     if (isDealerSpecialMode) {
       const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
-      const dealerWinPerTu = currentSession.settings.pointsPerTu * multiplier;
 
-      // Score from disabled players (they all lose to dealer)
-      const disabledCount = disabledPlayerIdStr ? disabledPlayerIdStr.split(',').length : 0;
-      let dealerScore = disabledCount * dealerTuCount * dealerWinPerTu;
+      // Score from disabled players (they all lose 1 tụ to dealer, using each player's bet amount)
+      const disabledIds = disabledPlayerIdStr ? disabledPlayerIdStr.split(',') : [];
+      let dealerScore = 0;
+      for (const playerId of disabledIds) {
+        const player = activePlayers.find(p => p.id === playerId);
+        if (player) {
+          const playerBet = player.betAmount ?? currentSession.settings.pointsPerTu;
+          dealerScore += playerBet * multiplier; // 1 tụ × betAmount × multiplier
+        }
+      }
 
       // Score from enabled players (inverse of their results)
       const enabledIds = nonDealerPlayerIds.split(',').filter(id =>
@@ -133,7 +138,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       );
       for (const playerId of enabledIds) {
         const data = playerResults[playerId];
-        if (data) {
+        const player = activePlayers.find(p => p.id === playerId);
+        if (data && player) {
           const score = calculateScoreChange(
             {
               playerId: data.playerId,
@@ -146,7 +152,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
               penalty28: data.penalty28,
               penalty28Recipients: data.penalty28Recipients,
             },
-            currentSession.settings
+            currentSession.settings,
+            player.betAmount // Pass player's individual bet amount
           );
           dealerScore -= score; // Inverse
         }
@@ -162,7 +169,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     const nonDealerIds = nonDealerPlayerIds ? nonDealerPlayerIds.split(',') : [];
     for (const playerId of nonDealerIds) {
       const data = playerResults[playerId];
-      if (data) {
+      const player = activePlayers.find(p => p.id === playerId);
+      if (data && player) {
         const score = calculateScoreChange(
           {
             playerId: data.playerId,
@@ -175,7 +183,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
             penalty28: data.penalty28,
             penalty28Recipients: data.penalty28Recipients,
           },
-          currentSession.settings
+          currentSession.settings,
+          player.betAmount // Pass player's individual bet amount
         );
         totalOtherPlayersScore += score;
       }
@@ -183,7 +192,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
     // Dealer's score is the inverse
     return -totalOtherPlayersScore;
-  }, [playerResults, nonDealerPlayerIds, currentSession, currentDealer, isDealerSpecialMode, dealerMode, dealerTuCount, disabledPlayerIdStr]);
+  }, [playerResults, nonDealerPlayerIds, currentSession, currentDealer, isDealerSpecialMode, dealerMode, disabledPlayerIdStr, activePlayers]);
 
   // Initialize player results when modal opens
   // Using stable ID string instead of array to prevent infinite loops
@@ -209,7 +218,6 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
       setError(null);
       // Reset dealer mode
       setDealerMode('normal');
-      setDealerTuCount(1);
       setDealerWinScope('all');
       setDealerWinTargets([]);
     }
@@ -226,9 +234,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const validateResults = (): string | null => {
     // Validate dealer special mode
     if (isDealerSpecialMode) {
-      if (dealerTuCount < 1) {
-        return t('xiDachScore.dealer.tuMin');
-      }
+      // Dealer xì bàn/ngũ linh always plays 1 tụ - no need to validate tuCount
       if (dealerWinScope === 'selected' && dealerWinTargets.length === 0) {
         return t('xiDachScore.dealer.selectTargets');
       }
@@ -260,14 +266,16 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     const allResults: XiDachPlayerResult[] = [];
 
     // Create dealer result
-    const dealerXiBan = dealerMode === 'xiBan' ? dealerTuCount : 0;
-    const dealerNguLinh = dealerMode === 'nguLinh' ? dealerTuCount : 0;
+    // Dealer xì bàn/ngũ linh always plays 1 tụ
+    const dealerTuForResult = isDealerSpecialMode ? 1 : 0;
+    const dealerXiBan = dealerMode === 'xiBan' ? 1 : 0;
+    const dealerNguLinh = dealerMode === 'nguLinh' ? 1 : 0;
     const dealerResult: XiDachPlayerResult = {
       playerId: currentDealer.id,
-      winTuCount: dealerPreviewScore >= 0 ? (isDealerSpecialMode ? dealerTuCount : 0) : 0,
+      winTuCount: dealerPreviewScore >= 0 ? dealerTuForResult : 0,
       winXiBanCount: dealerPreviewScore >= 0 ? dealerXiBan : 0,
       winNguLinhCount: dealerPreviewScore >= 0 ? dealerNguLinh : 0,
-      loseTuCount: dealerPreviewScore < 0 ? (isDealerSpecialMode ? dealerTuCount : 0) : 0,
+      loseTuCount: dealerPreviewScore < 0 ? dealerTuForResult : 0,
       loseXiBanCount: dealerPreviewScore < 0 ? dealerXiBan : 0,
       loseNguLinhCount: dealerPreviewScore < 0 ? dealerNguLinh : 0,
       penalty28: false,
@@ -276,23 +284,26 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     };
     allResults.push(dealerResult);
 
-    // Create results for disabled players (auto-lose to dealer in special mode)
+    // Create results for disabled players (auto-lose 1 tụ to dealer in special mode)
     if (isDealerSpecialMode) {
       const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
-      const lossPerPlayer = dealerTuCount * currentSession.settings.pointsPerTu * multiplier;
 
       for (const playerId of disabledPlayerIds) {
+        const player = activePlayers.find(p => p.id === playerId);
+        const playerBet = player?.betAmount ?? currentSession.settings.pointsPerTu;
+        const lossAmount = playerBet * multiplier; // 1 tụ × betAmount × multiplier
+
         const disabledResult: XiDachPlayerResult = {
           playerId,
           winTuCount: 0,
           winXiBanCount: 0,
           winNguLinhCount: 0,
-          loseTuCount: dealerTuCount,
-          loseXiBanCount: dealerXiBan,
-          loseNguLinhCount: dealerNguLinh,
+          loseTuCount: 1, // Dealer xì bàn/ngũ linh always wins 1 tụ
+          loseXiBanCount: dealerMode === 'xiBan' ? 1 : 0,
+          loseNguLinhCount: dealerMode === 'nguLinh' ? 1 : 0,
           penalty28: false,
           penalty28Recipients: [],
-          scoreChange: -lossPerPlayer,
+          scoreChange: -lossAmount,
         };
         allResults.push(disabledResult);
       }
@@ -313,7 +324,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
           penalty28: data.penalty28,
           penalty28Recipients: data.penalty28Recipients,
         },
-        currentSession.settings
+        currentSession.settings,
+        player.betAmount // Pass player's individual bet amount
       );
       allResults.push(result);
     }
@@ -336,7 +348,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
             penalty28: data.penalty28,
             penalty28Recipients: data.penalty28Recipients,
           },
-          currentSession.settings
+          currentSession.settings,
+          player.betAmount // Pass player's individual bet amount
         );
         allResults.push(result);
       }
@@ -502,35 +515,11 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
               {/* Special mode options */}
               <Collapse in={isDealerSpecialMode}>
-                {/* Tu count input */}
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" sx={{ color: '#7f8c8d', mb: 1, display: 'block' }}>
-                    {t('xiDachScore.dealer.tuCountLabel')}
+                {/* Info: Dealer xì bàn/ngũ linh always plays 1 tụ */}
+                <Box sx={{ mb: 2, p: 1.5, bgcolor: 'rgba(255, 138, 101, 0.08)', borderRadius: 1 }}>
+                  <Typography variant="caption" sx={{ color: '#FF8A65' }}>
+                    {t('xiDachScore.dealer.xiBanInfo')}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => setDealerTuCount(Math.max(1, dealerTuCount - 1))}
-                      sx={{ minWidth: 36, borderColor: '#FF8A65', color: '#FF8A65', bgcolor: '#fff', '&:hover': { borderColor: '#E64A19', bgcolor: 'rgba(0, 0, 0, 0.04)' } }}
-                    >
-                      -
-                    </Button>
-                    <Typography sx={{ minWidth: 30, textAlign: 'center', fontWeight: 600 }}>
-                      {dealerTuCount}
-                    </Typography>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => setDealerTuCount(dealerTuCount + 1)}
-                      sx={{ minWidth: 36, borderColor: '#FF8A65', color: '#FF8A65', bgcolor: '#fff', '&:hover': { borderColor: '#E64A19', bgcolor: 'rgba(0, 0, 0, 0.04)' } }}
-                    >
-                      +
-                    </Button>
-                    <Typography variant="caption" sx={{ color: '#95a5a6', ml: 1 }}>
-                      × {currentSession.settings.pointsPerTu * 2}đ = {dealerTuCount * currentSession.settings.pointsPerTu * 2}đ/{t('xiDachScore.dealer.perPlayer')}
-                    </Typography>
-                  </Box>
                 </Box>
 
                 {/* Win scope selection */}
@@ -627,7 +616,9 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
             {nonDealerPlayers.map((player) => {
               const isDisabled = disabledPlayerIds.includes(player.id);
               const multiplier = dealerMode === 'xiBan' ? 2 : dealerMode === 'nguLinh' ? 2 : 1;
-              const lossAmount = dealerTuCount * currentSession.settings.pointsPerTu * multiplier;
+              // Use player's individual bet amount or session default
+              const playerBet = player.betAmount ?? currentSession.settings.pointsPerTu;
+              const lossAmount = playerBet * multiplier; // 1 tụ × betAmount × multiplier
 
               // Show disabled player card (auto-lose to dealer)
               if (isDisabled) {
@@ -643,9 +634,16 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#7f8c8d' }}>
-                        {player.name}
-                      </Typography>
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#7f8c8d' }}>
+                          {player.name}
+                        </Typography>
+                        {player.betAmount && (
+                          <Typography variant="caption" sx={{ color: '#FF8A65' }}>
+                            {player.betAmount}đ/tụ
+                          </Typography>
+                        )}
+                      </Box>
                       <Box
                         sx={{
                           px: 1.5,
