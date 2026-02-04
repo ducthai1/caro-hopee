@@ -8,15 +8,16 @@ type WheelItem = { label: string; weight: number };
 
 const STORAGE_KEY = "lucky-wheel-items";
 
+// Tất cả weight = 1 để xác suất bằng nhau (random ngẫu nhiên)
 const defaultItems: WheelItem[] = [
-  { label: "Nhất 🏆", weight: 1 },
-  { label: "Nhì 🥈", weight: 0 },
-  { label: "Ba 🥉", weight: 0 },
-  { label: "Jackpot 💎", weight: 0 },
-  { label: "Bonus 💰", weight: 0 },
-  { label: "Chúc may mắn 🍀", weight: 0 },
-  { label: "Thử lại 🔄", weight: 0 },
-  { label: "Khuyến khích 🎖️", weight: 0 },
+  { label: "Giải 1 🎁", weight: 1 },
+  { label: "Giải 2 🎁", weight: 1 },
+  { label: "Giải 3 🎁", weight: 1 },
+  { label: "Giải 4 🎁", weight: 1 },
+  { label: "Giải 5 🎁", weight: 1 },
+  { label: "Giải 6 🎁", weight: 1 },
+  { label: "Giải 7 🎁", weight: 1 },
+  { label: "Giải 8 🎁", weight: 1 },
 ];
 
 type LuckyWheelContextType = {

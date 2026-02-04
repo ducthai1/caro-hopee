@@ -4,15 +4,16 @@ import LuckyWheelConfig, { IWheelItem } from '../models/LuckyWheelConfig';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // Default items nếu user chưa có config
+// Tất cả weight = 1 để xác suất bằng nhau (random ngẫu nhiên)
 const defaultItems: IWheelItem[] = [
-  { label: 'Nhất 🏆', weight: 1 },
-  { label: 'Nhì 🥈', weight: 0 },
-  { label: 'Ba 🥉', weight: 0 },
-  { label: 'Jackpot 💎', weight: 0 },
-  { label: 'Bonus 💰', weight: 0 },
-  { label: 'Chúc may mắn 🍀', weight: 0 },
-  { label: 'Thử lại 🔄', weight: 0 },
-  { label: 'Khuyến khích 🎖️', weight: 0 },
+  { label: 'Giải 1 🎁', weight: 1 },
+  { label: 'Giải 2 🎁', weight: 1 },
+  { label: 'Giải 3 🎁', weight: 1 },
+  { label: 'Giải 4 🎁', weight: 1 },
+  { label: 'Giải 5 🎁', weight: 1 },
+  { label: 'Giải 6 🎁', weight: 1 },
+  { label: 'Giải 7 🎁', weight: 1 },
+  { label: 'Giải 8 🎁', weight: 1 },
 ];
 
 interface SaveConfigRequest extends Request {
