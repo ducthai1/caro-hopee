@@ -120,7 +120,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           mb: 1,
         }}
       >
-        {isPositive ? '+' : ''}{netScore}đ
+        {isPositive ? '+' : ''}{netScore} điểm
       </Typography>
 
       {/* Current Score (smaller) */}
@@ -132,7 +132,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           color: '#95a5a6',
         }}
       >
-        {t('xiDachScore.total')}: {player.currentScore}đ
+        {t('xiDachScore.total')}: {player.currentScore} điểm
       </Typography>
 
       {/* Bet Amount - only show for non-dealers with custom bet */}
@@ -147,7 +147,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             mt: 0.5,
           }}
         >
-          {t('xiDachScore.player.betAmount')}: {player.betAmount}đ
+          {t('xiDachScore.player.betAmount')}: {player.betAmount} điểm
         </Typography>
       )}
 

@@ -10,7 +10,7 @@ export interface XiDachPlayer {
   name: string;
   baseScore: number;      // Starting score (can be edited)
   currentScore: number;   // Calculated from baseScore + all match results
-  betAmount?: number;     // Individual bet amount per tụ (optional, uses session's pointsPerTu if not set)
+  betAmount?: number;     // Individual point rate per hand (optional, uses session's pointsPerTu if not set)
   isActive: boolean;      // False if player left mid-game
   createdAt: string;      // ISO string
 }
@@ -20,11 +20,11 @@ export interface XiDachPlayer {
 export interface XiDachPlayerResult {
   playerId: string;
   // Win side
-  winTuCount: number;                 // Number of "tụ" won
+  winTuCount: number;                 // Number of hands won
   winXiBanCount: number;              // Number of xì bàn in wins (×2 each)
   winNguLinhCount: number;            // Number of ngũ linh in wins (×2 each)
   // Lose side
-  loseTuCount: number;                // Number of "tụ" lost
+  loseTuCount: number;                // Number of hands lost
   loseXiBanCount: number;             // Number of xì bàn in losses (×2 each)
   loseNguLinhCount: number;           // Number of ngũ linh in losses (×2 each)
   // Penalty
@@ -58,7 +58,7 @@ export interface XiDachMatch {
 // ============== SETTINGS ==============
 
 export interface XiDachSettings {
-  pointsPerTu: number;                // Points per tụ (e.g., 10)
+  pointsPerTu: number;                // Points per hand (e.g., 10)
   penalty28Enabled: boolean;          // Enable fixed penalty 28 amount
   penalty28Amount: number;            // Penalty amount for >28 (e.g., 50) - only used if penalty28Enabled
   autoRotateDealer: boolean;          // Auto-rotate dealer after N matches
@@ -67,7 +67,7 @@ export interface XiDachSettings {
 
 export const DEFAULT_XI_DACH_SETTINGS: XiDachSettings = {
   pointsPerTu: 10,
-  penalty28Enabled: false,            // Default: penalty uses player's bet amount
+  penalty28Enabled: false,            // Default: penalty uses player's point rate
   penalty28Amount: 50,
   autoRotateDealer: false,
   autoRotateAfter: 1,

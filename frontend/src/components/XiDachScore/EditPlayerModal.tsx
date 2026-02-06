@@ -204,7 +204,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
             {t('xiDachScore.player.currentScore')}
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
-            {player.currentScore}đ
+            {player.currentScore} điểm
           </Typography>
           <Typography
             variant="caption"
@@ -214,7 +214,7 @@ const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
             }}
           >
             {t('xiDachScore.player.netScore')}: {player.currentScore - player.baseScore >= 0 ? '+' : ''}
-            {player.currentScore - player.baseScore}đ
+            {player.currentScore - player.baseScore} điểm
           </Typography>
         </Box>
       </DialogContent>

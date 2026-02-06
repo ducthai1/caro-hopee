@@ -330,7 +330,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
             </Typography>
             <Typography variant="caption" sx={{ color: '#95a5a6' }}>
               {currentSession.settings.penalty28Enabled
-                ? `${t('xiDachScore.penalty28Short')}: ${currentSession.settings.penalty28Amount}đ`
+                ? `${t('xiDachScore.penalty28Short')}: ${currentSession.settings.penalty28Amount} điểm`
                 : t('xiDachScore.penalty28ByBet')}
             </Typography>
           </Box>
@@ -367,7 +367,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
                       color: dealerPreviewScore >= 0 ? '#2e7d32' : '#E64A19',
                     }}
                   >
-                    {dealerPreviewScore >= 0 ? '+' : ''}{dealerPreviewScore}đ
+                    {dealerPreviewScore >= 0 ? '+' : ''}{dealerPreviewScore} điểm
                   </Typography>
                 </Box>
               </Box>

@@ -269,9 +269,9 @@ const calculateEffectiveTu = (tuCount: number, xiBanCount: number, nguLinhCount:
 export const calculateScoreChange = (
   result: Omit<XiDachPlayerResult, 'scoreChange'>,
   settings: XiDachSettings,
-  playerBetAmount?: number // Individual player's bet amount (overrides settings.pointsPerTu)
+  playerBetAmount?: number // Individual player's point rate (overrides settings.pointsPerTu)
 ): number => {
-  // Use player's bet amount if provided, otherwise use session's default
+  // Use player's point rate if provided, otherwise use session's default
   const pointsPerTu = playerBetAmount ?? settings.pointsPerTu;
 
   // Handle legacy data format (old format with single tuCount and outcome)
@@ -312,7 +312,7 @@ export const calculateScoreChange = (
   if (result.penalty28 && result.penalty28Recipients.length > 0) {
     const penaltyPerRecipient = settings.penalty28Enabled
       ? settings.penalty28Amount
-      : loseScore; // Use lose bet amount as penalty
+      : loseScore; // Use lose point rate as penalty
     score -= penaltyPerRecipient * result.penalty28Recipients.length;
   }
 
@@ -335,7 +335,7 @@ export const createPlayerResult = (
     penalty28Recipients?: string[];
   },
   settings: XiDachSettings,
-  playerBetAmount?: number // Individual player's bet amount
+  playerBetAmount?: number // Individual player's point rate
 ): XiDachPlayerResult => {
   const result: Omit<XiDachPlayerResult, 'scoreChange'> = {
     playerId,
@@ -433,7 +433,7 @@ export const recalculatePlayerScores = (session: XiDachSession): XiDachSession =
 
       // Handle penalty 28 recipients (they receive the penalty amount)
       if (result.penalty28 && result.penalty28Recipients.length > 0) {
-        // Get the penalized player's bet amount (or session default)
+        // Get the penalized player's point rate (or session default)
         const penalizedPlayer = session.players.find((p) => p.id === result.playerId);
         const playerBetAmount = penalizedPlayer?.betAmount ?? session.settings.pointsPerTu;
 
@@ -441,7 +441,7 @@ export const recalculatePlayerScores = (session: XiDachSession): XiDachSession =
         // For new format: use lose amount; for legacy: use tuCount
         let betAmount: number;
         if (result.loseTuCount !== undefined) {
-          // New format - use player's individual bet amount
+          // New format - use player's individual point rate
           betAmount = (result.loseTuCount + (result.loseXiBanCount || 0) + (result.loseNguLinhCount || 0)) * playerBetAmount;
         } else {
           // Legacy format

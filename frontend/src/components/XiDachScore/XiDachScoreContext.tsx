@@ -210,6 +210,17 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     xiDachApi.updateSession(session.sessionCode, session).catch(console.error);
   }, []);
 
+  // Lightweight API sync for status-only updates (avoids sending large matches array)
+  const saveStatusOnly = useCallback((session: XiDachSession) => {
+    if (!session.sessionCode) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    pendingSaveRef.current = null;
+    xiDachApi.updateSession(session.sessionCode, { status: session.status }).catch(console.error);
+  }, []);
+
   useEffect(() => () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     if (pendingSaveRef.current?.sessionCode) {
@@ -410,9 +421,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'playing' as const,
       updatedAt: getTimestamp(),
     };
-    immediateSave(updated); // Critical operation - save immediately
+    saveStatusOnly(updated); // Only send status change (lightweight)
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession, immediateSave]);
+  }, [currentSession, saveStatusOnly]);
 
   const pauseGame = useCallback(() => {
     if (!currentSession) return;
@@ -422,9 +433,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'paused' as const,
       updatedAt: getTimestamp(),
     };
-    immediateSave(updated); // Critical operation - save immediately
+    saveStatusOnly(updated); // Only send status change (lightweight)
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession, immediateSave]);
+  }, [currentSession, saveStatusOnly]);
 
   const resumeGame = useCallback(() => {
     if (!currentSession) return;
@@ -434,9 +445,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'playing' as const,
       updatedAt: getTimestamp(),
     };
-    immediateSave(updated); // Critical operation - save immediately
+    saveStatusOnly(updated); // Only send status change (lightweight)
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession, immediateSave]);
+  }, [currentSession, saveStatusOnly]);
 
   const endGame = useCallback(() => {
     if (!currentSession) return;
@@ -446,9 +457,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'ended' as const,
       updatedAt: getTimestamp(),
     };
-    immediateSave(updated); // Critical operation - save immediately
+    saveStatusOnly(updated); // Only send status change (lightweight)
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
-  }, [currentSession, immediateSave]);
+  }, [currentSession, saveStatusOnly]);
 
   const addMatch = useCallback(
     (results: XiDachPlayerResult[]) => {
@@ -545,10 +556,13 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       currentDealerId: pendingDealerRotation.suggestedDealerId,
       updatedAt: getTimestamp(),
     };
-    immediateSave(updated); // Critical operation - save immediately
+    // Only send currentDealerId (lightweight, avoids sending large matches array)
+    if (updated.sessionCode) {
+      xiDachApi.updateSession(updated.sessionCode, { currentDealerId: updated.currentDealerId }).catch(console.error);
+    }
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
     setPendingDealerRotation(null);
-  }, [currentSession, pendingDealerRotation, immediateSave]);
+  }, [currentSession, pendingDealerRotation]);
 
   const cancelDealerRotation = useCallback(() => {
     setPendingDealerRotation(null);

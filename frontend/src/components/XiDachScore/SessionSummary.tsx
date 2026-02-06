@@ -215,7 +215,7 @@ const SessionSummary: React.FC = () => {
                     }}
                   >
                     {player.netScore >= 0 ? '+' : ''}
-                    {player.netScore}đ
+                    {player.netScore} điểm
                   </Typography>
                 </Box>
               ))}
@@ -284,7 +284,7 @@ const SessionSummary: React.FC = () => {
                       color: '#2e7d32',
                     }}
                   >
-                    {settlement.amount}đ
+                    {settlement.amount} điểm
                   </Typography>
                 </Box>
               ))}

@@ -285,7 +285,7 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
         </Typography>
         {player.betAmount && (
           <Chip
-            label={`${player.betAmount}đ/tụ`}
+            label={`${player.betAmount} điểm/phần`}
             size="small"
             sx={{
               height: 20,
@@ -494,7 +494,7 @@ const PlayerResultInput: React.FC<PlayerResultInputProps> = ({
             }}
           >
             {previewScore >= 0 ? '+' : ''}
-            {previewScore}đ
+            {previewScore} điểm
           </Typography>
         </Box>
       </Box>

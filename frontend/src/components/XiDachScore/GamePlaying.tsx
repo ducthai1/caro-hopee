@@ -133,7 +133,7 @@ const GamePlaying: React.FC = () => {
         >
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <IconButton
-              onClick={goToList}
+              onClick={isEnded ? goToSummary : goToList}
               sx={{
                 mr: 1,
                 color: '#FF8A65',
@@ -282,7 +282,7 @@ const GamePlaying: React.FC = () => {
             flexWrap: 'wrap',
           }}
         >
-          {/* Change Dealer - Show "Chọn Cái" if no dealer selected yet */}
+          {/* Change Dealer - Show "Chọn Chủ" if no dealer selected yet */}
           <Button
             variant="outlined"
             startIcon={<SwapHorizIcon />}

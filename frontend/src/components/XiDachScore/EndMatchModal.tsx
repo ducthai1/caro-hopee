@@ -59,7 +59,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const [dealerMode, setDealerMode] = useState<DealerMode>('normal');
   const [dealerWinScope, setDealerWinScope] = useState<DealerWinScope>('all');
   const [dealerWinTargets, setDealerWinTargets] = useState<string[]>([]); // Player IDs dealer wins from
-  const [disabledPlayerTuCounts, setDisabledPlayerTuCounts] = useState<Record<string, number>>({}); // Custom tụ count per disabled player
+  const [disabledPlayerTuCounts, setDisabledPlayerTuCounts] = useState<Record<string, number>>({}); // Custom part count per disabled player
 
   // Get stable IDs for memoization (prevents infinite re-render loops)
   const activePlayerIds = useMemo(
@@ -125,7 +125,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     if (isDealerSpecialMode) {
       const multiplier = dealerMode === 'xiBanNguLinh' ? 2 : 1;
 
-      // Score from disabled players (using custom tụ count, default 1)
+      // Score from disabled players (using custom part count, default 1)
       const disabledIds = disabledPlayerIdStr ? disabledPlayerIdStr.split(',') : [];
       let dealerScore = 0;
       for (const playerId of disabledIds) {
@@ -133,7 +133,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
         if (player) {
           const playerBet = player.betAmount ?? currentSession.settings.pointsPerTu;
           const tuCount = disabledPlayerTuCounts[playerId] ?? 1;
-          dealerScore += playerBet * tuCount * multiplier; // tụCount × betAmount × multiplier
+          dealerScore += playerBet * tuCount * multiplier; // partCount × pointRate × multiplier
         }
       }
 
@@ -239,7 +239,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const validateResults = (): string | null => {
     // Validate dealer special mode
     if (isDealerSpecialMode) {
-      // Dealer xì bàn/ngũ linh always plays 1 tụ - no need to validate tuCount
+      // Dealer xì bàn/ngũ linh always plays 1 part - no need to validate tuCount
       if (dealerWinScope === 'selected' && dealerWinTargets.length === 0) {
         return t('xiDachScore.dealer.selectTargets');
       }
@@ -271,7 +271,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
     const allResults: XiDachPlayerResult[] = [];
 
     // Create dealer result
-    // Dealer special mode always plays 1 tụ
+    // Dealer special mode always plays 1 part
     const dealerTuForResult = isDealerSpecialMode ? 1 : 0;
     // xiBanNguLinh counts as xiBan for tracking (both are x2)
     const dealerXiBan = dealerMode === 'xiBanNguLinh' ? 1 : 0;
@@ -305,7 +305,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
           winTuCount: 0,
           winXiBanCount: 0,
           winNguLinhCount: 0,
-          loseTuCount: tuCount, // Custom tụ count
+          loseTuCount: tuCount, // Custom part count
           loseXiBanCount: dealerMode === 'xiBanNguLinh' ? tuCount : 0,
           loseNguLinhCount: 0, // Merged with xiBan
           penalty28: false,
@@ -439,7 +439,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
             </Typography>
             <Typography variant="caption" sx={{ color: '#95a5a6' }}>
               {currentSession.settings.penalty28Enabled
-                ? `${t('xiDachScore.penalty28Short')}: ${currentSession.settings.penalty28Amount}đ`
+                ? `${t('xiDachScore.penalty28Short')}: ${currentSession.settings.penalty28Amount} điểm`
                 : t('xiDachScore.penalty28ByBet')}
             </Typography>
           </Box>
@@ -477,7 +477,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                       color: dealerPreviewScore >= 0 ? '#2e7d32' : '#E64A19',
                     }}
                   >
-                    {dealerPreviewScore >= 0 ? '+' : ''}{dealerPreviewScore}đ
+                    {dealerPreviewScore >= 0 ? '+' : ''}{dealerPreviewScore} điểm
                   </Typography>
                 </Box>
               </Box>
@@ -522,7 +522,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
               {/* Special mode options */}
               <Collapse in={isDealerSpecialMode}>
-                {/* Info: Dealer xì bàn/ngũ linh always plays 1 tụ */}
+                {/* Info: Dealer xì bàn/ngũ linh always plays 1 part */}
                 <Box sx={{ mb: 2, p: 1.5, bgcolor: 'rgba(255, 138, 101, 0.08)', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ color: '#FF8A65' }}>
                     {t('xiDachScore.dealer.xiBanInfo')}
@@ -647,7 +647,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                         </Typography>
                         {player.betAmount && (
                           <Typography variant="caption" sx={{ color: '#FF8A65' }}>
-                            {player.betAmount}đ/tụ
+                            {player.betAmount} điểm/phần
                           </Typography>
                         )}
                       </Box>
@@ -663,11 +663,11 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                           variant="body1"
                           sx={{ fontWeight: 700, color: '#FF8A65' }}
                         >
-                          -{lossAmount}đ
+                          -{lossAmount} điểm
                         </Typography>
                       </Box>
                     </Box>
-                    {/* Tụ count controls */}
+                    {/* Part count controls */}
                     <Box
                       sx={{
                         display: 'flex',
@@ -721,7 +721,7 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
                             color: '#e67e22',
                           }}
                         >
-                          {tuCount} tụ
+                          {tuCount} phần
                         </Typography>
                         <IconButton
                           size="small"

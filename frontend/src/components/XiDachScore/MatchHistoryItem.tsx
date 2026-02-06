@@ -31,7 +31,7 @@ const formatPlayerResult = (
   if (!player) return { main: 'N/A', details: [] };
 
   const sign = result.scoreChange >= 0 ? '+' : '';
-  const main = `${player.name}: ${sign}${result.scoreChange}đ`;
+  const main = `${player.name}: ${sign}${result.scoreChange} điểm`;
 
   const details: string[] = [];
 
