@@ -21,6 +21,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { userApi } from '../../../services/api';
 import { useLanguage } from '../../../i18n';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface PasswordChangeFormProps {
   open: boolean;
@@ -29,6 +30,7 @@ interface PasswordChangeFormProps {
 
 const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }) => {
   const { t } = useLanguage();
+  const toast = useToast();
 
   // Form state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -43,14 +45,12 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
   // UI state
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const resetForm = () => {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setError(null);
-    setSuccess(false);
   };
 
   const handleClose = () => {
@@ -84,12 +84,10 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
         currentPassword,
         newPassword,
       });
-      setSuccess(true);
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
+      toast.success('toast.passwordChanged');
+      handleClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || t('profile.passwordChangeError'));
+      toast.error('toast.passwordChangeError', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setSaving(false);
     }
@@ -158,12 +156,6 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
           </Alert>
         )}
 
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {t('profile.passwordChangeSuccess')}
-          </Alert>
-        )}
-
         {/* Current Password */}
         <Box sx={{ my: 2 }}>
           <TextField
@@ -172,7 +164,7 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
             label={t('profile.currentPassword')}
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={saving || success}
+            disabled={saving}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
@@ -204,7 +196,7 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
             label={t('profile.newPassword')}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            disabled={saving || success}
+            disabled={saving}
             helperText={t('profile.passwordHelper')}
             InputProps={{
               endAdornment: (
@@ -237,7 +229,7 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
             label={t('profile.confirmNewPassword')}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={saving || success}
+            disabled={saving}
             error={confirmPassword.length > 0 && confirmPassword !== newPassword}
             helperText={
               confirmPassword.length > 0 && confirmPassword !== newPassword
@@ -286,7 +278,7 @@ const PasswordChangeForm: React.FC<PasswordChangeFormProps> = ({ open, onClose }
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={saving || success || !isValid}
+          disabled={saving || !isValid}
           sx={{
             background: 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)',
             color: '#fff',

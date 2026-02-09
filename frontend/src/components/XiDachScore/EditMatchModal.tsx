@@ -14,7 +14,6 @@ import {
   Box,
   Typography,
   Alert,
-  Snackbar,
   Chip,
   useMediaQuery,
   useTheme,
@@ -23,6 +22,7 @@ import { useXiDachScore } from './XiDachScoreContext';
 import PlayerResultInput, { PlayerResultInputData } from './PlayerResultInput';
 import { createPlayerResult, calculateScoreChange } from '../../utils/xi-dach-score-storage';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { XiDachPlayerResult } from '../../types/xi-dach-score.types';
 
 interface EditMatchModalProps {
@@ -40,8 +40,8 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
   const [playerResults, setPlayerResults] = useState<
     Record<string, PlayerResultInputData>
   >({});
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Get the match to edit
   const matchToEdit = useMemo(() => {
@@ -245,19 +245,13 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
 
     // Edit match
     editMatch(matchId, allResults);
-    setShowSuccess(true);
-
-    // Close modal after short delay
-    setTimeout(() => {
-      setShowSuccess(false);
-      onClose();
-    }, 500);
+    toast.success('toast.matchUpdated');
+    onClose();
   };
 
   if (!currentSession || !matchToEdit) return null;
 
   return (
-    <>
       <Dialog
         open={open}
         onClose={onClose}
@@ -447,18 +441,6 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ open, matchId, onClose 
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={showSuccess}
-        autoHideDuration={2000}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" sx={{ borderRadius: 2 }}>
-          {t('xiDachScore.history.updated', { number: matchToEdit.matchNumber })}
-        </Alert>
-      </Snackbar>
-    </>
   );
 };
 

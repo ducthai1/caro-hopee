@@ -17,6 +17,7 @@ import { socketService } from '../services/socketService';
 import { useSocket } from '../contexts/SocketContext';
 import { logger } from '../utils/logger';
 import { getGuestName } from '../utils/guestName';
+import { useToast } from '../contexts/ToastContext';
 import {
   HomeSidebar,
   HeroSection,
@@ -34,6 +35,7 @@ const HomePage: React.FC = () => {
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
   const { isConnected: socketConnected } = useSocket(); // FIX C2: Track socket connection state
+  const toast = useToast();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -288,8 +290,8 @@ const HomePage: React.FC = () => {
       navigate(`/game/${game.roomId}`);
     } catch (error: any) {
       logger.error('[HomePage] Failed to create game:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to create game. Please try again.';
-      alert(`Failed to create game: ${errorMessage}`);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create game';
+      toast.error('toast.createFailed', { params: { message: errorMessage } });
     }
   };
 
@@ -335,7 +337,7 @@ const HomePage: React.FC = () => {
         setJoiningGameId(null);
         return;
       }
-      alert(error.response?.data?.message || 'Failed to join game');
+      toast.error('toast.joinFailed', { params: { message: error.response?.data?.message || 'Failed to join game' } });
       loadWaitingGames();
     } finally {
       if (!showPasswordDialog) {

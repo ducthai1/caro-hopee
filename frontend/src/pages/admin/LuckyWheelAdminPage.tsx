@@ -24,6 +24,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { adminApi } from '../../services/api';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import AdminRoute from '../../components/AdminRoute';
 import { MainLayout } from '../../components/MainLayout';
 import { socketService } from '../../services/socketService';
@@ -44,6 +45,7 @@ interface LuckyWheelUser {
 const LuckyWheelAdminPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const toast = useToast();
   const theme = useTheme();
   useMediaQuery(theme.breakpoints.down('md')); // For responsive re-render
 
@@ -62,11 +64,11 @@ const LuckyWheelAdminPage: React.FC = () => {
       setTotalPages(response.pagination.totalPages);
       setTotal(response.pagination.total);
     } catch (error: any) {
-      console.error('Failed to load users:', error);
+      toast.error('toast.loadFailed');
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, toast]);
 
   useEffect(() => {
     loadUsers();

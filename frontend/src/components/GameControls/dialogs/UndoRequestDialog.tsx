@@ -9,9 +9,8 @@ import {
   DialogActions,
   Button,
   Typography,
-  Snackbar,
-  Alert,
 } from '@mui/material';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface UndoRequestDialogProps {
   pendingUndoMove: number | null;
@@ -28,8 +27,16 @@ const UndoRequestDialog: React.FC<UndoRequestDialogProps> = ({
   onReject,
   t,
 }) => {
+  const toast = useToast();
+
+  // Show toast when undo request is sent
+  React.useEffect(() => {
+    if (undoRequestSent) {
+      toast.info('toast.undoRequestSent');
+    }
+  }, [undoRequestSent]);
+
   return (
-    <>
       <Dialog open={pendingUndoMove !== null} onClose={onReject}>
         <DialogTitle>{t('gameControls.undoRequest')}</DialogTitle>
         <DialogContent>
@@ -42,19 +49,6 @@ const UndoRequestDialog: React.FC<UndoRequestDialogProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar for undo request feedback */}
-      <Snackbar
-        open={undoRequestSent}
-        autoHideDuration={3000}
-        onClose={() => {}}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="info" sx={{ width: '100%' }}>
-          {t('gameControls.undoRequestSent')}
-        </Alert>
-      </Snackbar>
-    </>
   );
 };
 

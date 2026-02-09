@@ -17,7 +17,6 @@ import {
   Box,
   Typography,
   Alert,
-  Snackbar,
   useMediaQuery,
   useTheme,
   ToggleButton,
@@ -32,6 +31,7 @@ import { useXiDachScore } from './XiDachScoreContext';
 import PlayerResultInput, { PlayerResultInputData } from './PlayerResultInput';
 import { createPlayerResult, calculateScoreChange } from '../../utils/xi-dach-score-storage';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { XiDachPlayerResult } from '../../types/xi-dach-score.types';
 
 // Dealer special mode types
@@ -52,8 +52,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const [playerResults, setPlayerResults] = useState<
     Record<string, PlayerResultInputData>
   >({});
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   // Dealer special mode states
   const [dealerMode, setDealerMode] = useState<DealerMode>('normal');
@@ -364,13 +364,8 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
 
     // Add match
     addMatch(allResults);
-    setShowSuccess(true);
-
-    // Close modal after short delay
-    setTimeout(() => {
-      setShowSuccess(false);
-      onClose();
-    }, 500);
+    toast.success('toast.matchSaved');
+    onClose();
   };
 
   if (!currentSession) return null;
@@ -378,7 +373,6 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
   const matchNumber = currentSession.matches.length + 1;
 
   return (
-    <>
       <Dialog
         open={open}
         onClose={onClose}
@@ -812,18 +806,6 @@ const EndMatchModal: React.FC<EndMatchModalProps> = ({ open, onClose }) => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={showSuccess}
-        autoHideDuration={2000}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" sx={{ borderRadius: 2 }}>
-          {t('xiDachScore.match.saved', { number: matchNumber })}
-        </Alert>
-      </Snackbar>
-    </>
   );
 };
 

@@ -10,6 +10,7 @@ import { gameApi, gameStatsApi } from '../services/api';
 import { saveGuestHistory } from '../utils/guestHistory';
 import { logger } from '../utils/logger';
 import { AchievementDefinition } from '../constants/achievements';
+import { getToast } from './ToastContext';
 
 /**
  * GameContext - Split into 3 separate contexts to prevent re-render cascade
@@ -390,6 +391,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (player.id === myId &&
             ((currentIsAuth && !player.isGuest) || (!currentIsAuth && player.isGuest))) {
           setMyPlayerNumber(player.playerNumber);
+        } else {
+          // Notify about opponent joining (only if not self)
+          getToast()?.info('toast.playerJoined', { params: { name: player.username || 'Player' } });
         }
         return updated;
       });
@@ -444,6 +448,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!data || typeof data !== 'object') {
         logger.error('[GameContext] Invalid player-left data:', data);
         return;
+      }
+
+      // Notify about player leaving
+      if (data.playerNumber) {
+        const leavingPlayer = playersRef.current.find(p => p.playerNumber === data.playerNumber);
+        if (leavingPlayer) {
+          getToast()?.warning('toast.playerLeft', { params: { name: leavingPlayer.username || 'Player' } });
+        }
       }
 
       const currentRoomId = roomIdRef.current;
@@ -753,6 +765,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Use ref to check synchronously before resetting state
       if (undoRequestSentRef.current) {
         setUndoUsedCount(count => count + 1);
+        getToast()?.success('toast.undoApproved');
       }
       setUndoRequestSent(false);
       setPendingUndoMove(null);
@@ -761,6 +774,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleUndoRejected = () => {
       if (!isMountedRef.current) return;
+      if (undoRequestSentRef.current) {
+        getToast()?.warning('toast.undoRejected');
+      }
       setUndoRequestSent(false);
     };
 
@@ -775,6 +791,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUndoUsedCount(0);
       setUndoRequestSent(false);
       setPendingUndoMove(null);
+      getToast()?.success('toast.gameStarted');
     };
 
     const handleGameReset = (data: {
@@ -809,13 +826,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const handleGameError = (data: { message: string }) => {
       logger.error('Game error received:', data.message);
-      alert(`Game Error: ${data.message}`);
+      getToast()?.error('toast.gameError', { params: { message: data.message } });
     };
 
     const handleMoveValidated = (data: { valid: boolean; message?: string }) => {
       if (!data.valid) {
         logger.warn('Move was invalid:', data.message);
-        alert(`Invalid move: ${data.message}`);
+        getToast()?.error('toast.invalidMove', { params: { message: data.message || '' } });
       }
     };
 

@@ -23,6 +23,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import EditIcon from '@mui/icons-material/Edit';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { GAMES, GameItem } from './home-page-types';
 import { getGuestName } from '../../utils/guestName';
 import LogoutConfirmationDialog from '../LogoutConfirmationDialog/LogoutConfirmationDialog';
@@ -59,6 +60,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
   onEditGuestName,
 }) => {
   const { t } = useLanguage();
+  const toast = useToast();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
 
@@ -69,6 +71,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
   const handleLogoutConfirm = () => {
     setShowLogoutConfirm(false);
     logout();
+    toast.info('toast.logoutSuccess');
   };
 
   const handleLogoutCancel = () => {
@@ -418,7 +421,16 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                 transition: 'all 0.25s ease',
               }}
             >
-              <Typography sx={{ fontSize: '1.5rem' }}>{game.icon}</Typography>
+              {game.logo ? (
+                <Box
+                  component="img"
+                  src={game.logo}
+                  alt={game.name}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }}
+                />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem' }}>{game.icon}</Typography>
+              )}
             </Box>
           </ListItemIcon>
           <Box

@@ -28,7 +28,16 @@ const HeroSection: React.FC<HeroSectionProps> = ({ currentGame }) => {
           mb: 2,
         }}
       >
-        <Typography sx={{ fontSize: '3rem' }}>{currentGame?.icon}</Typography>
+        {currentGame?.logo ? (
+          <Box
+            component="img"
+            src={currentGame.logo}
+            alt={currentGame.name}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }}
+          />
+        ) : (
+          <Typography sx={{ fontSize: '3rem' }}>{currentGame?.icon}</Typography>
+        )}
       </Box>
       <Typography
         variant="h2"

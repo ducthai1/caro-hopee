@@ -12,7 +12,9 @@ import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
 import { logger } from '../../utils/logger';
 import { gameApi } from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import { UndoRequestDialog, WinnerModal, LeaveGameDialog } from './dialogs';
+import ConfirmDialog from '../ConfirmDialog';
 import SetPasswordDialog from '../SetPasswordDialog/SetPasswordDialog';
 import HistoryModal from '../HistoryModal/HistoryModal';
 
@@ -39,10 +41,12 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
   } = useGame();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const toast = useToast();
   const [isLeaving, setIsLeaving] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSetPasswordDialog, setShowSetPasswordDialog] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
   const canStartGame = game?.gameStatus === 'waiting' && players.length === 2 && myPlayerNumber === 1;
   const showWinnerModal = game?.gameStatus === 'finished' && game.winner !== null;
@@ -56,9 +60,7 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
 
   // Event handlers
   const handleSurrender = (): void => {
-    if (window.confirm(t('game.surrenderConfirm'))) {
-      surrender();
-    }
+    setShowSurrenderConfirm(true);
   };
 
   const handleNewGame = (): void => {
@@ -183,11 +185,11 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
     try {
       await gameApi.setPassword(game.roomId, password);
       setShowSetPasswordDialog(false);
-      logger.log('Password set successfully');
+      toast.success('toast.passwordSetSuccess');
       // Game context will update hasPassword automatically via socket events or game reload
     } catch (error: any) {
       logger.error('Failed to set password:', error);
-      alert(error.response?.data?.message || 'Failed to set password');
+      toast.error('toast.passwordFailed', { params: { message: error.response?.data?.message || 'Failed to set password' } });
     }
   };
 
@@ -320,6 +322,17 @@ const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
           hasPassword={hasPassword}
         />
       )}
+
+      {/* Surrender Confirmation Dialog */}
+      <ConfirmDialog
+        open={showSurrenderConfirm}
+        title={t('game.surrender')}
+        message={t('game.surrenderConfirm')}
+        confirmText={t('game.surrender')}
+        variant="danger"
+        onConfirm={() => { setShowSurrenderConfirm(false); surrender(); }}
+        onCancel={() => setShowSurrenderConfirm(false)}
+      />
 
       {/* History Modal - Caro game specific */}
       <HistoryModal

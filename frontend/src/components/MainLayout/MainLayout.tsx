@@ -8,6 +8,7 @@ import HomePageContent from './HomePageContent';
 import LuckyWheelContent from './LuckyWheelContent';
 import { LuckyWheelProvider } from '../LuckyWheel';
 import { XiDachScoreProvider, XiDachScoreContent } from '../XiDachScore';
+import { WordChainProvider, WordChainContent } from '../WordChain';
 import { MainLayoutProvider, useMainLayout } from './MainLayoutContext';
 
 interface MainLayoutProps {
@@ -28,6 +29,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     // Sync với route hiện tại
     if (location.pathname === '/lucky-wheel') return 'lucky-wheel';
     if (location.pathname === '/xi-dach-score') return 'xi-dach-score';
+    if (location.pathname === '/word-chain') return 'word-chain';
     if (location.pathname === '/') return 'caro';
     return 'caro';
   });
@@ -40,6 +42,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
       setSelectedGame('lucky-wheel');
     } else if (location.pathname === '/xi-dach-score') {
       setSelectedGame('xi-dach-score');
+    } else if (location.pathname === '/word-chain') {
+      setSelectedGame('word-chain');
     } else if (location.pathname === '/') {
       setSelectedGame('caro');
     }
@@ -62,6 +66,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     // Determine target path for gameId
     const targetPath = gameId === 'lucky-wheel' ? '/lucky-wheel'
       : gameId === 'xi-dach-score' ? '/xi-dach-score'
+      : gameId === 'word-chain' ? '/word-chain'
       : '/';
 
     // Skip if already on target route
@@ -96,6 +101,12 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
           <XiDachScoreProvider>
             <XiDachScoreContent />
           </XiDachScoreProvider>
+        );
+      case 'word-chain':
+        return (
+          <WordChainProvider>
+            <WordChainContent />
+          </WordChainProvider>
         );
       case 'caro':
       default:
@@ -191,21 +202,19 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
         <Box
           sx={{
             width: '100%',
-            height: '100%',
             flex: 1,
-            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0, // Allow flex children to shrink properly
           }}
         >
           <Fade in={true} timeout={150} key={contentKey}>
             <Box
               sx={{
                 width: '100%',
-                height: '100%',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               {renderContent()}

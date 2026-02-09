@@ -28,10 +28,12 @@ import LockIcon from '@mui/icons-material/Lock';
 import { useXiDachScore } from './XiDachScoreContext';
 import { DEFAULT_XI_DACH_SETTINGS } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { xiDachApi } from '../../services/api';
 
 const SessionSetup: React.FC = () => {
   const { t } = useLanguage();
+  const toast = useToast();
   const { goToList, setSessionFromApi } = useXiDachScore();
 
   const [name, setName] = useState('');
@@ -85,6 +87,7 @@ const SessionSetup: React.FC = () => {
       );
       setCreatedSessionData(response);
     } catch (err: any) {
+      toast.error('toast.createSessionFailed', { params: { message: err.response?.data?.message || '' } });
       setError(err.response?.data?.message || 'Failed to create session');
     } finally {
       setLoading(false);
@@ -96,6 +99,7 @@ const SessionSetup: React.FC = () => {
     try {
       await navigator.clipboard.writeText(createdSessionData.sessionCode);
       setCopied(true);
+      toast.success('toast.codeCopied');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback
@@ -106,6 +110,7 @@ const SessionSetup: React.FC = () => {
       document.execCommand('copy');
       document.body.removeChild(textArea);
       setCopied(true);
+      toast.success('toast.codeCopied');
       setTimeout(() => setCopied(false), 2000);
     }
   };

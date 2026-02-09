@@ -2,15 +2,17 @@ import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, GlobalStyles } from '@mui/material';
+import { Box, GlobalStyles, Slide, useMediaQuery } from '@mui/material';
+import { SnackbarProvider } from 'notistack';
+import ToastContent from './components/toast-content';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { GameProvider } from './contexts/GameContext';
 import { AchievementProvider } from './contexts/AchievementContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { LanguageProvider } from './i18n';
 import ErrorBoundary from './components/ErrorBoundary';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import GameRoomPage from './pages/GameRoomPage';
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -120,6 +122,13 @@ const theme = createTheme({
   },
 });
 
+/** Slide down on mobile, slide from right on desktop */
+const ResponsiveTransition = React.forwardRef<HTMLDivElement, any>(({ children, ...props }, ref) => {
+  const isMobile = useMediaQuery('(max-width:600px)');
+  return <Slide {...props} ref={ref} direction={isMobile ? 'down' : 'left'}>{children}</Slide>;
+});
+ResponsiveTransition.displayName = 'ResponsiveTransition';
+
 // Create router with data router API
 const router = createBrowserRouter([
   {
@@ -132,6 +141,10 @@ const router = createBrowserRouter([
   },
   {
     path: '/xi-dach-score',
+    element: <MainLayout />,
+  },
+  {
+    path: '/word-chain',
     element: <MainLayout />,
   },
   {
@@ -184,6 +197,20 @@ function App() {
               transform: 'translateX(100%)',
             },
           },
+          // Toast progress bar shrink animation
+          '@keyframes toast-shrink': {
+            from: { transform: 'scaleX(1)' },
+            to: { transform: 'scaleX(0)' },
+          },
+          // Toast positioning: desktop top-right, mobile top-center
+          '.notistack-SnackbarContainer': {
+            '@media (max-width: 600px)': {
+              top: '8px !important',
+              right: '8px !important',
+              left: '8px !important',
+              alignItems: 'center',
+            },
+          },
         }}
       />
       <Box
@@ -200,7 +227,24 @@ function App() {
               <AuthProvider>
                 <SocketProvider>
                   <GameProvider>
-                    <RouterProvider router={router} />
+                    <SnackbarProvider
+                      maxSnack={3}
+                      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      autoHideDuration={3000}
+                      preventDuplicate
+                      TransitionComponent={ResponsiveTransition}
+                      Components={{
+                        success: ToastContent,
+                        error: ToastContent,
+                        warning: ToastContent,
+                        info: ToastContent,
+                        default: ToastContent,
+                      }}
+                    >
+                      <ToastProvider>
+                        <RouterProvider router={router} />
+                      </ToastProvider>
+                    </SnackbarProvider>
                   </GameProvider>
                 </SocketProvider>
               </AuthProvider>

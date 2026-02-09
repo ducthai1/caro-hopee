@@ -26,6 +26,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useXiDachScore } from './XiDachScoreContext';
 import { XiDachSessionStatus } from '../../types/xi-dach-score.types';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import JoinSessionDialog from './JoinSessionDialog';
 import ConfirmDialog from '../ConfirmDialog';
 import { xiDachApi, XiDachSessionListItem } from '../../services/api';
@@ -68,6 +69,7 @@ const getStatusColor = (status: XiDachSessionStatus): string => {
 
 const SessionList: React.FC = () => {
   const { t } = useLanguage();
+  const toast = useToast();
   const { goToSetup, setSessionFromApi } = useXiDachScore();
   const { user, isAuthenticated } = useAuth();
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
@@ -109,7 +111,7 @@ const SessionList: React.FC = () => {
       setOnlineSessions(prev => prev.filter(s => s.sessionCode !== sessionCode));
     } catch (err: any) {
       console.error('Failed to delete session:', err);
-      alert(err.response?.data?.message || 'Failed to delete session');
+      toast.error('toast.deleteFailed', { params: { message: err.response?.data?.message || 'Failed to delete session' } });
     } finally {
       setDeletingSessionCode(null);
     }
@@ -123,7 +125,7 @@ const SessionList: React.FC = () => {
       const response = await xiDachApi.getSessions(undefined, 20);
       setOnlineSessions(response.sessions);
     } catch (err: any) {
-      console.error('Failed to fetch online sessions:', err);
+      toast.error('toast.loadFailed');
       setOnlineError(err.message || 'Failed to load online sessions');
     } finally {
       setLoadingOnline(false);
@@ -152,7 +154,7 @@ const SessionList: React.FC = () => {
         setJoiningSessionCode(sessionCode);
         setJoinDialogOpen(true);
       } else {
-        console.error('Failed to join session:', err);
+        toast.error('toast.joinSessionFailed');
       }
     }
   };

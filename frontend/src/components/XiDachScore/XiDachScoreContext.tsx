@@ -21,6 +21,7 @@ import {
   getNextDealerId,
 } from '../../utils/xi-dach-score-storage';
 import { xiDachApi, XiDachSessionResponse } from '../../services/api';
+import { getToast } from '../../contexts/ToastContext';
 
 // ============== TYPES ==============
 
@@ -254,7 +255,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
           dispatch({ type: 'ADD_SESSION', payload: session });
           dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });
         } catch (err) {
-          console.error('Failed to restore session:', err);
+          getToast()?.error('toast.restoreFailed');
           // Clear invalid session
           dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
           dispatch({ type: 'SET_VIEW_MODE', payload: 'list' });
@@ -310,8 +311,10 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     if (session?.sessionCode) {
       try {
         await xiDachApi.deleteSession(session.sessionCode);
+        getToast()?.success('toast.sessionDeleted');
       } catch (e) {
-        console.error('Failed to delete session from server:', e);
+        getToast()?.error('toast.sessionDeleteFailed');
+        return; // Don't remove from local state if API delete failed
       }
     }
     dispatch({ type: 'DELETE_SESSION', payload: id });
@@ -423,6 +426,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     saveStatusOnly(updated); // Only send status change (lightweight)
     dispatch({ type: 'UPDATE_SESSION', payload: updated });
+    getToast()?.success('toast.gameSessionStarted');
   }, [currentSession, saveStatusOnly]);
 
   const pauseGame = useCallback(() => {

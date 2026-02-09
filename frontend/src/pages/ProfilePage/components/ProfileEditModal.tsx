@@ -19,6 +19,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { User, UserAvatar, UpdateProfileData } from '../../../types/user.types';
 import { userApi } from '../../../services/api';
 import { useLanguage } from '../../../i18n';
+import { useToast } from '../../../contexts/ToastContext';
 import AvatarSelector from './AvatarSelector';
 import { AvatarDisplay } from '../../../components/AvatarDisplay';
 
@@ -36,6 +37,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   onProfileUpdated,
 }) => {
   const { t } = useLanguage();
+  const toast = useToast();
 
   // Form state
   const [displayName, setDisplayName] = useState(profile.displayName || '');
@@ -73,9 +75,10 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
       const updatedProfile = await userApi.updateMyProfile(updateData);
       onProfileUpdated(updatedProfile);
+      toast.success('toast.profileUpdated');
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.message || t('profile.updateError'));
+      toast.error('toast.profileUpdateFailed', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setSaving(false);
     }

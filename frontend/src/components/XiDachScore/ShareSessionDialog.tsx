@@ -14,7 +14,6 @@ import {
   IconButton,
   Tooltip,
   Divider,
-  Alert,
   CircularProgress,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -22,6 +21,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import CheckIcon from '@mui/icons-material/Check';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { xiDachApi } from '../../services/api';
 
 interface ShareSessionDialogProps {
@@ -40,17 +40,17 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
   onPasswordChange,
 }) => {
   const { t } = useLanguage();
+  const toast = useToast();
   const [copied, setCopied] = useState(false);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const handleCopyCode = async () => {
     try {
       await navigator.clipboard.writeText(sessionCode);
       setCopied(true);
+      toast.success('toast.codeCopied');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback for older browsers
@@ -61,27 +61,26 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
       document.execCommand('copy');
       document.body.removeChild(textArea);
       setCopied(true);
+      toast.success('toast.codeCopied');
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleSetPassword = async () => {
     if (!newPassword || newPassword.length < 4) {
-      setError('Password must be at least 4 characters');
+      toast.warning('toast.passwordFailed', { params: { message: 'Min 4 characters' } });
       return;
     }
 
     setLoading(true);
-    setError(null);
     try {
       await xiDachApi.setPassword(sessionCode, newPassword);
-      setSuccess(t('xiDachScore.multiplayer.passwordSet'));
+      toast.success('toast.passwordSetSuccess');
       setNewPassword('');
       setShowPasswordInput(false);
       onPasswordChange?.(true);
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to set password');
+      toast.error('toast.passwordFailed', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setLoading(false);
     }
@@ -89,14 +88,12 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
 
   const handleRemovePassword = async () => {
     setLoading(true);
-    setError(null);
     try {
       await xiDachApi.setPassword(sessionCode, null);
-      setSuccess(t('xiDachScore.multiplayer.passwordRemoved'));
+      toast.success('toast.passwordRemovedSuccess');
       onPasswordChange?.(false);
-      setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to remove password');
+      toast.error('toast.passwordFailed', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setLoading(false);
     }
@@ -105,8 +102,6 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
   const handleClose = () => {
     setShowPasswordInput(false);
     setNewPassword('');
-    setError(null);
-    setSuccess(null);
     onClose();
   };
 
@@ -295,17 +290,6 @@ const ShareSessionDialog: React.FC<ShareSessionDialogProps> = ({
           </Box>
         )}
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mt: 2, borderRadius: 2 }}>
-            {success}
-          </Alert>
-        )}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>

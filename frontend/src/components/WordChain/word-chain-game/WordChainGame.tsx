@@ -1,0 +1,128 @@
+/**
+ * WordChainGame - Main game view.
+ * Desktop: centered card with max-width, proper spacing.
+ * Mobile: full-width edge-to-edge.
+ */
+import React from 'react';
+import { Box, Paper, Typography } from '@mui/material';
+import { useWordChain } from '../WordChainContext';
+import { WordChainTimer } from './WordChainTimer';
+import { WordChainPlayerBar } from './WordChainPlayerBar';
+import { WordChainWordHistory } from './WordChainWordHistory';
+import { WordChainInput } from './WordChainInput';
+import { WordChainResultModal } from './WordChainResult';
+import { useLanguage } from '../../../i18n';
+
+export const WordChainGame: React.FC = () => {
+  const { t } = useLanguage();
+  const { state } = useWordChain();
+
+  // Get last syllable for hint display
+  const lastSyllable = state.currentWord
+    ? state.currentWord.split(' ').pop() || ''
+    : '';
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: '100vh',
+        overflow: 'hidden',
+        bgcolor: '#fafbfc',
+        width: '100%',
+      }}
+    >
+      {/* Player Bar - top */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 0,
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          bgcolor: '#fff',
+          flexShrink: 0,
+          pt: { xs: '96px', md: 0 },
+        }}
+      >
+        <WordChainPlayerBar
+          players={state.players}
+          currentPlayerSlot={state.currentPlayerSlot}
+          mySlot={state.mySlot}
+        />
+      </Paper>
+
+      {/* Timer + Current Word + Hint */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          py: { xs: 1, sm: 2, md: 2.5 },
+          px: { xs: 2, sm: 4, md: 6 },
+          bgcolor: '#fff',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          flexShrink: 0,
+          position: 'relative',
+        }}
+      >
+        <Box sx={{ position: 'absolute', left: { xs: 12, sm: 24, md: 32 }, top: '50%', transform: 'translateY(-50%)' }}>
+          <WordChainTimer
+            turnStartedAt={state.turnStartedAt}
+            turnDuration={state.turnDuration}
+            isActive={state.gameStatus === 'playing'}
+          />
+        </Box>
+
+        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+            {t('wordChain.game.currentWord')}
+          </Typography>
+          <Typography
+            sx={{
+              fontWeight: 800,
+              color: '#2ecc71',
+              lineHeight: 1.2,
+              mb: 0.25,
+              fontSize: { xs: '1.1rem', sm: '1.5rem', md: '1.75rem' },
+            }}
+          >
+            {state.currentWord || '...'}
+          </Typography>
+          {lastSyllable && (
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#f39c12',
+                fontWeight: 600,
+                bgcolor: 'rgba(243, 156, 18, 0.08)',
+                px: 1.5,
+                py: 0.25,
+                borderRadius: 2,
+                display: 'inline-block',
+                fontSize: { xs: '0.75rem', sm: '0.875rem', md: '0.95rem' },
+              }}
+            >
+              {t('wordChain.game.chainWith')}: "{lastSyllable}..."
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      {/* Word History - flex grow, scrollable */}
+      <WordChainWordHistory
+        wordChain={state.wordChain}
+        mySlot={state.mySlot}
+        currentWord={state.currentWord}
+      />
+
+      {/* Input - bottom, fixed */}
+      <Box sx={{ flexShrink: 0 }}>
+        <WordChainInput />
+      </Box>
+
+      {/* Result modal overlay */}
+      {state.showResult && <WordChainResultModal />}
+    </Box>
+  );
+};

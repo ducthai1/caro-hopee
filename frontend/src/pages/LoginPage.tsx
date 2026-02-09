@@ -3,11 +3,13 @@ import { Box, Container, Paper, TextField, Button, Typography, Tabs, Tab } from 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../i18n';
+import { useToast } from '../contexts/ToastContext';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login, register } = useAuth();
   const { t } = useLanguage();
+  const toast = useToast();
   const [tab, setTab] = useState(0);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -22,6 +24,7 @@ const LoginPage: React.FC = () => {
 
     try {
       await login(email, password);
+      toast.success('toast.loginSuccess');
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || t('auth.loginError'));
@@ -37,6 +40,7 @@ const LoginPage: React.FC = () => {
 
     try {
       await register(username, email, password);
+      toast.success('toast.registerSuccess');
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || t('auth.registerError'));

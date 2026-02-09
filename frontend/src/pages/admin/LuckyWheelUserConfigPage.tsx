@@ -18,6 +18,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { adminApi, WheelItem } from '../../services/api';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import AdminRoute from '../../components/AdminRoute';
 import { MainLayout } from '../../components/MainLayout';
 
@@ -27,6 +28,7 @@ const LuckyWheelUserConfigPage: React.FC = () => {
   const guestId = searchParams.get('guestId');
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const toast = useToast();
   const theme = useTheme();
   useMediaQuery(theme.breakpoints.down('md')); // For responsive re-render
 
@@ -43,15 +45,12 @@ const LuckyWheelUserConfigPage: React.FC = () => {
   const [originalItems, setOriginalItems] = useState<WheelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const loadUserConfig = useCallback(async () => {
     if (!userId) return;
 
     try {
       setLoading(true);
-      setError(null);
       const response = await adminApi.getUserConfig(userId, guestId || undefined);
       setUserInfo({
         id: response.id,
@@ -65,7 +64,7 @@ const LuckyWheelUserConfigPage: React.FC = () => {
       setItems(response.items);
       setOriginalItems(JSON.parse(JSON.stringify(response.items))); // Deep copy
     } catch (err: any) {
-      setError(err.response?.data?.message || t('admin.luckyWheel.loadError') || 'Failed to load user config');
+      toast.error('toast.loadFailed');
     } finally {
       setLoading(false);
     }
@@ -86,16 +85,11 @@ const LuckyWheelUserConfigPage: React.FC = () => {
 
     try {
       setSaving(true);
-      setError(null);
-      setSuccess(false);
-
       await adminApi.updateUserConfig(userId, items, guestId || undefined);
-
-      setSuccess(true);
-      setOriginalItems(JSON.parse(JSON.stringify(items))); // Update original
-      setTimeout(() => setSuccess(false), 3000);
+      setOriginalItems(JSON.parse(JSON.stringify(items)));
+      toast.success('toast.saveSuccess');
     } catch (err: any) {
-      setError(err.response?.data?.message || t('admin.luckyWheel.saveError') || 'Failed to save config');
+      toast.error('toast.saveFailed', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setSaving(false);
     }
@@ -186,18 +180,6 @@ const LuckyWheelUserConfigPage: React.FC = () => {
                 </Typography>
               </Box>
             </Box>
-
-            {/* Alerts */}
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
-            {success && (
-              <Alert severity="success" sx={{ mb: 3 }}>
-                {t('admin.luckyWheel.saveSuccess') || 'Config saved successfully!'}
-              </Alert>
-            )}
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 4 }}>
               {/* Config Panel */}

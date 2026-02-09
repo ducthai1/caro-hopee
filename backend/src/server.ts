@@ -14,9 +14,12 @@ import userRoutes from './routes/userRoutes';
 import luckyWheelRoutes from './routes/luckyWheelRoutes';
 import adminRoutes from './routes/adminRoutes';
 import xiDachRoutes from './routes/xiDachRoutes';
+import wordChainRoutes from './routes/wordChainRoutes';
+import { setupWordChainSocketHandlers } from './services/word-chain-socket';
 import { authLimiter, gameCreationLimiter, gameJoinLimiter, apiLimiter } from './middleware/rateLimiter';
 import { cleanupInactiveGuests } from './controllers/luckyWheelController';
 import { cleanupAllInactiveGames } from './services/gameCleanupService';
+import { loadDictionary } from './services/word-chain-dictionary';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +49,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/lucky-wheel', luckyWheelRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/xi-dach', xiDachRoutes);
+app.use('/api/word-chain', wordChainRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
@@ -58,6 +62,7 @@ app.get('/ping', (req, res) => {
 
 // Setup socket handlers
 setupSocketHandlers(io);
+setupWordChainSocketHandlers(io);
 
 // Error handler
 app.use(errorHandler);
@@ -101,6 +106,10 @@ const startCleanupJob = () => {
 const startServer = async () => {
   try {
     await connectDatabase();
+
+    // Load Vietnamese dictionary for Word Chain game
+    loadDictionary();
+
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       startCleanupJob();

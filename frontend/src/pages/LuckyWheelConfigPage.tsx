@@ -11,7 +11,6 @@ import {
   useTheme,
   useMediaQuery,
   CircularProgress,
-  Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -20,6 +19,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useLuckyWheel, LuckyWheelProvider } from '../components/LuckyWheel';
 import { useLanguage } from '../i18n';
+import { useToast } from '../contexts/ToastContext';
 import { MainLayout } from '../components/MainLayout';
 
 const LuckyWheelConfigPageContent: React.FC = () => {
@@ -28,11 +28,10 @@ const LuckyWheelConfigPageContent: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const toast = useToast();
   const { items, setItems, addItem, removeItem, saveConfigToServer, loadConfigFromServer, isLoading } = useLuckyWheel();
   const [localItems, setLocalItems] = useState(items);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   // Sync localItems với items từ context
   useEffect(() => {
@@ -63,34 +62,23 @@ const LuckyWheelConfigPageContent: React.FC = () => {
     // Validate
     const invalidItems = localItems.filter(item => !item.label || item.label.trim().length === 0);
     if (invalidItems.length > 0) {
-      setError(t('luckyWheel.config.emptyLabels') || 'All items must have labels');
+      toast.warning('luckyWheel.config.emptyLabels');
       return;
     }
 
     if (localItems.length < 2) {
-      setError(t('luckyWheel.config.minItems') || 'At least 2 items are required');
+      toast.warning('luckyWheel.config.minItems');
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
-      setSuccess(false);
-      
-      // Save to server with localItems directly to avoid stale state issues
-      // This ensures we save exactly what the user sees, not what might be in state
       await saveConfigToServer(localItems);
-      
-      // Update context state after successful save
       setItems(localItems);
-      
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        navigate('/lucky-wheel');
-      }, 1500);
+      toast.success('toast.saveSuccess');
+      setTimeout(() => navigate('/lucky-wheel'), 1500);
     } catch (err: any) {
-      setError(err.response?.data?.message || t('luckyWheel.config.saveError') || 'Failed to save config');
+      toast.error('toast.saveFailed', { params: { message: err.response?.data?.message || '' } });
     } finally {
       setSaving(false);
     }
@@ -100,9 +88,8 @@ const LuckyWheelConfigPageContent: React.FC = () => {
     try {
       await loadConfigFromServer();
       setLocalItems(items);
-      setError(null);
     } catch (err) {
-      console.error('Failed to reset:', err);
+      toast.error('toast.resetFailed');
     }
   };
 
@@ -146,18 +133,6 @@ const LuckyWheelConfigPageContent: React.FC = () => {
               {t('luckyWheel.config.title') || 'Configure Lucky Wheel Options'}
             </Typography>
           </Box>
-
-          {/* Alerts */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mb: 3 }}>
-              {t('luckyWheel.config.saveSuccess') || 'Config saved successfully!'}
-            </Alert>
-          )}
 
           {/* Config Form */}
           <Paper

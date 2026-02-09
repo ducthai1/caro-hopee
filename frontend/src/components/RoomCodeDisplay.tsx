@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Paper, IconButton, Snackbar } from '@mui/material';
+import { Box, Typography, Paper, IconButton } from '@mui/material';
 import { ContentCopy, Check } from '@mui/icons-material';
 import { useLanguage } from '../i18n';
+import { useToast } from '../contexts/ToastContext';
 import { logger } from '../utils/logger';
 
 interface RoomCodeDisplayProps {
@@ -11,6 +12,7 @@ interface RoomCodeDisplayProps {
 
 const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label }) => {
   const { t } = useLanguage();
+  const toast = useToast();
   const displayLabel = label || t('home.roomCode');
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -28,6 +30,7 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label }) =>
     try {
       await navigator.clipboard.writeText(roomCode);
       setCopied(true);
+      toast.success('toast.codeCopied');
       // Clear existing timeout if any
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -38,11 +41,11 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label }) =>
       }, 2000);
     } catch (error) {
       logger.error('Failed to copy:', error);
+      toast.error('toast.copyFailed');
     }
   };
 
   return (
-    <>
       <Paper
         elevation={0}
         sx={{
@@ -96,13 +99,6 @@ const RoomCodeDisplay: React.FC<RoomCodeDisplayProps> = ({ roomCode, label }) =>
           {copied ? <Check sx={{ color: '#a8e6cf' }} /> : <ContentCopy />}
         </IconButton>
       </Paper>
-      <Snackbar
-        open={copied}
-        autoHideDuration={2000}
-        message={t('game.roomCodeCopied')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
-    </>
   );
 };
 

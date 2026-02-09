@@ -18,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { gameApi } from '../../services/api';
 import { GameHistory } from '../../types/game.types';
 import { useLanguage } from '../../i18n';
+import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utils/logger';
 import { HistoryList, GameDetailsPanel } from './components';
 
@@ -28,6 +29,7 @@ interface HistoryModalProps {
 
 const HistoryModal: React.FC<HistoryModalProps> = ({ open, onClose }) => {
   const { t, language } = useLanguage();
+  const toast = useToast();
   const [history, setHistory] = useState<GameHistory[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<GameHistory | null>(null);
@@ -53,7 +55,7 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ open, onClose }) => {
       setHistory(data.history || []);
     } catch (error: any) {
       logger.error('[HistoryModal] Failed to load game history:', error);
-      logger.error('[HistoryModal] Error details:', error.response?.data || error.message);
+      toast.error('toast.historyLoadFailed');
       setHistory([]);
     } finally {
       setLoading(false);

@@ -9,6 +9,7 @@ import { useGame, useReaction } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { gameApi } from '../services/api';
 import { useLanguage } from '../i18n';
+import { useToast } from '../contexts/ToastContext';
 import GameBoard from '../components/GameBoard/GameBoard';
 import GameInfo from '../components/GameInfo/GameInfo';
 import GameControls from '../components/GameControls/GameControls';
@@ -30,6 +31,7 @@ const GameRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const toast = useToast();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, updateGuestName, sendReaction } = useGame();
@@ -48,7 +50,7 @@ const GameRoomPage: React.FC = () => {
     // Validate marker before sending
     if (!marker || typeof marker !== 'string') {
       logger.error('Invalid marker provided:', marker);
-      alert('Invalid marker. Please select a valid marker.');
+      toast.error('toast.invalidMarker');
       return;
     }
     
@@ -59,7 +61,7 @@ const GameRoomPage: React.FC = () => {
       // Validate base64 image size (max ~150KB)
       if (marker.length > 200000) {
         logger.error('Image too large:', marker.length);
-        alert('Image is too large. Maximum size is 150KB.');
+        toast.error('toast.imageTooLarge');
         return;
       }
       // Send base64 image as-is
@@ -68,12 +70,12 @@ const GameRoomPage: React.FC = () => {
       const trimmedMarker = marker.trim();
       if (trimmedMarker.length === 0) {
         logger.error('Empty marker provided');
-        alert('Invalid marker. Please select a valid marker.');
+        toast.error('toast.invalidMarker');
         return;
       }
       if (trimmedMarker.length > 10) {
         logger.error('Marker too long:', trimmedMarker);
-        alert('Marker is too long. Maximum 10 characters allowed.');
+        toast.error('toast.markerTooLong');
         return;
       }
       // Use trimmed marker for text
@@ -86,9 +88,9 @@ const GameRoomPage: React.FC = () => {
     } catch (error: any) {
       logger.error('Failed to update marker:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update marker';
-      alert(errorMessage);
+      toast.error('toast.markerUpdateFailed', { params: { message: errorMessage } });
     }
-  }, [roomId]);
+  }, [roomId, toast]);
 
   // State
   const [loading, setLoading] = useState(true);
@@ -162,6 +164,7 @@ const GameRoomPage: React.FC = () => {
       } catch (error: any) {
         logger.error('[GameRoomPage] Failed to load game:', error);
         if (isMounted) {
+          toast.error('toast.gameLoadFailed');
           setLoading(false);
           navigate('/');
         }

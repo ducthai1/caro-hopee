@@ -23,6 +23,7 @@ export interface GameItem {
   id: string;
   name: string;
   icon: string;
+  logo?: string;           // path to logo image in public/
   description: string;
   available: boolean;
   color: string;
@@ -34,6 +35,7 @@ export const GAMES: GameItem[] = [
     id: 'caro',
     name: 'Caro',
     icon: '🎯',
+    logo: '/game-logo/caro.webp',
     description: 'home.caroDescription',
     available: true,
     color: '#7ec8e3',
@@ -42,6 +44,7 @@ export const GAMES: GameItem[] = [
     id: 'lucky-wheel',
     name: 'games.luckyWheel',
     icon: '🎡',
+    logo: '/game-logo/wheel.webp',
     description: 'home.luckyWheelDescription',
     available: true,
     color: '#f39c12',
@@ -50,9 +53,19 @@ export const GAMES: GameItem[] = [
     id: 'xi-dach-score',
     name: 'games.xiDachScore',
     icon: '🎴',
+    logo: '/game-logo/tracker.jpg',
     description: 'home.xiDachScoreDescription',
     available: true,
     color: '#e74c3c',
+  },
+  {
+    id: 'word-chain',
+    name: 'games.wordChain',
+    icon: '🔤',
+    logo: '/game-logo/wordchain.png',
+    description: 'home.wordChainDescription',
+    available: true,
+    color: '#2ecc71',
   },
   {
     id: 'werewolf',
