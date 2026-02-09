@@ -53,7 +53,7 @@ export const GAMES: GameItem[] = [
     id: 'xi-dach-score',
     name: 'games.xiDachScore',
     icon: '🎴',
-    logo: '/game-logo/tracker.jpg',
+    logo: '/game-logo/tracker.webp',
     description: 'home.xiDachScoreDescription',
     available: true,
     color: '#e74c3c',
