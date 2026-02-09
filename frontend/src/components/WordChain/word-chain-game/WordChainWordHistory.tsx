@@ -38,6 +38,7 @@ export const WordChainWordHistory: React.FC<Props> = ({ wordChain, mySlot, curre
       sx={{
         flex: 1,
         overflowY: 'auto',
+        maxHeight: { xs: '61vh', sm: '53vh', md: '64vh'},
         px: { xs: 2, sm: 3, md: 6 },
         py: { xs: 1, md: 2 },
         display: 'flex',
