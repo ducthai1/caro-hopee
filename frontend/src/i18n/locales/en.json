@@ -156,7 +156,7 @@
     "playersCount": "{count} players",
     "matches": "matches",
     "matchNumber": "Match #{number}",
-    "deleteSession": "Delete table?",
+
     "deleteSessionConfirm": "Are you sure you want to delete table \"{name}\"?",
     "deleteSessionWarning": "All data will be permanently deleted.",
     "scoreboard": "Scoreboard",
@@ -389,7 +389,7 @@
     "roomSettings": "Room Settings",
     "maxPlayers": "Max Players",
     "wordType": "Word Type",
-    "wordType2Plus": "2+ syllables",
+    "wordType2Plus": "2 syllables",
     "wordType3Plus": "3+ syllables",
     "wordTypeAll": "All words",
     "gameMode": "Game Mode",

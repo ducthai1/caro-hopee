@@ -37,7 +37,7 @@ export function getLastSyllable(word: string): string {
 export function matchesWordType(word: string, type: WordType): boolean {
   const count = getSyllableCount(word);
   switch (type) {
-    case '2+': return count >= 2;
+    case '2+': return count === 2; // CHỈ 2 âm tiết (User requested: "chỉ những từ 2 âm tiết thôi")
     case '3+': return count >= 3;
     case 'all': return true;
     default: return true;

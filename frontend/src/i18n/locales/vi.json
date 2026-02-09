@@ -156,7 +156,7 @@
     "playersCount": "{count} người chơi",
     "matches": "trận",
     "matchNumber": "Trận #{number}",
-    "deleteSession": "Xóa bàn?",
+
     "deleteSessionConfirm": "Bạn có chắc muốn xóa bàn \"{name}\"?",
     "deleteSessionWarning": "Tất cả dữ liệu sẽ bị xóa vĩnh viễn.",
     "scoreboard": "Bảng Điểm",
@@ -389,7 +389,7 @@
     "roomSettings": "Cài đặt phòng",
     "maxPlayers": "Số người chơi",
     "wordType": "Loại từ",
-    "wordType2Plus": "2+ âm tiết",
+    "wordType2Plus": "2 âm tiết",
     "wordType3Plus": "3+ âm tiết",
     "wordTypeAll": "Tất cả",
     "gameMode": "Chế độ chơi",
