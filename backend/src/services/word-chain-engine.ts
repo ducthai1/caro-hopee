@@ -125,13 +125,8 @@ export function checkGameEnd(
   }
 
   if (activePlayers.length === 1) {
-    const survivor = activePlayers[0];
-    // If all players have equal scores, it's a draw despite elimination
-    const maxEliminatedScore = Math.max(...players.filter(p => p.isEliminated).map(p => p.score));
-    if (survivor.score <= maxEliminatedScore && survivor.score === maxEliminatedScore) {
-      return { ended: true, winner: 'draw' };
-    }
-    return { ended: true, winner: survivor };
+    // Last player standing wins — this is a survival game
+    return { ended: true, winner: activePlayers[0] };
   }
 
   return { ended: false };

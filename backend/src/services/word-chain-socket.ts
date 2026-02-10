@@ -26,6 +26,7 @@ import {
 const activeTimers = new Map<string, NodeJS.Timeout>();
 const disconnectTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:${slot}`
 const roomDictionaries = new Map<string, ReturnType<typeof buildRoomDictionary>>();
+const roomPlayerNames = new Map<string, Map<number, string>>(); // roomId -> slot -> resolved name
 
 const RECONNECT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -51,6 +52,7 @@ function clearTurnTimer(roomId: string): void {
 function cleanupRoom(roomId: string): void {
   clearTurnTimer(roomId);
   roomDictionaries.delete(roomId);
+  roomPlayerNames.delete(roomId);
   // Clear all disconnect timers for this room
   for (const [key, timer] of disconnectTimers.entries()) {
     if (key.startsWith(`${roomId}:`)) {
@@ -66,14 +68,70 @@ function getPlayerName(player: IWordChainPlayer): string {
   return player.guestName || `Player ${player.slot}`;
 }
 
-// ─── Helper: Get username for auth player ──────────────────────
+// ─── Helper: Get username for auth player (with room cache) ────
 
-async function resolvePlayerName(player: IWordChainPlayer): Promise<string> {
+async function resolvePlayerName(player: IWordChainPlayer, roomId?: string): Promise<string> {
+  // Check room cache first
+  if (roomId) {
+    const cache = roomPlayerNames.get(roomId);
+    if (cache?.has(player.slot)) {
+      return cache.get(player.slot)!;
+    }
+  }
+
+  let name: string;
   if (player.userId) {
     const user = await User.findById(player.userId).select('username').lean();
-    return user?.username || `Player ${player.slot}`;
+    name = user?.username || `Player ${player.slot}`;
+  } else {
+    name = player.guestName || `Player ${player.slot}`;
   }
-  return player.guestName || `Player ${player.slot}`;
+
+  // Store in cache
+  if (roomId) {
+    if (!roomPlayerNames.has(roomId)) {
+      roomPlayerNames.set(roomId, new Map());
+    }
+    roomPlayerNames.get(roomId)!.set(player.slot, name);
+  }
+
+  return name;
+}
+
+/** Build/refresh name cache for all players in a room */
+async function cacheAllPlayerNames(game: IWordChainGame): Promise<void> {
+  const cache = new Map<number, string>();
+  for (const p of game.players) {
+    let name: string;
+    if (p.userId) {
+      const user = await User.findById(p.userId).select('username').lean();
+      name = user?.username || `Player ${p.slot}`;
+    } else {
+      name = p.guestName || `Player ${p.slot}`;
+    }
+    cache.set(p.slot, name);
+  }
+  roomPlayerNames.set(game.roomId, cache);
+}
+
+/** Get cached player name (synchronous, must call cacheAllPlayerNames first) */
+function getCachedPlayerName(roomId: string, slot: number): string {
+  return roomPlayerNames.get(roomId)?.get(slot) || `Player ${slot}`;
+}
+
+/** Build players info array using cache (no DB queries) */
+function buildPlayersInfo(game: IWordChainGame): any[] {
+  return game.players.map(p => ({
+    slot: p.slot,
+    name: getCachedPlayerName(game.roomId, p.slot),
+    guestName: p.guestName,
+    lives: p.lives,
+    score: p.score,
+    wordsPlayed: p.wordsPlayed || 0,
+    isEliminated: p.isEliminated,
+    isConnected: p.isConnected,
+    isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+  }));
 }
 
 // ─── Helper: Handle turn timeout / life loss ───────────────────
@@ -94,7 +152,7 @@ async function handleLifeLoss(
     io.to(game.roomId).emit('word-chain:player-eliminated', {
       playerId: player.userId?.toString() || player.guestId,
       slot: player.slot,
-      playerName: await resolvePlayerName(player),
+      playerName: getCachedPlayerName(game.roomId, player.slot),
       remainingPlayers: game.players.filter(p => !p.isEliminated).length,
     });
   }
@@ -124,19 +182,8 @@ async function handleLifeLoss(
 
   await game.save();
 
-  // Build updated players array with current lives for frontend
-  const updatedPlayers = await Promise.all(
-    game.players.map(async (p) => ({
-      slot: p.slot,
-      name: await resolvePlayerName(p),
-      guestName: p.guestName,
-      lives: p.lives,
-      score: p.score,
-      wordsPlayed: p.wordsPlayed || 0,
-      isEliminated: p.isEliminated,
-      isConnected: p.isConnected,
-    }))
-  );
+  // Build updated players array using cache (no DB queries)
+  const updatedPlayers = buildPlayersInfo(game);
 
   // Emit new turn with updated players (lives may have changed)
   const requiredSyllable = game.currentWord ? getLastSyllable(game.currentWord) : '';
@@ -190,26 +237,15 @@ async function finishGame(
 
   await game.save();
 
-  // Build players array matching frontend WordChainPlayer type
-  const players = await Promise.all(
-    game.players.map(async (p) => ({
-      slot: p.slot,
-      name: await resolvePlayerName(p),
-      guestName: p.guestName,
-      score: p.score,
-      wordsPlayed: p.wordsPlayed,
-      lives: p.lives,
-      isEliminated: p.isEliminated,
-      isConnected: p.isConnected,
-    }))
-  );
+  // Build players array using cache (no DB queries)
+  const players = buildPlayersInfo(game);
 
   // Build winner info with name
   let winnerPayload: any = game.winner;
   if (winner !== 'draw' && winner) {
     winnerPayload = {
       slot: winner.slot,
-      name: await resolvePlayerName(winner),
+      name: getCachedPlayerName(game.roomId, winner.slot),
       guestName: winner.guestName,
     };
   }
@@ -842,20 +878,11 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         const turnDuration = game.rules.turnDuration;
         const requiredSyllable = getLastSyllable(firstWord);
 
-        // Build players info matching frontend WordChainPlayer type
-        const playersInfo = await Promise.all(
-          game.players.map(async (p) => ({
-            slot: p.slot,
-            name: await resolvePlayerName(p),
-            guestName: p.guestName,
-            lives: p.lives,
-            score: p.score,
-            wordsPlayed: p.wordsPlayed || 0,
-            isEliminated: p.isEliminated,
-            isConnected: p.isConnected,
-            isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
-          }))
-        );
+        // Cache all player names at game start (single batch DB query)
+        await cacheAllPlayerNames(game);
+
+        // Build players info using cache (no per-event DB queries)
+        const playersInfo = buildPlayersInfo(game);
 
         io.to(roomId).emit('word-chain:game-started', {
           currentWord: firstWord,
@@ -902,6 +929,29 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           return;
         }
 
+        // ─── BUG FIX: Verify that the submitting socket is the current player ───
+        const submittingPlayerId = socket.data.wordChainPlayerId;
+        const currentPlayer = game.players.find(p => p.slot === game.currentPlayerSlot);
+        if (!currentPlayer) {
+          if (callback) callback({ success: false, error: 'invalidState' });
+          return;
+        }
+        const currentPlayerId = currentPlayer.userId?.toString() || currentPlayer.guestId;
+        if (submittingPlayerId !== currentPlayerId) {
+          // Not this player's turn — reject silently
+          if (callback) callback({ success: false, error: 'notYourTurn' });
+          return;
+        }
+
+        // ─── BUG FIX: Check if turn has already timed out (race condition) ───
+        const turnElapsedMs = Date.now() - (game.turnStartedAt?.getTime() || 0);
+        const turnDurationMs = (game.rules.turnDuration || 60) * 1000;
+        // Allow a 2-second grace period for network latency
+        if (turnElapsedMs > turnDurationMs + 2000) {
+          if (callback) callback({ success: false, error: 'turnExpired' });
+          return;
+        }
+
         // Get room dictionary (or rebuild if missing)
         let roomDict = roomDictionaries.get(roomId);
         if (!roomDict) {
@@ -914,13 +964,12 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
 
         if (!result.valid) {
           // Word rejected — player loses 1 life
-          const rejectedPlayer = game.players.find(p => p.slot === game.currentPlayerSlot);
           io.to(roomId).emit('word-chain:word-rejected', {
             reason: result.reason,
             playerSlot: game.currentPlayerSlot,
             word: normalizeWord(word),
-            playerName: rejectedPlayer ? await resolvePlayerName(rejectedPlayer) : '',
-            livesRemaining: (rejectedPlayer?.lives || 1) - 1,
+            playerName: getCachedPlayerName(roomId, game.currentPlayerSlot),
+            livesRemaining: (currentPlayer?.lives || 1) - 1,
           });
 
           clearTurnTimer(roomId);
@@ -933,7 +982,6 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         // Word accepted
         clearTurnTimer(roomId);
         const normalized = normalizeWord(word);
-        const currentPlayer = game.players.find(p => p.slot === game.currentPlayerSlot);
 
         if (currentPlayer) {
           currentPlayer.score += calculateScore(normalized);
@@ -982,25 +1030,14 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
 
         const requiredSyllable = getLastSyllable(normalized);
 
-        // Build players array with updated scores
-        const acceptedPlayersInfo = await Promise.all(
-          game.players.map(async (p) => ({
-            slot: p.slot,
-            name: await resolvePlayerName(p),
-            guestName: p.guestName,
-            lives: p.lives,
-            score: p.score,
-            wordsPlayed: p.wordsPlayed || 0,
-            isEliminated: p.isEliminated,
-            isConnected: p.isConnected,
-          }))
-        );
+        // Build players array using cache (no DB queries — fast!)
+        const acceptedPlayersInfo = buildPlayersInfo(game);
 
         io.to(roomId).emit('word-chain:word-accepted', {
           word: normalized,
           currentWord: normalized,
           playerSlot: currentPlayer?.slot,
-          playerName: currentPlayer ? await resolvePlayerName(currentPlayer) : '',
+          playerName: getCachedPlayerName(roomId, currentPlayer?.slot || 0),
           score: currentPlayer?.score,
           nextPlayerSlot: nextSlot,
           turnStartedAt: game.turnStartedAt.toISOString(),
@@ -1053,7 +1090,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
 
         io.to(roomId).emit('word-chain:player-eliminated', {
           slot: player.slot,
-          playerName: await resolvePlayerName(player),
+          playerName: getCachedPlayerName(roomId, player.slot),
           reason: 'surrender',
           remainingPlayers: game.players.filter(p => !p.isEliminated).length,
         });

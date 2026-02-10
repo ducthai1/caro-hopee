@@ -26,6 +26,7 @@ export const WordChainInput: React.FC = () => {
   const [confirmType, setConfirmType] = useState<'surrender' | 'leave' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevChainLen = useRef(state.wordChain.length);
+  const submittingRef = useRef(false); // Guard against double submissions
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot && state.gameStatus === 'playing';
   const isPlaying = state.gameStatus === 'playing';
@@ -50,9 +51,12 @@ export const WordChainInput: React.FC = () => {
 
   const handleSubmit = () => {
     const trimmed = value.trim();
-    if (!trimmed || !isMyTurn) return;
+    if (!trimmed || !isMyTurn || submittingRef.current) return;
+    submittingRef.current = true;
     submitWord(trimmed);
     setValue('');
+    // Reset guard after a short delay to prevent rapid double-submit
+    setTimeout(() => { submittingRef.current = false; }, 500);
   };
 
   const handleConfirm = () => {
@@ -100,7 +104,13 @@ export const WordChainInput: React.FC = () => {
           size="small"
           value={value}
           onChange={e => setValue(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSubmit();
+            }
+          }}
           disabled={!isMyTurn}
           placeholder={
             isMyTurn
@@ -118,7 +128,7 @@ export const WordChainInput: React.FC = () => {
 
         <IconButton
           onClick={handleSubmit}
-          disabled={!isMyTurn || !value.trim()}
+          disabled={!isMyTurn || !value.trim() || submittingRef.current}
           sx={{
             bgcolor: '#2ecc71',
             color: '#fff',

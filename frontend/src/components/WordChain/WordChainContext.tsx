@@ -425,7 +425,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
         payload: {
           currentWord: data.currentWord,
           currentPlayerSlot: data.currentPlayerSlot,
-          turnStartedAt: toTimestamp(data.turnStartedAt),
+          // BUG FIX: Use client-side timestamp to avoid server-client clock drift
+          turnStartedAt: Date.now(),
           turnDuration: data.turnDuration,
           roundNumber: data.roundNumber || 1,
           players: data.players || stateRef.current.players,
@@ -443,7 +444,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
           playerName: data.playerName,
           nextPlayerSlot: data.nextPlayerSlot,
           currentWord: data.currentWord,
-          turnStartedAt: toTimestamp(data.turnStartedAt),
+          // BUG FIX: Use client-side timestamp to avoid server-client clock drift
+          turnStartedAt: Date.now(),
           turnDuration: data.turnDuration,
           roundNumber: data.roundNumber,
           players: data.players || stateRef.current.players,
@@ -481,7 +483,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
           playerSlot: data.playerSlot,
           playerName: data.playerName,
           nextPlayerSlot: data.nextPlayerSlot,
-          turnStartedAt: toTimestamp(data.turnStartedAt),
+          // BUG FIX: Use client-side timestamp to avoid server-client clock drift
+          turnStartedAt: Date.now(),
           turnDuration: data.turnDuration,
           players: data.players || stateRef.current.players,
         },
@@ -538,7 +541,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
         payload: {
           currentWord: data.currentWord,
           currentPlayerSlot: data.currentPlayerSlot,
-          turnStartedAt: toTimestamp(data.turnStartedAt),
+          // BUG FIX: Use client-side timestamp to avoid server-client clock drift
+          turnStartedAt: Date.now(),
           turnDuration: data.turnDuration,
           players: data.players,
         },
