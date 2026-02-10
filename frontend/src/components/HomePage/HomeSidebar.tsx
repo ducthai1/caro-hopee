@@ -62,6 +62,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
 }) => {
   const { t } = useLanguage();
   const toast = useToast();
+  const guestName = useGuestName();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
 
@@ -156,6 +157,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
         isMobile={isMobile}
         isAuthenticated={isAuthenticated}
         t={t}
+        guestName={guestName}
       />
 
       {/* User Name Display - Above divider to prevent layout jumping */}
@@ -262,21 +264,24 @@ interface GameListProps {
   isMobile: boolean;
   isAuthenticated: boolean;
   t: (key: string) => string;
+  guestName?: string | null;
 }
 
-const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, setSelectedGame, sidebarCollapsed, isMobile, isAuthenticated, t }) => (
+const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, setSelectedGame, sidebarCollapsed, isMobile, isAuthenticated, t, guestName }) => (
   <List sx={{
     px: 2,
     py: 2,
-    maxHeight: '57vh',
-    overflowY: 'auto',
-    '&::-webkit-scrollbar': { width: '4px' },
-    '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
-    '&::-webkit-scrollbar-thumb': {
-      background: 'rgba(126, 200, 227, 0.2)',
-      borderRadius: '2px',
-      '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
-    },
+    ...(guestName && {
+      maxHeight: '57vh',
+      overflowY: 'auto',
+      '&::-webkit-scrollbar': { width: '4px' },
+      '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(126, 200, 227, 0.2)',
+        borderRadius: '2px',
+        '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
+      },
+    }),
     // When authenticated: limit height to show ~3 games, enable scroll for rest
     ...(isAuthenticated && {
       // Collapsed sidebar on desktop: 442px, otherwise 310px
