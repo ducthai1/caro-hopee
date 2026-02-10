@@ -93,7 +93,10 @@ export const WordChainWaitingRoom: React.FC = () => {
   };
 
   const handleGuestNameUpdated = (newName: string) => {
-    updateGuestName(newName);
+    const currentName = state.players.find(p => p.slot === state.mySlot)?.guestName;
+    if (newName && newName !== currentName) {
+      updateGuestName(newName);
+    }
     setShowGuestNameDialog(false);
   };
 

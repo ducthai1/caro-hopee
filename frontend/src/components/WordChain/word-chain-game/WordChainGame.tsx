@@ -22,7 +22,10 @@ export const WordChainGame: React.FC = () => {
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
 
   const handleGuestNameUpdated = (newName: string) => {
-    updateGuestName(newName);
+    const currentName = state.players.find(p => p.slot === state.mySlot)?.guestName;
+    if (newName && newName !== currentName) {
+      updateGuestName(newName);
+    }
     setShowGuestNameDialog(false);
   };
 

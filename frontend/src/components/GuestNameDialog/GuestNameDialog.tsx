@@ -36,17 +36,17 @@ const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose, initia
 
   const handleSubmit = useCallback(() => {
     const trimmedName = name.trim();
-    
+
     if (!trimmedName || trimmedName.length === 0) {
       setError(t('game.guestNameRequired') || 'Vui lòng nhập tên của bạn');
       return;
     }
-    
+
     if (trimmedName.length > 20) {
       setError(t('game.guestNameTooLong') || 'Tên quá dài. Tối đa 20 ký tự');
       return;
     }
-    
+
     // Save to sessionStorage
     setGuestName(trimmedName);
     onClose(trimmedName);
@@ -55,13 +55,20 @@ const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose, initia
   }, [name, onClose, t]);
 
   const handleCancel = useCallback(() => {
-    // Use default name if user cancels
-    const defaultName = `Guest ${Date.now().toString().slice(-6)}`;
-    setGuestName(defaultName);
-    onClose(defaultName);
+    // Check if we have an existing name to revert to (editing mode or already set)
+    const existingName = initialName || getGuestName();
+
+    if (existingName) {
+      onClose(existingName);
+    } else {
+      // Only generate default for new users without any name
+      const defaultName = `Guest ${Date.now().toString().slice(-6)}`;
+      setGuestName(defaultName);
+      onClose(defaultName);
+    }
     setName('');
     setError(null);
-  }, [onClose]);
+  }, [onClose, initialName]);
 
   return (
     <Dialog
@@ -85,7 +92,7 @@ const GuestNameDialog: React.FC<GuestNameDialogProps> = ({ open, onClose, initia
           py: 2,
         }}
       >
-        {initialName || getGuestName() 
+        {initialName || getGuestName()
           ? (t('game.changeGuestName') || 'Đổi tên hiển thị')
           : (t('game.chooseGuestName') || 'Chọn tên hiển thị')}
       </DialogTitle>
