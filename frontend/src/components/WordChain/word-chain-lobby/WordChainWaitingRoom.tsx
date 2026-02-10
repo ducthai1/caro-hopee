@@ -18,12 +18,15 @@ import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
 import { useLanguage } from '../../../i18n';
 import { useWordChain } from '../WordChainContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { WordType, WordChainGameMode } from '../word-chain-types';
 import { WordChainSettingsForm } from './WordChainSettingsForm';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
+import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 
 export const WordChainWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
@@ -34,10 +37,12 @@ export const WordChainWaitingRoom: React.FC = () => {
     'all': t('wordChain.wordTypeAll'),
   };
   const toast = useToast();
-  const { state, startGame, leaveRoom, kickPlayer, updateRoom } = useWordChain();
+  const { state, startGame, leaveRoom, kickPlayer, updateRoom, updateGuestName } = useWordChain();
+  const { isAuthenticated } = useAuth();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [kickTarget, setKickTarget] = useState<{ slot: number; name: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
 
   // Edit settings state (initialized when dialog opens)
   const [editMaxPlayers, setEditMaxPlayers] = useState(state.maxPlayers);
@@ -85,6 +90,11 @@ export const WordChainWaitingRoom: React.FC = () => {
     const success = await updateRoom({ password: null });
     setIsSaving(false);
     if (success) setShowSettings(false);
+  };
+
+  const handleGuestNameUpdated = (newName: string) => {
+    updateGuestName(newName);
+    setShowGuestNameDialog(false);
   };
 
   const canStart = state.isHost && state.players.length >= 2;
@@ -238,6 +248,17 @@ export const WordChainWaitingRoom: React.FC = () => {
               {/* Name */}
               <Box sx={{ flex: 1, fontWeight: player.slot === state.mySlot ? 700 : 500, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, fontSize: '1rem' }}>
                 <span>{player.name || player.guestName || 'Player'}</span>
+                {player.slot === state.mySlot && !isAuthenticated && (
+                  <Tooltip title={t('wordChain.editName') || 'Edit Name'}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setShowGuestNameDialog(true)}
+                      sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: '#2ecc71' } }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 {player.slot === state.mySlot && (
                   <Typography component="span" variant="caption" sx={{ color: '#2ecc71' }}>
                     ({t('wordChain.you')})
@@ -413,6 +434,12 @@ export const WordChainWaitingRoom: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-    </Box>
+      {/* Guest Name Dialog */}
+      <GuestNameDialog
+        open={showGuestNameDialog}
+        onClose={handleGuestNameUpdated}
+        initialName={state.players.find(p => p.slot === state.mySlot)?.guestName || ''}
+      />
+    </Box >
   );
 };

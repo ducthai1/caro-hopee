@@ -3,13 +3,15 @@
  * Active player highlighted, eliminated players grayed out.
  */
 import React from 'react';
-import { Box, Typography, keyframes } from '@mui/material';
+import { Box, Typography, keyframes, IconButton, Tooltip } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { WordChainPlayer } from '../word-chain-types';
 
 interface Props {
   players: WordChainPlayer[];
   currentPlayerSlot: number;
   mySlot: number | null;
+  onEditName?: () => void;
 }
 
 // 8 distinct colors for player slots
@@ -23,7 +25,7 @@ const glow = keyframes`
   50% { box-shadow: 0 0 16px rgba(46, 204, 113, 0.7); }
 `;
 
-export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot, mySlot }) => {
+export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot, mySlot, onEditName }) => {
   return (
     <Box
       sx={{
@@ -92,7 +94,7 @@ export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot
                   display: 'block',
                   lineHeight: 1.2,
                   whiteSpace: 'nowrap',
-                  maxWidth: { xs: 100, md: 120 },
+                  maxWidth: { xs: 100, md: 200 },
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   textDecoration: player.isEliminated ? 'line-through' : 'none',
@@ -100,6 +102,27 @@ export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot
                 }}
               >
                 {player.name || 'Player'}{isMe ? ' *' : ''}
+                {isMe && onEditName && (
+                  <Tooltip title="Edit Name">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditName();
+                      }}
+                      sx={{
+                        p: 0,
+                        ml: 0.5,
+                        color: 'text.secondary',
+                        width: 16,
+                        height: 16,
+                        '&:hover': { color: '#2ecc71' },
+                      }}
+                    >
+                      <EditIcon sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Typography>
 
               {/* Lives + Score */}

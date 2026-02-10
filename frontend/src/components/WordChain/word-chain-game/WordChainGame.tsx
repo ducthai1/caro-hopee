@@ -3,7 +3,7 @@
  * Desktop: centered card with max-width, proper spacing.
  * Mobile: full-width edge-to-edge.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { useWordChain } from '../WordChainContext';
 import { WordChainTimer } from './WordChainTimer';
@@ -12,10 +12,19 @@ import { WordChainWordHistory } from './WordChainWordHistory';
 import { WordChainInput } from './WordChainInput';
 import { WordChainResultModal } from './WordChainResult';
 import { useLanguage } from '../../../i18n';
+import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export const WordChainGame: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useWordChain();
+  const { state, updateGuestName } = useWordChain();
+  const { isAuthenticated } = useAuth();
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
+
+  const handleGuestNameUpdated = (newName: string) => {
+    updateGuestName(newName);
+    setShowGuestNameDialog(false);
+  };
 
   // Get last syllable for hint display
   const lastSyllable = state.currentWord
@@ -49,6 +58,7 @@ export const WordChainGame: React.FC = () => {
           players={state.players}
           currentPlayerSlot={state.currentPlayerSlot}
           mySlot={state.mySlot}
+          onEditName={!isAuthenticated ? () => setShowGuestNameDialog(true) : undefined}
         />
       </Paper>
 
@@ -122,7 +132,15 @@ export const WordChainGame: React.FC = () => {
       </Box>
 
       {/* Result modal overlay */}
+      {/* Result modal overlay */}
       {state.showResult && <WordChainResultModal />}
+
+      {/* Guest Name Dialog */}
+      <GuestNameDialog
+        open={showGuestNameDialog}
+        onClose={handleGuestNameUpdated}
+        initialName={state.players.find(p => p.slot === state.mySlot)?.guestName || ''}
+      />
     </Box>
   );
 };

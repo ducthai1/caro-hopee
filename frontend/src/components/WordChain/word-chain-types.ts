@@ -8,7 +8,7 @@
 export type WordType = '2+' | '3+' | 'all';
 export type WordChainGameMode = 'classic' | 'speed';
 export type WordChainGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
-export type RejectionReason = 'not_in_dictionary' | 'wrong_type' | 'wrong_chain' | 'already_used';
+export type RejectionReason = 'not_in_dictionary' | 'wrong_type' | 'wrong_chain' | 'already_used' | 'timeout';
 export type WordChainView = 'lobby' | 'waiting' | 'playing' | 'result';
 
 // ─── Rules ────────────────────────────────────────────────────
@@ -162,4 +162,5 @@ export type WordChainAction =
   | { type: 'DISMISS_RESULT' }
   | { type: 'PLAYER_DISCONNECTED'; payload: { slot: number } }
   | { type: 'PLAYER_RECONNECTED'; payload: { slot: number } }
-  | { type: 'ROOM_UPDATED'; payload: { rules: WordChainRules; maxPlayers: number; players: WordChainPlayer[]; hasPassword: boolean } };
+  | { type: 'ROOM_UPDATED'; payload: { rules: WordChainRules; maxPlayers: number; players: WordChainPlayer[]; hasPassword: boolean } }
+  | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } };

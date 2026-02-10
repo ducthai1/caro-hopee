@@ -736,6 +736,44 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
       }
     });
 
+
+    // ─── UPDATE GUEST NAME ───────────────────────────────────
+    socket.on('word-chain:update-guest-name', async (data, callback) => {
+      try {
+        const { roomId, guestName } = data;
+        if (!guestName || !guestName.trim()) return;
+
+        const game = await WordChainGame.findOne({ roomId });
+        if (!game) return;
+
+        const playerId = socket.data.wordChainPlayerId;
+        // Verify player is guest and exists
+        const player = game.players.find(p => p.guestId === playerId);
+        if (!player) {
+          if (callback) callback({ success: false, error: 'notGuest' });
+          return;
+        }
+
+        player.guestName = guestName.trim().substring(0, 20); // Limit length
+        await game.save();
+
+        // Update cache
+        if (roomPlayerNames.has(roomId)) {
+          roomPlayerNames.get(roomId)!.set(player.slot, player.guestName || '');
+        }
+
+        io.to(roomId).emit('word-chain:player-name-updated', {
+          slot: player.slot,
+          name: player.guestName,
+        });
+
+        if (callback) callback({ success: true });
+      } catch (error) {
+        console.error('[WordChain] Update guest name error:', error);
+        if (callback) callback({ success: false });
+      }
+    });
+
     // ─── LEAVE ROOM ──────────────────────────────────────────
     socket.on('word-chain:leave-room', async (data) => {
       try {

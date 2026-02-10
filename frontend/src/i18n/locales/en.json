@@ -472,7 +472,9 @@
       "reconnecting": "Reconnecting...",
       "youWin": "You Win!",
       "youLose": "You Lose!",
-      "score": "pts"
+      "score": "pts",
+      "timeoutMessage": "Time's up! {name} lost a life.",
+      "editName": "Edit Name"
     }
   },
   "admin": {

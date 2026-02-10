@@ -72,6 +72,25 @@ export const WordChainWordHistory: React.FC<Props> = ({ wordChain, mySlot, curre
           );
         }
 
+        // Timeout message
+        if (entry.reason === 'timeout') {
+          return (
+            <Box key={idx} sx={{ textAlign: 'center', my: 1 }}>
+              <Chip
+                label={t('wordChain.game.timeoutMessage', { name: entry.playerName })}
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(231, 76, 60, 0.12)',
+                  color: '#c0392b',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  border: '1px solid rgba(231, 76, 60, 0.2)',
+                }}
+              />
+            </Box>
+          );
+        }
+
         return (
           <Box
             key={idx}

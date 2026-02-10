@@ -472,7 +472,9 @@
       "reconnecting": "Đang kết nối lại...",
       "youWin": "Bạn Thắng!",
       "youLose": "Bạn Thua!",
-      "score": "điểm"
+      "score": "điểm",
+      "timeoutMessage": "Hết giờ! {name} bị trừ 1 mạng.",
+      "editName": "Đổi tên"
     }
   },
   "admin": {

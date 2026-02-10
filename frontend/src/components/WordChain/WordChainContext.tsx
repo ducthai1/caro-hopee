@@ -197,6 +197,14 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
         turnStartedAt: action.payload.turnStartedAt,
         turnDuration: action.payload.turnDuration,
         players: action.payload.players,
+        wordChain: [...state.wordChain, {
+          word: '', // Empty word for timeout
+          playerSlot: action.payload.playerSlot,
+          playerName: action.payload.playerName,
+          timestamp: Date.now(),
+          accepted: false,
+          reason: 'timeout',
+        }],
       };
 
     case 'PLAYER_ELIMINATED':
@@ -300,6 +308,14 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
         hasPassword: action.payload.hasPassword,
       };
 
+    case 'PLAYER_NAME_UPDATED':
+      return {
+        ...state,
+        players: state.players.map(p =>
+          p.slot === action.payload.slot ? { ...p, guestName: action.payload.name, name: action.payload.name } : p
+        ),
+      };
+
     default:
       return state;
   }
@@ -321,6 +337,7 @@ interface WordChainContextValue {
   setView: (view: WordChainView) => void;
   kickPlayer: (slot: number) => void;
   updateRoom: (payload: { rules?: Partial<WordChainRules>; maxPlayers?: number; password?: string | null }) => Promise<boolean>;
+  updateGuestName: (name: string) => void;
 }
 
 const WordChainContext = createContext<WordChainContextValue | undefined>(undefined);
@@ -477,21 +494,21 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     };
 
     const handleTurnTimeout = (data: any) => {
+      const player = stateRef.current.players.find(p => p.slot === data.slot);
+      const name = player?.name || player?.guestName || 'Player';
+
       dispatch({
         type: 'TURN_TIMEOUT',
         payload: {
-          playerSlot: data.playerSlot,
-          playerName: data.playerName,
-          nextPlayerSlot: data.nextPlayerSlot,
-          // BUG FIX: Use client-side timestamp to avoid server-client clock drift
+          playerSlot: data.slot,
+          playerName: name,
+          nextPlayerSlot: stateRef.current.currentPlayerSlot, // Current turn hasn't changed yet until NEW_TURN
           turnStartedAt: Date.now(),
-          turnDuration: data.turnDuration,
-          players: data.players || stateRef.current.players,
+          turnDuration: stateRef.current.turnDuration,
+          players: stateRef.current.players,
         },
       });
-      const player = stateRef.current.players.find(p => p.slot === data.slot);
-      const name = player?.name || player?.guestName || data.playerName || 'Player';
-      getToast()?.error('wordChain.game.timeUp', { params: { name } });
+      getToast()?.error('wordChain.game.timeoutMessage', { params: { name } });
     };
 
     const handlePlayerEliminated = (data: any) => {
@@ -579,6 +596,13 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
     };
 
+    const handlePlayerNameUpdated = (data: any) => {
+      dispatch({
+        type: 'PLAYER_NAME_UPDATED',
+        payload: { slot: data.slot, name: data.name },
+      });
+    };
+
     const handleError = (data: any) => {
       const errorCode = data.error || data.message || 'serverError';
       dispatch({ type: 'SET_ERROR', payload: errorCode });
@@ -618,6 +642,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     socket.on('word-chain:player-reconnected' as any, handlePlayerReconnected);
     socket.on('word-chain:kicked' as any, handleKicked);
     socket.on('word-chain:room-updated' as any, handleRoomUpdated);
+    socket.on('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('word-chain:error' as any, handleError);
     socket.on('word-chain:rooms-updated' as any, handleRoomsUpdated);
 
@@ -639,6 +664,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       socket.off('word-chain:player-reconnected' as any, handlePlayerReconnected);
       socket.off('word-chain:kicked' as any, handleKicked);
       socket.off('word-chain:room-updated' as any, handleRoomUpdated);
+      socket.off('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('word-chain:error' as any, handleError);
       socket.off('word-chain:rooms-updated' as any, handleRoomsUpdated);
     };
@@ -835,6 +861,16 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
   }, []);
 
+  const updateGuestName = useCallback((name: string) => {
+    const socket = socketService.getSocket();
+    if (!socket || !stateRef.current.roomId) return;
+
+    socket.emit('word-chain:update-guest-name' as any, {
+      roomId: stateRef.current.roomId,
+      guestName: name,
+    });
+  }, []);
+
   const dismissResult = useCallback(() => {
     dispatch({ type: 'DISMISS_RESULT' });
   }, []);
@@ -891,6 +927,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       setView,
       kickPlayer,
       updateRoom,
+      updateGuestName,
     }}>
       {children}
     </WordChainContext.Provider>
