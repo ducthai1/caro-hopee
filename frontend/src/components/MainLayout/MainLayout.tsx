@@ -10,6 +10,8 @@ import { LuckyWheelProvider } from '../LuckyWheel';
 import { XiDachScoreProvider, XiDachScoreContent } from '../XiDachScore';
 import { WordChainProvider, WordChainContent } from '../WordChain';
 import { MainLayoutProvider, useMainLayout } from './MainLayoutContext';
+import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
+import { getGuestName } from '../../utils/guestName';
 
 interface MainLayoutProps {
   children?: React.ReactNode;
@@ -35,6 +37,14 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
   });
   const [isScrolled, setIsScrolled] = useState(false);
   const [contentKey, setContentKey] = useState(selectedGame); // Key để trigger animation
+  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
+
+  // Listen for openGuestNameDialog event globally
+  useEffect(() => {
+    const handleOpenGuestName = () => setShowGuestNameDialog(true);
+    window.addEventListener('openGuestNameDialog', handleOpenGuestName);
+    return () => window.removeEventListener('openGuestNameDialog', handleOpenGuestName);
+  }, []);
 
   // Sync selectedGame với route changes (cho các route khác như /game/:roomId)
   useEffect(() => {
@@ -66,8 +76,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     // Determine target path for gameId
     const targetPath = gameId === 'lucky-wheel' ? '/lucky-wheel'
       : gameId === 'xi-dach-score' ? '/xi-dach-score'
-      : gameId === 'word-chain' ? '/word-chain'
-      : '/';
+        : gameId === 'word-chain' ? '/word-chain'
+          : '/';
 
     // Skip if already on target route
     if (location.pathname === targetPath) return;
@@ -222,6 +232,15 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
           </Fade>
         </Box>
       </Box>
+
+      {/* Global Guest Name Dialog */}
+      {!isAuthenticated && (
+        <GuestNameDialog
+          open={showGuestNameDialog}
+          onClose={() => setShowGuestNameDialog(false)}
+          initialName={getGuestName()}
+        />
+      )}
     </Box>
   );
 };

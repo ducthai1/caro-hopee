@@ -6,13 +6,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { DEFAULT_BOARD_SIZE } from '../../utils/constants';
 import { validateRoomCode, formatRoomCode } from '../../utils/roomCode';
 import HistoryModal from '../HistoryModal/HistoryModal';
-import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
 import PasswordDialog from '../PasswordDialog/PasswordDialog';
 import { socketService } from '../../services/socketService';
 import { useSocket } from '../../contexts/SocketContext';
 import { logger } from '../../utils/logger';
-import { getGuestName } from '../../utils/guestName';
 import { useToast } from '../../contexts/ToastContext';
+import { useMainLayout } from './MainLayoutContext';
 import {
   HeroSection,
   CreateGameCard,
@@ -26,10 +25,11 @@ const HomePageContent: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { isConnected: socketConnected } = useSocket();
+  const { openGuestNameDialog } = useMainLayout();
   const toast = useToast();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   // Create game state
   const [boardSize, setBoardSize] = useState<number>(DEFAULT_BOARD_SIZE);
   const [blockTwoEnds, setBlockTwoEnds] = useState(false);
@@ -48,21 +48,17 @@ const HomePageContent: React.FC = () => {
 
   // UI state
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
 
   // Listen to context events
   useEffect(() => {
     // This will be handled by a ref or event system
     // For now, we'll use a simple approach with a custom event
     const handleOpenHistory = () => setHistoryModalOpen(true);
-    const handleOpenGuestName = () => setShowGuestNameDialog(true);
-    
+
     window.addEventListener('openHistoryModal', handleOpenHistory);
-    window.addEventListener('openGuestNameDialog', handleOpenGuestName);
-    
+
     return () => {
       window.removeEventListener('openHistoryModal', handleOpenHistory);
-      window.removeEventListener('openGuestNameDialog', handleOpenGuestName);
     };
   }, []);
 
@@ -299,9 +295,9 @@ const HomePageContent: React.FC = () => {
 
   return (
     <>
-      <Box 
-        sx={{ 
-          flex: 1, 
+      <Box
+        sx={{
+          flex: 1,
           bgcolor: '#f8fbff',
           // Thêm padding-top trên mobile để tránh bị header đè lên
           pt: { xs: isMobile ? '80px' : 0, md: 0 },
@@ -354,15 +350,7 @@ const HomePageContent: React.FC = () => {
       <HistoryModal open={historyModalOpen} onClose={() => setHistoryModalOpen(false)} />
 
       {/* Guest Name Dialog */}
-      {!isAuthenticated && (
-        <GuestNameDialog
-          open={showGuestNameDialog}
-          onClose={() => {
-            setShowGuestNameDialog(false);
-          }}
-          initialName={getGuestName()}
-        />
-      )}
+
 
       {/* Password Dialog */}
       <PasswordDialog

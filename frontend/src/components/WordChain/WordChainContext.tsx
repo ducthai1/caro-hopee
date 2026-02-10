@@ -871,6 +871,26 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
   }, []);
 
+  // Sync guest name from storage changes (e.g. sidebar edit)
+  useEffect(() => {
+    const handleNameSync = () => {
+      const newName = getGuestName();
+      if (!newName || !stateRef.current.roomId || !stateRef.current.mySlot) return;
+
+      const currentPlayer = stateRef.current.players.find(p => p.slot === stateRef.current.mySlot);
+      // Only update if guest name is different AND we are a guest (no user ID or check auth)
+      // Actually updateGuestName handler on server checks if guest.
+      const currentName = currentPlayer?.guestName;
+
+      if (newName !== currentName) {
+        updateGuestName(newName);
+      }
+    };
+
+    window.addEventListener('guest-name-changed', handleNameSync);
+    return () => window.removeEventListener('guest-name-changed', handleNameSync);
+  }, [updateGuestName]);
+
   const dismissResult = useCallback(() => {
     dispatch({ type: 'DISMISS_RESULT' });
   }, []);

@@ -16,6 +16,7 @@ export const getGuestName = (): string | null => {
 export const setGuestName = (name: string): void => {
   if (name && name.trim().length > 0) {
     sessionStorage.setItem(GUEST_NAME_KEY, name.trim());
+    window.dispatchEvent(new Event('guest-name-changed'));
   }
 };
 

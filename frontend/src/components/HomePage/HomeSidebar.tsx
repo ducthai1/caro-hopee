@@ -26,6 +26,7 @@ import { useLanguage } from '../../i18n';
 import { useToast } from '../../contexts/ToastContext';
 import { GAMES, GameItem } from './home-page-types';
 import { getGuestName } from '../../utils/guestName';
+import { useGuestName } from '../../hooks/useGuestName';
 import LogoutConfirmationDialog from '../LogoutConfirmationDialog/LogoutConfirmationDialog';
 
 interface HomeSidebarProps {
@@ -132,9 +133,9 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
       }}
     >
       {/* Header */}
-      <SidebarHeader 
-        sidebarCollapsed={sidebarCollapsed} 
-        isMobile={isMobile} 
+      <SidebarHeader
+        sidebarCollapsed={sidebarCollapsed}
+        isMobile={isMobile}
         t={t}
         onClose={() => setSidebarOpen(false)}
       />
@@ -267,6 +268,15 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
   <List sx={{
     px: 2,
     py: 2,
+    maxHeight: '57vh',
+    overflowY: 'auto',
+    '&::-webkit-scrollbar': { width: '4px' },
+    '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
+    '&::-webkit-scrollbar-thumb': {
+      background: 'rgba(126, 200, 227, 0.2)',
+      borderRadius: '2px',
+      '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
+    },
     // When authenticated: limit height to show ~3 games, enable scroll for rest
     ...(isAuthenticated && {
       // Collapsed sidebar on desktop: 442px, otherwise 310px
@@ -304,29 +314,29 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
               ? game.id === 'lucky-wheel'
                 ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.08) 0%, rgba(243, 156, 18, 0.06) 100%)' // Màu cam vàng nhẹ nhàng khi selected
                 : game.id === 'xi-dach-score'
-                ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.06) 100%)' // Warm orange cho xi-dach-score
-                : 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)' // Màu xanh cho các game khác
+                  ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.06) 100%)' // Warm orange cho xi-dach-score
+                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.12) 0%, rgba(168, 230, 207, 0.12) 100%)' // Màu xanh cho các game khác
               : game.available
                 ? // Unselected available tabs - sử dụng màu của game nhưng mờ đi
-                  game.id === 'lucky-wheel'
+                game.id === 'lucky-wheel'
                   ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.06) 0%, rgba(243, 156, 18, 0.04) 100%)' // Giữ màu #f39c12 cho lucky wheel
                   : game.id === 'xi-dach-score'
-                  ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.06) 0%, rgba(255, 138, 101, 0.04) 100%)' // Warm orange cho xi-dach-score
-                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.06) 0%, rgba(168, 230, 207, 0.04) 100%)' // Màu mặc định cho các game khác
+                    ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.06) 0%, rgba(255, 138, 101, 0.04) 100%)' // Warm orange cho xi-dach-score
+                    : 'linear-gradient(135deg, rgba(126, 200, 227, 0.06) 0%, rgba(168, 230, 207, 0.04) 100%)' // Màu mặc định cho các game khác
                 : // Unavailable tabs
-                  `linear-gradient(135deg, ${game.color}08 0%, ${game.color}04 100%)`,
+                `linear-gradient(135deg, ${game.color}08 0%, ${game.color}04 100%)`,
             border: selectedGame === game.id
               ? game.id === 'lucky-wheel'
                 ? '1px solid rgba(243, 156, 18, 0.2)' // Border cam vàng nhẹ nhàng khi selected
                 : game.id === 'xi-dach-score'
-                ? '1px solid rgba(255, 138, 101, 0.2)' // Border warm orange khi selected
-                : '1px solid rgba(126, 200, 227, 0.2)' // Border xanh cho các game khác
+                  ? '1px solid rgba(255, 138, 101, 0.2)' // Border warm orange khi selected
+                  : '1px solid rgba(126, 200, 227, 0.2)' // Border xanh cho các game khác
               : game.available
                 ? game.id === 'lucky-wheel'
                   ? '1px solid rgba(243, 156, 18, 0.15)' // Border mờ cho lucky wheel
                   : game.id === 'xi-dach-score'
-                  ? '1px solid rgba(255, 138, 101, 0.15)' // Border mờ cho xi-dach-score
-                  : '1px solid rgba(126, 200, 227, 0.1)' // Border mờ cho các game khác
+                    ? '1px solid rgba(255, 138, 101, 0.15)' // Border mờ cho xi-dach-score
+                    : '1px solid rgba(126, 200, 227, 0.1)' // Border mờ cho các game khác
                 : `1px solid ${game.color}20`,
             '&::before': {
               content: '""',
@@ -339,14 +349,14 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                 ? game.id === 'lucky-wheel'
                   ? 'linear-gradient(180deg, #f39c12 0%, #f39c1280 100%)' // Border cam vàng khi selected
                   : game.id === 'xi-dach-score'
-                  ? 'linear-gradient(180deg, #FF8A65 0%, #FF8A6580 100%)' // Border warm orange cho xi-dach-score
-                  : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border xanh cho các game khác
+                    ? 'linear-gradient(180deg, #FF8A65 0%, #FF8A6580 100%)' // Border warm orange cho xi-dach-score
+                    : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border xanh cho các game khác
                 : game.available
                   ? game.id === 'lucky-wheel'
                     ? 'linear-gradient(180deg, #f39c12 0%, #f39c1280 100%)' // Border màu lucky wheel
                     : game.id === 'xi-dach-score'
-                    ? 'linear-gradient(180deg, #FF8A65 0%, #FF8A6580 100%)' // Border warm orange cho xi-dach-score
-                    : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border mặc định
+                      ? 'linear-gradient(180deg, #FF8A65 0%, #FF8A6580 100%)' // Border warm orange cho xi-dach-score
+                      : 'linear-gradient(180deg, #7ec8e3 0%, #a8e6cf 100%)' // Border mặc định
                   : `linear-gradient(180deg, ${game.color} 0%, ${game.color}80 100%)`,
               opacity: selectedGame === game.id ? 1 : (game.available ? 0.4 : 0.6), // Mờ đi khi unselected nhưng vẫn hiển thị
               transition: 'opacity 0.25s ease',
@@ -355,14 +365,14 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
               boxShadow: game.id === 'lucky-wheel'
                 ? '0 4px 12px rgba(243, 156, 18, 0.15)' // Shadow cam vàng nhẹ nhàng cho lucky wheel
                 : game.id === 'xi-dach-score'
-                ? '0 4px 12px rgba(255, 138, 101, 0.15)' // Shadow warm orange cho xi-dach-score
-                : '0 4px 12px rgba(126, 200, 227, 0.15)', // Shadow xanh cho các game khác
+                  ? '0 4px 12px rgba(255, 138, 101, 0.15)' // Shadow warm orange cho xi-dach-score
+                  : '0 4px 12px rgba(126, 200, 227, 0.15)', // Shadow xanh cho các game khác
               '&:hover': {
                 background: game.id === 'lucky-wheel'
                   ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(243, 156, 18, 0.08) 100%)' // Hover cam vàng nhẹ nhàng
                   : game.id === 'xi-dach-score'
-                  ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.1) 0%, rgba(255, 138, 101, 0.08) 100%)' // Hover warm orange
-                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)', // Hover xanh
+                    ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.1) 0%, rgba(255, 138, 101, 0.08) 100%)' // Hover warm orange
+                    : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)', // Hover xanh
               },
             },
             '&:hover': {
@@ -370,14 +380,14 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                 ? game.id === 'lucky-wheel'
                   ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(243, 156, 18, 0.08) 100%)' // Hover cam vàng nhẹ nhàng khi selected
                   : game.id === 'xi-dach-score'
-                  ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.1) 0%, rgba(255, 138, 101, 0.08) 100%)' // Hover warm orange
-                  : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)' // Hover xanh
+                    ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.1) 0%, rgba(255, 138, 101, 0.08) 100%)' // Hover warm orange
+                    : 'linear-gradient(135deg, rgba(126, 200, 227, 0.18) 0%, rgba(168, 230, 207, 0.18) 100%)' // Hover xanh
                 : game.available
                   ? game.id === 'lucky-wheel'
                     ? 'linear-gradient(135deg, rgba(243, 156, 18, 0.08) 0%, rgba(243, 156, 18, 0.05) 100%)'
                     : game.id === 'xi-dach-score'
-                    ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.05) 100%)'
-                    : 'rgba(126, 200, 227, 0.08)'
+                      ? 'linear-gradient(135deg, rgba(255, 138, 101, 0.08) 0%, rgba(255, 138, 101, 0.05) 100%)'
+                      : 'rgba(126, 200, 227, 0.08)'
                   : `${game.color}10`,
             },
             '&.Mui-disabled': { opacity: 0.7 },
@@ -395,14 +405,14 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                   ? game.id === 'lucky-wheel'
                     ? 'rgba(243, 156, 18, 0.2)' // Icon background cam vàng nhẹ nhàng khi selected
                     : game.id === 'xi-dach-score'
-                    ? 'rgba(255, 138, 101, 0.2)' // Icon background warm orange khi selected
-                    : 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)' // Icon background xanh cho các game khác
+                      ? 'rgba(255, 138, 101, 0.2)' // Icon background warm orange khi selected
+                      : 'linear-gradient(135deg, #7ec8e3 0%, #a8e6cf 100%)' // Icon background xanh cho các game khác
                   : game.available
                     ? game.id === 'lucky-wheel'
                       ? 'rgba(243, 156, 18, 0.15)' // Icon background mờ cho lucky wheel
                       : game.id === 'xi-dach-score'
-                      ? 'rgba(255, 138, 101, 0.15)' // Icon background mờ cho xi-dach-score
-                      : 'rgba(126, 200, 227, 0.1)' // Icon background mờ cho các game khác
+                        ? 'rgba(255, 138, 101, 0.15)' // Icon background mờ cho xi-dach-score
+                        : 'rgba(126, 200, 227, 0.1)' // Icon background mờ cho các game khác
                     : `${game.color}15`,
                 border: !game.available
                   ? `1px solid ${game.color}30`
@@ -411,10 +421,10 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
                       ? '1px solid rgba(243, 156, 18, 0.25)' // Border nhẹ nhàng khi selected
                       : '1px solid rgba(243, 156, 18, 0.2)' // Border mờ cho lucky wheel icon
                     : game.id === 'xi-dach-score'
-                    ? selectedGame === game.id
-                      ? '1px solid rgba(255, 138, 101, 0.25)' // Border nhẹ nhàng khi selected
-                      : '1px solid rgba(255, 138, 101, 0.2)' // Border mờ cho xi-dach-score icon
-                    : 'none',
+                      ? selectedGame === game.id
+                        ? '1px solid rgba(255, 138, 101, 0.25)' // Border nhẹ nhàng khi selected
+                        : '1px solid rgba(255, 138, 101, 0.2)' // Border mờ cho xi-dach-score icon
+                      : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -515,7 +525,7 @@ const UserNameDisplay: React.FC<UserNameDisplayProps> = React.memo(({
   t,
   onEditGuestName,
 }) => {
-  const guestName = getGuestName();
+  const guestName = useGuestName();
   const shouldShow = isAuthenticated ? true : !!guestName;
   const displayName = isAuthenticated ? (user?.username || 'User') : guestName;
   const label = isAuthenticated ? t('home.loggedInAs') : (t('home.guestName') || 'Tên hiển thị');
@@ -698,9 +708,9 @@ const AuthenticatedSection: React.FC<AuthenticatedSectionProps> = React.memo(({
     <>
       {/* Auth buttons */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Button 
-          component={Link} 
-          to="/profile" 
+        <Button
+          component={Link}
+          to="/profile"
           sx={buttonSx}
           onClick={onClose}
         >
