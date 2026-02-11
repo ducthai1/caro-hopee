@@ -9,7 +9,16 @@ import bcrypt from 'bcryptjs';
 import WordChainGame from '../models/WordChainGame';
 import User from '../models/User';
 import { IWordChainGame, IWordChainPlayer } from '../types/word-chain.types';
-import { normalizeWord, getLastSyllable, getDictionary, buildRoomDictionary } from './word-chain-dictionary';
+import {
+  normalizeWord,
+  getLastSyllable,
+  getFirstSyllable,
+  getDictionary,
+  buildRoomDictionary,
+  isValidVietnameseWord,
+  matchesWordType,
+  logMissingWord
+} from './word-chain-dictionary';
 import {
   validateWord,
   getNextPlayerSlot,
@@ -1020,6 +1029,29 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         const result = validateWord(word, game, roomDict);
 
         if (!result.valid) {
+          // Log potentially valid words that are missing from dictionary
+          if (result.reason === 'not_in_dictionary') {
+            const normalized = normalizeWord(word);
+            const isSyntaxValid = isValidVietnameseWord(normalized);
+            const isTypeValid = matchesWordType(normalized, game.rules.wordType);
+            
+            // Check chaining manually since validateWord stopped early
+            let isChainValid = true;
+            if (game.currentWord) {
+              const lastSyll = getLastSyllable(game.currentWord);
+              const firstSyll = getFirstSyllable(normalized);
+              if (firstSyll !== lastSyll) isChainValid = false;
+            }
+            
+            // Check repetition manually
+            const isNew = game.rules.allowRepeat || !game.usedWords.includes(normalized);
+
+            if (isSyntaxValid && isTypeValid && isChainValid && isNew) {
+              // Log strictly valid candidates only
+              logMissingWord(normalized);
+            }
+          }
+
           // Word rejected — player loses 1 life
           io.to(roomId).emit('word-chain:word-rejected', {
             reason: result.reason,

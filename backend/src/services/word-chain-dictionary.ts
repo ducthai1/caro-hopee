@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { DictionaryIndex, WordType } from '../types/word-chain.types';
+import MissingWord from '../models/MissingWord';
 
 // ─── Singleton ─────────────────────────────────────────────────
 let dictionary: DictionaryIndex | null = null;
@@ -41,6 +42,45 @@ export function matchesWordType(word: string, type: WordType): boolean {
     case '3+': return count >= 3;
     case 'all': return true;
     default: return true;
+  }
+}
+
+// ─── Validation Helpers ────────────────────────────────────────
+
+// Regex to check if a word contains only valid Vietnamese characters
+const VIETNAMESE_CHAR_REGEX = /^[aàáảãạăằắẳẵặâầấẩẫậbcdđeèéẻẽẹêềếểễệghiklmnoòóỏõọôồốổỗộơờớởỡợpqrstuùúủũụưừứửữựvxyỳýỷỹỵ\s]+$/;
+
+export function isValidVietnameseWord(word: string): boolean {
+  // 1. Must match regex
+  if (!VIETNAMESE_CHAR_REGEX.test(word)) return false;
+  
+  // 2. Must not contain double spaces
+  if (word.includes('  ')) return false;
+
+  // 3. Must check tone placement? (Optional, regex covers most chars)
+  return true;
+}
+
+// ─── Missing Word Logging (MongoDB) ────────────────────────────
+
+/**
+ * Log a potentially valid missing word to MongoDB for later review.
+ * Uses upsert to increment count if word already exists.
+ * Async but fire-and-forget safe.
+ */
+export async function logMissingWord(word: string) {
+  try {
+    await MissingWord.updateOne(
+      { word: word },
+      { 
+        $inc: { count: 1 },
+        $set: { lastSeenAt: new Date(), source: 'word-chain' },
+        $setOnInsert: { firstSeenAt: new Date(), status: 'pending' }
+      },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('[WordChain] Failed to log missing word to DB:', err);
   }
 }
 
