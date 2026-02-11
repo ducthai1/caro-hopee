@@ -13,36 +13,73 @@ let dictionary: DictionaryIndex | null = null;
 
 // ─── Vietnamese Tone Position Normalization ────────────────────
 //
-// Vietnamese has two conventions for placing tone marks on diphthongs:
-//   Old style (tone on 2nd vowel): hoà, hoá, hoẻ, thuỷ, uỵ
-//   New style (tone on 1st vowel): hòa, hóa, hỏa, thủy, ụy
+// Vietnamese diphthongs (oa, oe, uy) have ambiguous tone mark placement.
+// We normalize to the orthographically CORRECT position per syllable:
+//   - Diphthong at syllable end (no following consonant): tone on 1st vowel ("new-style")
+//     e.g. hoà → hòa, hoá → hóa, thuỷ → thủy
+//   - Diphthong + final consonant: tone on 2nd vowel (universally correct)
+//     e.g. hòan → hoàn, tòan → toàn, hòang → hoàng
 //
-// We normalize ALL words to "new style" so both inputs match the same
-// canonical form. This is applied during dictionary loading AND user input.
+// Applied during dictionary loading AND user input normalization.
 
-/** Map old-style → new-style tone placement (NFC characters) */
-const TONE_POSITION_MAP: Record<string, string> = {
-  // oa group: tone on 'a' → tone on 'o'
-  'oà': 'òa', 'oá': 'óa', 'oả': 'ỏa', 'oã': 'õa', 'oạ': 'ọa',
-  // oe group: tone on 'e' → tone on 'o'
-  'oè': 'òe', 'oé': 'óe', 'oẻ': 'ỏe', 'oẽ': 'õe', 'oẹ': 'ọe',
-  // uy group: tone on 'y' → tone on 'u'
-  'uỳ': 'ùy', 'uý': 'úy', 'uỷ': 'ủy', 'uỹ': 'ũy', 'uỵ': 'ụy',
+/** Diphthong pairs where tone placement is ambiguous */
+const DIPHTHONG_PAIRS = [
+  { v1: 'o', v2: 'a' },
+  { v1: 'o', v2: 'e' },
+  { v1: 'u', v2: 'y' },
+];
+
+/** base vowel → [ngang, huyền, sắc, hỏi, ngã, nặng] */
+const TONE_TABLE: Record<string, string[]> = {
+  'o': ['o', 'ò', 'ó', 'ỏ', 'õ', 'ọ'],
+  'a': ['a', 'à', 'á', 'ả', 'ã', 'ạ'],
+  'e': ['e', 'è', 'é', 'ẻ', 'ẽ', 'ẹ'],
+  'u': ['u', 'ù', 'ú', 'ủ', 'ũ', 'ụ'],
+  'y': ['y', 'ỳ', 'ý', 'ỷ', 'ỹ', 'ỵ'],
 };
 
-/**
- * Normalize Vietnamese tone mark position to "new style".
- * Only applies to syllable-final diphthongs (oa, oe, uy).
- * E.g. "hoà" → "hòa", "mã hoá" → "mã hóa", "thuỷ" → "thủy"
- */
-export function normalizeTonePosition(word: string): string {
-  let result = word;
-  for (const [oldStyle, newStyle] of Object.entries(TONE_POSITION_MAP)) {
-    if (result.includes(oldStyle)) {
-      result = result.split(oldStyle).join(newStyle);
+/** Reverse lookup: toned character → [base, tone_index] */
+const CHAR_TO_TONE: Record<string, [string, number]> = {};
+for (const [base, variants] of Object.entries(TONE_TABLE)) {
+  variants.forEach((ch, idx) => { CHAR_TO_TONE[ch] = [base, idx]; });
+}
+
+/** Normalize tone position for a single Vietnamese syllable */
+function normalizeSyllableTone(syllable: string): string {
+  for (const { v1, v2 } of DIPHTHONG_PAIRS) {
+    for (let i = 0; i < syllable.length - 1; i++) {
+      const ch1 = CHAR_TO_TONE[syllable[i]];
+      const ch2 = CHAR_TO_TONE[syllable[i + 1]];
+      if (!ch1 || !ch2) continue;
+      if (ch1[0] !== v1 || ch2[0] !== v2) continue;
+
+      // Skip "qu" + vowel — 'u' is part of consonant cluster, not a diphthong
+      if (v1 === 'u' && i > 0 && syllable[i - 1] === 'q') continue;
+
+      const tone1 = ch1[1];
+      const tone2 = ch2[1];
+      if (tone1 === 0 && tone2 === 0) continue; // No tone mark on diphthong
+
+      const tone = tone1 !== 0 ? tone1 : tone2;
+      // Syllable-final → tone on 1st vowel; followed by more chars → tone on 2nd
+      const toneOnFirst = (i + 2 >= syllable.length);
+
+      return syllable.substring(0, i)
+        + TONE_TABLE[v1][toneOnFirst ? tone : 0]
+        + TONE_TABLE[v2][toneOnFirst ? 0 : tone]
+        + syllable.substring(i + 2);
     }
   }
-  return result;
+  return syllable;
+}
+
+/**
+ * Normalize Vietnamese tone mark position to correct orthographic form.
+ * Processes per-syllable (space-separated) to determine correct placement.
+ * E.g. "hòan tòan" → "hoàn toàn", "hoà" → "hòa", "thuỷ" → "thủy"
+ */
+export function normalizeTonePosition(word: string): string {
+  return word.split(' ').map(normalizeSyllableTone).join(' ');
 }
 
 // ─── Vietnamese Syllable Helpers ───────────────────────────────
