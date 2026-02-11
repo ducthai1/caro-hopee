@@ -11,11 +11,49 @@ import MissingWord from '../models/MissingWord';
 // ─── Singleton ─────────────────────────────────────────────────
 let dictionary: DictionaryIndex | null = null;
 
+// ─── Vietnamese Tone Position Normalization ────────────────────
+//
+// Vietnamese has two conventions for placing tone marks on diphthongs:
+//   Old style (tone on 2nd vowel): hoà, hoá, hoẻ, thuỷ, uỵ
+//   New style (tone on 1st vowel): hòa, hóa, hỏa, thủy, ụy
+//
+// We normalize ALL words to "new style" so both inputs match the same
+// canonical form. This is applied during dictionary loading AND user input.
+
+/** Map old-style → new-style tone placement (NFC characters) */
+const TONE_POSITION_MAP: Record<string, string> = {
+  // oa group: tone on 'a' → tone on 'o'
+  'oà': 'òa', 'oá': 'óa', 'oả': 'ỏa', 'oã': 'õa', 'oạ': 'ọa',
+  // oe group: tone on 'e' → tone on 'o'
+  'oè': 'òe', 'oé': 'óe', 'oẻ': 'ỏe', 'oẽ': 'õe', 'oẹ': 'ọe',
+  // uy group: tone on 'y' → tone on 'u'
+  'uỳ': 'ùy', 'uý': 'úy', 'uỷ': 'ủy', 'uỹ': 'ũy', 'uỵ': 'ụy',
+};
+
+/**
+ * Normalize Vietnamese tone mark position to "new style".
+ * Only applies to syllable-final diphthongs (oa, oe, uy).
+ * E.g. "hoà" → "hòa", "mã hoá" → "mã hóa", "thuỷ" → "thủy"
+ */
+export function normalizeTonePosition(word: string): string {
+  let result = word;
+  for (const [oldStyle, newStyle] of Object.entries(TONE_POSITION_MAP)) {
+    if (result.includes(oldStyle)) {
+      result = result.split(oldStyle).join(newStyle);
+    }
+  }
+  return result;
+}
+
 // ─── Vietnamese Syllable Helpers ───────────────────────────────
 
-/** NFC normalize + lowercase + trim. Critical for Vietnamese diacritics. */
+/**
+ * NFC normalize + lowercase + trim + tone-position normalize.
+ * Critical for Vietnamese diacritics — ensures "hoà" and "hòa" map to same key.
+ */
 export function normalizeWord(word: string): string {
-  return word.trim().toLowerCase().normalize('NFC');
+  const nfc = word.trim().toLowerCase().normalize('NFC');
+  return normalizeTonePosition(nfc);
 }
 
 /** Count syllables (space-separated). "hoa hồng" → 2 */

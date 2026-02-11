@@ -7,6 +7,9 @@ import { Box, Typography, keyframes, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import TabletMacIcon from '@mui/icons-material/TabletMac';
+import LaptopMacIcon from '@mui/icons-material/LaptopMac';
 import { WordChainPlayer } from '../word-chain-types';
 
 interface Props {
@@ -105,13 +108,24 @@ export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot
               >
                 {player.name || 'Player'}{isMe ? ' *' : ''}
 
-                {/* Connection Status */}
+                {/* Connection + Device Status */}
                 <Tooltip title={player.isConnected ? 'Online' : 'Disconnected'}>
                   <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'middle', ml: 0.5 }}>
                     {player.isConnected ? (
                       <WifiIcon sx={{ fontSize: 14, color: '#2ecc71' }} />
                     ) : (
                       <WifiOffIcon sx={{ fontSize: 14, color: '#e74c3c' }} />
+                    )}
+                  </Box>
+                </Tooltip>
+                <Tooltip title={player.deviceType === 'mobile' ? 'Mobile' : player.deviceType === 'tablet' ? 'Tablet' : 'Desktop'}>
+                  <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'middle', ml: 0.25 }}>
+                    {player.deviceType === 'mobile' ? (
+                      <PhoneIphoneIcon sx={{ fontSize: 13, color: '#3498db' }} />
+                    ) : player.deviceType === 'tablet' ? (
+                      <TabletMacIcon sx={{ fontSize: 13, color: '#9b59b6' }} />
+                    ) : (
+                      <LaptopMacIcon sx={{ fontSize: 13, color: '#7f8c8d' }} />
                     )}
                   </Box>
                 </Tooltip>

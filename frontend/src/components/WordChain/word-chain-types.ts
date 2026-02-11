@@ -49,6 +49,7 @@ export interface WordChainPlayer {
   isEliminated: boolean;
   isConnected: boolean;
   isHost?: boolean;
+  deviceType?: 'mobile' | 'tablet' | 'desktop';
 }
 
 // ─── Winner ───────────────────────────────────────────────────

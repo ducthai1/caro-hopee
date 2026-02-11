@@ -38,6 +38,49 @@ const disconnectTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:$
 const turnGraceTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:${slot}` — short grace for active turn
 const roomDictionaries = new Map<string, ReturnType<typeof buildRoomDictionary>>();
 const roomPlayerNames = new Map<string, Map<number, string>>(); // roomId -> slot -> resolved name
+const roomPlayerDevices = new Map<string, Map<number, string>>(); // roomId -> slot -> deviceType
+
+// ─── Device Detection ──────────────────────────────────────────
+
+export type DeviceType = 'mobile' | 'tablet' | 'desktop';
+
+/** Detect device type from User-Agent string */
+function detectDeviceType(userAgent?: string): DeviceType {
+  if (!userAgent) return 'desktop';
+  const ua = userAgent.toLowerCase();
+
+  // Tablets first (more specific)
+  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/i.test(ua)) {
+    return 'tablet';
+  }
+  // Mobile
+  if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile|wpdesktop|windows phone/i.test(ua)) {
+    return 'mobile';
+  }
+  return 'desktop';
+}
+
+/** Get or detect device type for a socket, caching in socket.data */
+function getDeviceType(socket: Socket): DeviceType {
+  if (socket.data.deviceType) return socket.data.deviceType as DeviceType;
+  const ua = socket.handshake.headers['user-agent'] as string | undefined;
+  const deviceType = detectDeviceType(ua);
+  socket.data.deviceType = deviceType;
+  return deviceType;
+}
+
+/** Cache device type for a player in a room */
+function cachePlayerDevice(roomId: string, slot: number, deviceType: DeviceType): void {
+  if (!roomPlayerDevices.has(roomId)) {
+    roomPlayerDevices.set(roomId, new Map());
+  }
+  roomPlayerDevices.get(roomId)!.set(slot, deviceType);
+}
+
+/** Get cached device type for a player */
+function getCachedDeviceType(roomId: string, slot: number): DeviceType {
+  return (roomPlayerDevices.get(roomId)?.get(slot) as DeviceType) || 'desktop';
+}
 
 const RECONNECT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const TURN_GRACE_MS = 10 * 1000; // 10 seconds grace before treating disconnect as timeout
@@ -65,6 +108,7 @@ function cleanupRoom(roomId: string): void {
   clearTurnTimer(roomId);
   roomDictionaries.delete(roomId);
   roomPlayerNames.delete(roomId);
+  roomPlayerDevices.delete(roomId);
   // Clear all disconnect timers and grace timers for this room
   for (const [key, timer] of disconnectTimers.entries()) {
     if (key.startsWith(`${roomId}:`)) {
@@ -149,6 +193,7 @@ function buildPlayersInfo(game: IWordChainGame): any[] {
     isEliminated: p.isEliminated,
     isConnected: p.isConnected,
     isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+    deviceType: getCachedDeviceType(game.roomId, p.slot),
   }));
 }
 
@@ -339,6 +384,10 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         socket.data.wordChainRoomId = roomId;
         socket.data.wordChainPlayerId = hostPlayerId;
 
+        // Cache device type for host
+        const hostDeviceType = getDeviceType(socket);
+        cachePlayerDevice(roomId, 1, hostDeviceType);
+
         const hostName = guestName || (userId ? (await User.findById(userId).select('username').lean())?.username : null) || 'Host';
         const response = {
           roomId,
@@ -359,6 +408,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: false,
             isConnected: true,
             isHost: true,
+            deviceType: hostDeviceType,
           }],
         };
 
@@ -400,6 +450,10 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           socket.data.wordChainRoomId = game.roomId;
           socket.data.wordChainPlayerId = playerId;
 
+          // Update device type on reconnect (user may have switched device)
+          const reconnectDeviceType = getDeviceType(socket);
+          cachePlayerDevice(game.roomId, existingPlayer.slot, reconnectDeviceType);
+
           // Cancel disconnect elimination timer
           const timerKey = `${game.roomId}:${existingPlayer.slot}`;
           const disconnectTimer = disconnectTimers.get(timerKey);
@@ -428,6 +482,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
               isEliminated: p.isEliminated,
               isConnected: p.isConnected,
               isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+              deviceType: getCachedDeviceType(game.roomId, p.slot),
             }))
           );
 
@@ -516,6 +571,10 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         socket.data.wordChainRoomId = game.roomId;
         socket.data.wordChainPlayerId = playerId;
 
+        // Cache device type for joining player
+        const joinDeviceType = getDeviceType(socket);
+        cachePlayerDevice(game.roomId, nextSlot, joinDeviceType);
+
         const playerName = guestName || (userId ? (await User.findById(userId).select('username').lean())?.username : null) || `Player ${nextSlot}`;
 
         io.to(game.roomId).emit('word-chain:player-joined', {
@@ -529,6 +588,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: false,
             isConnected: true,
             isHost: false,
+            deviceType: joinDeviceType,
           },
           playerCount: game.players.length,
           maxPlayers: game.maxPlayers,
@@ -546,6 +606,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: p.isEliminated,
             isConnected: p.isConnected,
             isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+            deviceType: getCachedDeviceType(game.roomId, p.slot),
           }))
         );
 
@@ -645,6 +706,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: p.isEliminated,
             isConnected: p.isConnected,
             isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+            deviceType: getCachedDeviceType(game.roomId, p.slot),
           }))
         );
 
@@ -745,6 +807,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: p.isEliminated,
             isConnected: p.isConnected,
             isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+            deviceType: getCachedDeviceType(game.roomId, p.slot),
           }))
         );
 
@@ -881,6 +944,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             isEliminated: p.isEliminated,
             isConnected: p.isConnected,
             isHost: (p.userId?.toString() || p.guestId) === game.hostPlayerId,
+            deviceType: getCachedDeviceType(game.roomId, p.slot),
           }))
         );
 
@@ -1301,6 +1365,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
             wordsPlayed: 0,
             isEliminated: false,
             isConnected: p.isConnected,
+            deviceType: getCachedDeviceType(game.roomId, p.slot),
           }))
         );
 

@@ -16,6 +16,9 @@ import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import TabletMacIcon from '@mui/icons-material/TabletMac';
+import LaptopMacIcon from '@mui/icons-material/LaptopMac';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
@@ -272,12 +275,25 @@ export const WordChainWaitingRoom: React.FC = () => {
                 )}
               </Box>
 
-              {/* Connection */}
-              {player.isConnected ? (
-                <WifiIcon sx={{ fontSize: 18, color: '#2ecc71' }} />
-              ) : (
-                <WifiOffIcon sx={{ fontSize: 18, color: '#e74c3c' }} />
-              )}
+              {/* Connection + Device */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {player.isConnected ? (
+                  <WifiIcon sx={{ fontSize: 18, color: '#2ecc71' }} />
+                ) : (
+                  <WifiOffIcon sx={{ fontSize: 18, color: '#e74c3c' }} />
+                )}
+                <Tooltip title={player.deviceType === 'mobile' ? 'Mobile' : player.deviceType === 'tablet' ? 'Tablet' : 'Desktop'}>
+                  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                    {player.deviceType === 'mobile' ? (
+                      <PhoneIphoneIcon sx={{ fontSize: 16, color: '#3498db' }} />
+                    ) : player.deviceType === 'tablet' ? (
+                      <TabletMacIcon sx={{ fontSize: 16, color: '#9b59b6' }} />
+                    ) : (
+                      <LaptopMacIcon sx={{ fontSize: 16, color: '#7f8c8d' }} />
+                    )}
+                  </Box>
+                </Tooltip>
+              </Box>
 
               {/* Kick button — host only, not self */}
               {state.isHost && player.slot !== state.mySlot && (
