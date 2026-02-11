@@ -39,6 +39,7 @@ const turnGraceTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:${
 const roomDictionaries = new Map<string, ReturnType<typeof buildRoomDictionary>>();
 const roomPlayerNames = new Map<string, Map<number, string>>(); // roomId -> slot -> resolved name
 const roomPlayerDevices = new Map<string, Map<number, string>>(); // roomId -> slot -> deviceType
+const activePlayerSockets = new Map<string, string>(); // `${roomId}:${playerId}` → socketId (prevents stale disconnect)
 
 // ─── Device Detection ──────────────────────────────────────────
 
@@ -120,6 +121,11 @@ function cleanupRoom(roomId: string): void {
     if (key.startsWith(`${roomId}:`)) {
       clearTimeout(timer);
       turnGraceTimers.delete(key);
+    }
+  }
+  for (const key of activePlayerSockets.keys()) {
+    if (key.startsWith(`${roomId}:`)) {
+      activePlayerSockets.delete(key);
     }
   }
 }
@@ -383,6 +389,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         socket.join(roomId);
         socket.data.wordChainRoomId = roomId;
         socket.data.wordChainPlayerId = hostPlayerId;
+        activePlayerSockets.set(`${roomId}:${hostPlayerId}`, socket.id);
 
         // Cache device type for host
         const hostDeviceType = getDeviceType(socket);
@@ -449,6 +456,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           socket.join(game.roomId);
           socket.data.wordChainRoomId = game.roomId;
           socket.data.wordChainPlayerId = playerId;
+          activePlayerSockets.set(`${game.roomId}:${playerId}`, socket.id);
 
           // Update device type on reconnect (user may have switched device)
           const reconnectDeviceType = getDeviceType(socket);
@@ -570,6 +578,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         socket.join(game.roomId);
         socket.data.wordChainRoomId = game.roomId;
         socket.data.wordChainPlayerId = playerId;
+        activePlayerSockets.set(`${game.roomId}:${playerId}`, socket.id);
 
         // Cache device type for joining player
         const joinDeviceType = getDeviceType(socket);
@@ -889,6 +898,12 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         if (dcTimer) {
           clearTimeout(dcTimer);
           disconnectTimers.delete(timerKey);
+        }
+
+        // Clean up active socket tracking
+        const removedPlayerId = removedPlayer.userId?.toString() || removedPlayer.guestId;
+        if (removedPlayerId) {
+          activePlayerSockets.delete(`${roomId}:${removedPlayerId}`);
         }
 
         const wasPlaying = game.gameStatus === 'playing';
@@ -1391,11 +1406,17 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         const roomId = socket.data.wordChainRoomId;
         if (!roomId) return;
 
-        const game = await WordChainGame.findOne({ roomId });
-        if (!game) return;
-
         const playerId = socket.data.wordChainPlayerId;
         if (!playerId) return;
+
+        // If a newer socket already took over (e.g. page reload), skip disconnect handling
+        const activeKey = `${roomId}:${playerId}`;
+        if (activePlayerSockets.get(activeKey) !== socket.id) {
+          return;
+        }
+
+        const game = await WordChainGame.findOne({ roomId });
+        if (!game) return;
 
         const player = game.players.find(
           p => (p.userId && p.userId.toString() === playerId) || (p.guestId === playerId)

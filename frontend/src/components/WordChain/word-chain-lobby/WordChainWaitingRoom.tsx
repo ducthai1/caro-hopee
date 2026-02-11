@@ -3,10 +3,10 @@
  * Desktop: centered card layout with room code, settings, players, actions.
  * Mobile: stacked single column.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Button, Chip, IconButton, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -46,6 +46,12 @@ export const WordChainWaitingRoom: React.FC = () => {
   const [kickTarget, setKickTarget] = useState<{ slot: number; name: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+
+  // Reset loading state if an error occurs (e.g. failedToStart callback)
+  useEffect(() => {
+    if (state.error && isStarting) setIsStarting(false);
+  }, [state.error, isStarting]);
 
   // Edit settings state (initialized when dialog opens)
   const [editMaxPlayers, setEditMaxPlayers] = useState(state.maxPlayers);
@@ -103,7 +109,15 @@ export const WordChainWaitingRoom: React.FC = () => {
     setShowGuestNameDialog(false);
   };
 
-  const canStart = state.isHost && state.players.length >= 2;
+  const canStart = state.isHost && state.players.length >= 2 && !isStarting;
+
+  const handleStartGame = () => {
+    if (isStarting) return;
+    setIsStarting(true);
+    startGame();
+    // Safety reset if game doesn't start within 10s (e.g. server error without callback)
+    setTimeout(() => setIsStarting(false), 10_000);
+  };
 
   const handleCopyCode = async () => {
     if (state.roomCode) {
@@ -341,8 +355,8 @@ export const WordChainWaitingRoom: React.FC = () => {
         {state.isHost && (
           <Button
             variant="contained"
-            startIcon={<PlayArrowIcon />}
-            onClick={startGame}
+            startIcon={isStarting ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+            onClick={handleStartGame}
             disabled={!canStart}
             sx={{
               background: canStart
@@ -358,7 +372,9 @@ export const WordChainWaitingRoom: React.FC = () => {
               flex: 1,
             }}
           >
-            {canStart
+            {isStarting
+              ? t('wordChain.starting') || 'Starting...'
+              : canStart
               ? t('wordChain.startGame')
               : t('wordChain.waitingForPlayers')}
           </Button>

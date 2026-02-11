@@ -349,7 +349,7 @@ const WordChainContext = createContext<WordChainContextValue | undefined>(undefi
 
 export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(wordChainReducer, initialState);
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { isConnected } = useSocket();
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -747,8 +747,17 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       guestName: isAuthenticated ? undefined : playerName,
     }, (res: any) => {
       if (res && !res.success) {
+        // Fix: Clear session if room no longer exists to prevent infinite rejoin loop
+        if (res.error === 'roomNotFound') {
+          clearRoomSession();
+        }
         dispatch({ type: 'SET_ERROR', payload: res.error || 'failedToJoin' });
       } else if (res?.success && res.roomId) {
+        if (res.reconnected) {
+          // Full state comes via 'word-chain:joined-room' event — no callback dispatch needed.
+          // The callback lacks full game state (no rules, players, maxPlayers, gameStatus).
+          return;
+        }
         // Handle join success via callback (reliable path, same as createRoom)
         // Prevents silent failure if event listener is not registered
         if (stateRef.current.view === 'lobby') {
@@ -910,31 +919,23 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [state.view, refreshRooms]);
 
-  // Auto-rejoin on socket reconnect (handles page reload / network interruption)
+  // Auto-rejoin logic: Wait for auth loading AND socket connection
   useEffect(() => {
-    const socket = socketService.getSocket();
-    if (!socket) return;
+    // 1. Wait until auth state is settled to avoid guest ID vs user ID mismatch
+    if (isAuthLoading) return;
 
-    const handleReconnect = () => {
-      // Use state first, fallback to sessionStorage (survives page reload)
-      const currentRoomCode = stateRef.current.roomCode || getSavedRoomCode();
-      if (currentRoomCode) {
-        // Re-join via room code — backend will detect reconnect and send full state
-        joinRoom(currentRoomCode);
-      }
-    };
+    // 2. Wait until socket is connected
+    if (!isConnected) return;
 
-    socket.on('connect', handleReconnect);
-    return () => { socket.off('connect', handleReconnect); };
-  }, [joinRoom]);
+    // 3. Only attempt if not already in a room (state roomId is null)
+    if (state.roomId) return;
 
-  // On mount: try to rejoin from sessionStorage (handles page reload)
-  useEffect(() => {
     const savedCode = getSavedRoomCode();
     if (savedCode) {
+      // console.log('[WordChain] Auto-rejoining room:', savedCode);
       joinRoom(savedCode);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthLoading, isConnected, joinRoom, state.roomId]);
 
   return (
     <WordChainContext.Provider value={{
