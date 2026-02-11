@@ -139,6 +139,18 @@ export const WordChainResultModal: React.FC = () => {
           </Box>
         </Box>
 
+        {/* Last Word Display */}
+        {state.lastWord && (
+          <Box sx={{ mt: 2, mx: 2, textAlign: 'center', p: 1.5, bgcolor: 'rgba(0,0,0,0.03)', borderRadius: 2 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              {t('wordChain.game.lastWord') || 'Last Word'}
+            </Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', color: '#34495e' }}>
+              {state.lastWord}
+            </Typography>
+          </Box>
+        )}
+
         {/* Rankings */}
         <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
           <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>

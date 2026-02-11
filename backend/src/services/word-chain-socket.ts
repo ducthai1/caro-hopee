@@ -19,16 +19,19 @@ import {
   calculateScore,
   getSpeedModeTurnDuration,
   generateWordChainRoomCode,
+  determineWinnerByScore,
 } from './word-chain-engine';
 
 // ─── Timer Management ──────────────────────────────────────────
 
 const activeTimers = new Map<string, NodeJS.Timeout>();
 const disconnectTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:${slot}`
+const turnGraceTimers = new Map<string, NodeJS.Timeout>(); // key: `${roomId}:${slot}` — short grace for active turn
 const roomDictionaries = new Map<string, ReturnType<typeof buildRoomDictionary>>();
 const roomPlayerNames = new Map<string, Map<number, string>>(); // roomId -> slot -> resolved name
 
 const RECONNECT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const TURN_GRACE_MS = 10 * 1000; // 10 seconds grace before treating disconnect as timeout
 
 function startTurnTimer(
   io: SocketIOServer,
@@ -53,11 +56,17 @@ function cleanupRoom(roomId: string): void {
   clearTurnTimer(roomId);
   roomDictionaries.delete(roomId);
   roomPlayerNames.delete(roomId);
-  // Clear all disconnect timers for this room
+  // Clear all disconnect timers and grace timers for this room
   for (const [key, timer] of disconnectTimers.entries()) {
     if (key.startsWith(`${roomId}:`)) {
       clearTimeout(timer);
       disconnectTimers.delete(key);
+    }
+  }
+  for (const [key, timer] of turnGraceTimers.entries()) {
+    if (key.startsWith(`${roomId}:`)) {
+      clearTimeout(timer);
+      turnGraceTimers.delete(key);
     }
   }
 }
@@ -167,7 +176,9 @@ async function handleLifeLoss(
   // Move to next player
   const nextSlot = getNextPlayerSlot(game.players, game.currentPlayerSlot);
   if (nextSlot === -1) {
-    await finishGame(io, game, 'draw');
+    // No active players left — determine winner by score instead of declaring draw
+    const winner = determineWinnerByScore(game.players);
+    await finishGame(io, game, winner);
     return;
   }
 
@@ -254,6 +265,7 @@ async function finishGame(
     winner: winnerPayload,
     players,
     wordChain: game.wordChain,
+    lastWord: game.currentWord || (game.wordChain.length > 0 ? game.wordChain[game.wordChain.length - 1] : ''),
     totalWords: game.wordChain.length,
     duration: game.startedAt ? Date.now() - game.startedAt.getTime() : 0,
   });
@@ -385,6 +397,13 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           if (disconnectTimer) {
             clearTimeout(disconnectTimer);
             disconnectTimers.delete(timerKey);
+          }
+
+          // Cancel turn grace timer (player reconnected before grace expired)
+          const graceTimer = turnGraceTimers.get(timerKey);
+          if (graceTimer) {
+            clearTimeout(graceTimer);
+            turnGraceTimers.delete(timerKey);
           }
 
           // Build full state for reconnecting player
@@ -1031,7 +1050,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         game.usedWords.push(normalized);
         game.roundNumber += 1;
 
-        // Check draw (no words available for next player)
+        // Check if no words available for next player
         const noWords = checkNoWordsAvailable(
           normalized,
           game.usedWords,
@@ -1040,9 +1059,29 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         );
 
         if (noWords) {
+          // Emit the accepted word FIRST so players see the final word
+          const noWordsPlayersInfo = buildPlayersInfo(game);
+          const noWordsRequiredSyllable = getLastSyllable(normalized);
+          io.to(roomId).emit('word-chain:word-accepted', {
+            word: normalized,
+            currentWord: normalized,
+            playerSlot: currentPlayer?.slot,
+            playerName: getCachedPlayerName(roomId, currentPlayer?.slot || 0),
+            score: currentPlayer?.score,
+            nextPlayerSlot: game.currentPlayerSlot, // stays same since game ends
+            turnStartedAt: new Date().toISOString(),
+            turnDuration: game.rules.turnDuration,
+            roundNumber: game.roundNumber,
+            requiredSyllable: noWordsRequiredSyllable,
+            totalWords: game.wordChain.length,
+            players: noWordsPlayersInfo,
+          });
+
           await game.save();
-          await finishGame(io, game, 'draw');
-          if (callback) callback({ success: true, draw: true });
+          // Determine winner by score instead of always declaring draw
+          const winner = determineWinnerByScore(game.players);
+          await finishGame(io, game, winner);
+          if (callback) callback({ success: true });
           return;
         }
 
@@ -1146,7 +1185,9 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           const nextSlot = getNextPlayerSlot(game.players, game.currentPlayerSlot);
           if (nextSlot === -1) {
             await game.save();
-            await finishGame(io, game, 'draw');
+            // Determine winner by score instead of always declaring draw
+            const winner = determineWinnerByScore(game.players);
+            await finishGame(io, game, winner);
             return;
           }
 
@@ -1273,14 +1314,33 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
           playerName: await resolvePlayerName(player),
         });
 
-        // If game is playing and it's this player's turn, treat as timeout
+        // If game is playing and it's this player's turn, start a grace period
+        // instead of immediately triggering timeout (fixes tab-switch/app-background issue)
         if (game.gameStatus === 'playing' && game.currentPlayerSlot === player.slot) {
-          clearTurnTimer(roomId);
-          io.to(roomId).emit('word-chain:turn-timeout', {
-            slot: player.slot,
-            livesRemaining: player.lives - 1,
-          });
-          await handleLifeLoss(io, game, player.slot, 'timeout');
+          const graceKey = `${roomId}:${player.slot}`;
+          // Don't start duplicate grace timer
+          if (!turnGraceTimers.has(graceKey)) {
+            const graceTimer = setTimeout(async () => {
+              turnGraceTimers.delete(graceKey);
+              try {
+                const freshGame = await WordChainGame.findOne({ roomId });
+                if (!freshGame || freshGame.gameStatus !== 'playing') return;
+                const p = freshGame.players.find(pl => pl.slot === player.slot);
+                if (!p || p.isConnected || p.isEliminated) return; // reconnected or already out
+
+                // Grace period expired, player still disconnected — treat as timeout
+                clearTurnTimer(roomId);
+                io.to(roomId).emit('word-chain:turn-timeout', {
+                  slot: p.slot,
+                  livesRemaining: p.lives - 1,
+                });
+                await handleLifeLoss(io, freshGame, p.slot, 'timeout');
+              } catch (err) {
+                console.error('[WordChain] Turn grace timer error:', err);
+              }
+            }, TURN_GRACE_MS);
+            turnGraceTimers.set(graceKey, graceTimer);
+          }
         }
 
         // Start 5-min elimination timer

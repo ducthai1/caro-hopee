@@ -127,6 +127,7 @@ export interface WordChainState {
 
   // Result
   winner: WordChainWinner | 'draw' | null;
+  lastWord: string;              // the final word that ended the game
   showResult: boolean;
 
   // UI
@@ -149,7 +150,7 @@ export type WordChainAction =
   | { type: 'WORD_REJECTED'; payload: { word: string; playerSlot: number; playerName: string; reason: RejectionReason; players: WordChainPlayer[] } }
   | { type: 'TURN_TIMEOUT'; payload: { playerSlot: number; playerName: string; nextPlayerSlot: number; turnStartedAt: number; turnDuration: number; players: WordChainPlayer[] } }
   | { type: 'PLAYER_ELIMINATED'; payload: { slot: number; players: WordChainPlayer[] } }
-  | { type: 'GAME_FINISHED'; payload: { winner: WordChainWinner | 'draw'; players: WordChainPlayer[] } }
+  | { type: 'GAME_FINISHED'; payload: { winner: WordChainWinner | 'draw'; players: WordChainPlayer[]; lastWord?: string } }
   | { type: 'GAME_DRAW'; payload: { players: WordChainPlayer[] } }
   | { type: 'PLAYER_SURRENDERED'; payload: { slot: number; players: WordChainPlayer[] } }
   | { type: 'GAME_RESET'; payload: { players: WordChainPlayer[]; gameStatus: WordChainGameStatus } }

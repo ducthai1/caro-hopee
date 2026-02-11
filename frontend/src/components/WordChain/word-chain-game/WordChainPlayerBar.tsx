@@ -5,6 +5,8 @@
 import React from 'react';
 import { Box, Typography, keyframes, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import WifiIcon from '@mui/icons-material/Wifi';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
 import { WordChainPlayer } from '../word-chain-types';
 
 interface Props {
@@ -102,6 +104,18 @@ export const WordChainPlayerBar: React.FC<Props> = ({ players, currentPlayerSlot
                 }}
               >
                 {player.name || 'Player'}{isMe ? ' *' : ''}
+
+                {/* Connection Status */}
+                <Tooltip title={player.isConnected ? 'Online' : 'Disconnected'}>
+                  <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'middle', ml: 0.5 }}>
+                    {player.isConnected ? (
+                      <WifiIcon sx={{ fontSize: 14, color: '#2ecc71' }} />
+                    ) : (
+                      <WifiOffIcon sx={{ fontSize: 14, color: '#e74c3c' }} />
+                    )}
+                  </Box>
+                </Tooltip>
+
                 {isMe && onEditName && (
                   <Tooltip title="Edit Name">
                     <IconButton

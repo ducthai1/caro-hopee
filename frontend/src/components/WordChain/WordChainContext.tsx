@@ -25,15 +25,15 @@ import {
 const WC_SESSION_KEY = 'wordchain_room';
 
 function saveRoomSession(roomCode: string) {
-  sessionStorage.setItem(WC_SESSION_KEY, roomCode);
+  localStorage.setItem(WC_SESSION_KEY, roomCode);
 }
 
 function clearRoomSession() {
-  sessionStorage.removeItem(WC_SESSION_KEY);
+  localStorage.removeItem(WC_SESSION_KEY);
 }
 
 function getSavedRoomCode(): string | null {
-  return sessionStorage.getItem(WC_SESSION_KEY);
+  return localStorage.getItem(WC_SESSION_KEY);
 }
 
 // ─── Initial State ────────────────────────────────────────────
@@ -58,6 +58,7 @@ const initialState: WordChainState = {
   turnDuration: 60,
   roundNumber: 0,
   winner: null,
+  lastWord: '',
   showResult: false,
   error: null,
   notification: null,
@@ -220,6 +221,7 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
         gameStatus: 'finished',
         winner: action.payload.winner,
         players: action.payload.players,
+        lastWord: action.payload.lastWord || state.currentWord,
         showResult: true,
       };
 
@@ -247,6 +249,7 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
         currentWord: '',
         wordChain: [],
         winner: null,
+        lastWord: '',
         showResult: false,
         roundNumber: 0,
         currentPlayerSlot: 1,
@@ -524,6 +527,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
         payload: {
           winner: data.winner,
           players: data.players || stateRef.current.players,
+          lastWord: data.lastWord,
         },
       });
     };

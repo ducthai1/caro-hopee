@@ -133,8 +133,34 @@ export function checkGameEnd(
 }
 
 /**
+ * Determine winner by comparing scores among active (non-eliminated) players.
+ * Returns the player with highest score, or 'draw' if tied.
+ */
+export function determineWinnerByScore(
+  players: IWordChainPlayer[]
+): IWordChainPlayer | 'draw' {
+  const activePlayers = players.filter(p => !p.isEliminated);
+  if (activePlayers.length === 0) return 'draw';
+  if (activePlayers.length === 1) return activePlayers[0];
+
+  // Sort by score descending, then by wordsPlayed descending as tiebreaker
+  const sorted = [...activePlayers].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (b.wordsPlayed || 0) - (a.wordsPlayed || 0);
+  });
+
+  // If top 2 have same score AND same wordsPlayed, it's a true draw
+  if (sorted[0].score === sorted[1].score && 
+      (sorted[0].wordsPlayed || 0) === (sorted[1].wordsPlayed || 0)) {
+    return 'draw';
+  }
+
+  return sorted[0];
+}
+
+/**
  * Check if there are any valid words available to chain from current word.
- * If no words available → draw.
+ * If no words available → game ends (winner determined by score comparison).
  */
 export function checkNoWordsAvailable(
   currentWord: string,

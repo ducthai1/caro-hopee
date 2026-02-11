@@ -135,7 +135,6 @@ export const WordChainGame: React.FC = () => {
       </Box>
 
       {/* Result modal overlay */}
-      {/* Result modal overlay */}
       {state.showResult && <WordChainResultModal />}
 
       {/* Guest Name Dialog */}
