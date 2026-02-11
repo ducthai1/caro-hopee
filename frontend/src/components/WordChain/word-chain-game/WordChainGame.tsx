@@ -12,13 +12,14 @@ import { WordChainWordHistory } from './WordChainWordHistory';
 import { WordChainInput } from './WordChainInput';
 import { WordChainResultModal } from './WordChainResult';
 import { GameReactions, ReactionPopup } from '../../GameReactions';
+import { ChatButton, FloatingChatMessage } from './WordChainChat';
 import { useLanguage } from '../../../i18n';
 import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useAuth } from '../../../contexts/AuthContext';
 
 export const WordChainGame: React.FC = () => {
   const { t } = useLanguage();
-  const { state, updateGuestName, sendReaction, clearReaction } = useWordChain();
+  const { state, updateGuestName, sendReaction, clearReaction, sendChat, clearChat } = useWordChain();
   const { isAuthenticated } = useAuth();
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
 
@@ -122,14 +123,20 @@ export const WordChainGame: React.FC = () => {
           )}
         </Box>
 
-        {/* Reactions - desktop: absolute right mirroring timer */}
+        {/* Reactions + Chat - desktop: absolute right mirroring timer */}
         <Box sx={{
           position: 'absolute',
           right: { xs: 8, sm: 24, md: 32 },
           top: '50%',
           transform: 'translateY(-50%)',
-          display: { xs: 'none', sm: 'block' },
+          display: { xs: 'none', sm: 'flex' },
+          alignItems: 'center',
+          gap: 1,
         }}>
+          <ChatButton
+            onSend={sendChat}
+            disabled={state.gameStatus !== 'playing'}
+          />
           <GameReactions
             onSendReaction={sendReaction}
             disabled={state.gameStatus !== 'playing'}
@@ -137,19 +144,26 @@ export const WordChainGame: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Reactions - mobile: compact strip below header */}
+      {/* Chat + Reactions - mobile: compact inline strip */}
       <Box sx={{
         display: { xs: 'flex', sm: 'none' },
         justifyContent: 'center',
+        alignItems: 'center',
+        gap: 0.5,
         py: 0.5,
         px: 1,
         bgcolor: '#fff',
         borderBottom: '1px solid rgba(0,0,0,0.06)',
         flexShrink: 0,
       }}>
+        <ChatButton
+          onSend={sendChat}
+          disabled={state.gameStatus !== 'playing'}
+        />
         <GameReactions
           onSendReaction={sendReaction}
           disabled={state.gameStatus !== 'playing'}
+          compact
         />
       </Box>
 
@@ -164,6 +178,16 @@ export const WordChainGame: React.FC = () => {
       <Box sx={{ flexShrink: 0 }}>
         <WordChainInput />
       </Box>
+
+      {/* Floating Chat Messages */}
+      {state.chatMessages.map((chat, idx) => (
+        <FloatingChatMessage
+          key={chat.id}
+          chat={chat}
+          index={idx}
+          onDismiss={() => clearChat(chat.id)}
+        />
+      ))}
 
       {/* Reaction Popups */}
       {state.reactions.map((reaction) => {

@@ -1431,6 +1431,37 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
       }
     });
 
+    // ─── SEND CHAT ────────────────────────────────────────────
+    socket.on('word-chain:send-chat', async (data) => {
+      try {
+        const { roomId, message } = data;
+        if (!message || !roomId) return;
+
+        const trimmed = (message as string).trim().slice(0, 100);
+        if (!trimmed) return;
+
+        const playerId = socket.data.wordChainPlayerId;
+        if (!playerId) return;
+
+        const game = await WordChainGame.findOne({ roomId }).lean();
+        if (!game) return;
+
+        const player = game.players.find(
+          p => (p.userId?.toString() || p.guestId) === playerId
+        );
+        if (!player) return;
+
+        const playerName = getCachedPlayerName(roomId, player.slot);
+        socket.to(roomId).emit('word-chain:chat-received', {
+          message: trimmed,
+          slot: player.slot,
+          playerName,
+        });
+      } catch (error) {
+        console.error('[WordChain] Send chat error:', error);
+      }
+    });
+
     // ─── DISCONNECT ──────────────────────────────────────────
     socket.on('disconnect', async () => {
       try {

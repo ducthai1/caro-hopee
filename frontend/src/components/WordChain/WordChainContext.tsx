@@ -19,6 +19,7 @@ import {
   WaitingRoomInfo,
   CreateRoomPayload,
   ReceivedReaction,
+  ChatMessage,
   DEFAULT_RULES,
 } from './word-chain-types';
 
@@ -62,6 +63,7 @@ const initialState: WordChainState = {
   lastWord: '',
   showResult: false,
   reactions: [],
+  chatMessages: [],
   error: null,
   notification: null,
 };
@@ -327,6 +329,12 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
     case 'CLEAR_REACTION':
       return { ...state, reactions: state.reactions.filter(r => r.id !== action.payload) };
 
+    case 'CHAT_RECEIVED':
+      return { ...state, chatMessages: [...state.chatMessages, action.payload] };
+
+    case 'CLEAR_CHAT':
+      return { ...state, chatMessages: state.chatMessages.filter(m => m.id !== action.payload) };
+
     default:
       return state;
   }
@@ -351,6 +359,8 @@ interface WordChainContextValue {
   updateGuestName: (name: string) => void;
   sendReaction: (emoji: string) => void;
   clearReaction: (id: string) => void;
+  sendChat: (message: string) => void;
+  clearChat: (id: string) => void;
 }
 
 const WordChainContext = createContext<WordChainContextValue | undefined>(undefined);
@@ -629,6 +639,18 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       dispatch({ type: 'REACTION_RECEIVED', payload: reaction });
     };
 
+    const handleChatReceived = (data: any) => {
+      if (!data?.message || data.slot == null) return;
+      const chat: ChatMessage = {
+        id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        message: data.message,
+        fromName: data.playerName || `Player ${data.slot}`,
+        slot: data.slot,
+        isSelf: false,
+      };
+      dispatch({ type: 'CHAT_RECEIVED', payload: chat });
+    };
+
     const handleError = (data: any) => {
       const errorCode = data.error || data.message || 'serverError';
       dispatch({ type: 'SET_ERROR', payload: errorCode });
@@ -670,6 +692,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     socket.on('word-chain:room-updated' as any, handleRoomUpdated);
     socket.on('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('word-chain:reaction-received' as any, handleReactionReceived);
+    socket.on('word-chain:chat-received' as any, handleChatReceived);
     socket.on('word-chain:error' as any, handleError);
     socket.on('word-chain:rooms-updated' as any, handleRoomsUpdated);
 
@@ -693,6 +716,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       socket.off('word-chain:room-updated' as any, handleRoomUpdated);
       socket.off('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('word-chain:reaction-received' as any, handleReactionReceived);
+      socket.off('word-chain:chat-received' as any, handleChatReceived);
       socket.off('word-chain:error' as any, handleError);
       socket.off('word-chain:rooms-updated' as any, handleRoomsUpdated);
     };
@@ -934,6 +958,35 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     dispatch({ type: 'CLEAR_REACTION', payload: id });
   }, []);
 
+  const sendChat = useCallback((message: string) => {
+    const socket = socketService.getSocket();
+    if (!socket || !stateRef.current.roomId || !stateRef.current.mySlot) return;
+
+    const trimmed = message.trim().slice(0, 100);
+    if (!trimmed) return;
+
+    // Show self message immediately
+    const myPlayer = stateRef.current.players.find(p => p.slot === stateRef.current.mySlot);
+    const myName = myPlayer?.name || myPlayer?.guestName || 'You';
+    const selfChat: ChatMessage = {
+      id: `chat-self-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      message: trimmed,
+      fromName: myName,
+      slot: stateRef.current.mySlot,
+      isSelf: true,
+    };
+    dispatch({ type: 'CHAT_RECEIVED', payload: selfChat });
+
+    socket.emit('word-chain:send-chat' as any, {
+      roomId: stateRef.current.roomId,
+      message: trimmed,
+    });
+  }, []);
+
+  const clearChat = useCallback((id: string) => {
+    dispatch({ type: 'CLEAR_CHAT', payload: id });
+  }, []);
+
   // Auto-cleanup stale reactions (older than 5s)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -944,6 +997,22 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
         const ts = parseInt(parts[tsIndex], 10);
         if (!isNaN(ts) && now - ts > 5000) {
           dispatch({ type: 'CLEAR_REACTION', payload: r.id });
+        }
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-cleanup stale chat messages (older than 6s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      for (const m of stateRef.current.chatMessages) {
+        const parts = m.id.split('-');
+        const tsIndex = parts[1] === 'self' ? 2 : 1;
+        const ts = parseInt(parts[tsIndex], 10);
+        if (!isNaN(ts) && now - ts > 6000) {
+          dispatch({ type: 'CLEAR_CHAT', payload: m.id });
         }
       }
     }, 2000);
@@ -1021,6 +1090,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       updateGuestName,
       sendReaction,
       clearReaction,
+      sendChat,
+      clearChat,
     }}>
       {children}
     </WordChainContext.Provider>

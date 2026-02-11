@@ -477,6 +477,11 @@
       "score": "điểm",
       "timeoutMessage": "Hết giờ! {name} bị trừ 1 mạng.",
       "editName": "Đổi tên"
+    },
+    "chat": {
+      "placeholder": "Nhập tin nhắn...",
+      "send": "Gửi",
+      "tooltip": "Chat"
     }
   },
   "admin": {

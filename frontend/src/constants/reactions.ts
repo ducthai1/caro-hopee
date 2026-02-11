@@ -19,7 +19,16 @@ export const REACTIONS: Reaction[] = [
   { id: 'sad', emoji: '😢', label: { en: 'Sad', vi: 'Buồn' } },
   { id: 'angry', emoji: '😠', label: { en: 'Grr', vi: 'Tức' } },
   { id: 'heart', emoji: '❤️', label: { en: 'Love', vi: 'Thích' } },
+  { id: 'fire', emoji: '🔥', label: { en: 'Fire', vi: 'Cháy' } },
+  { id: 'clap', emoji: '👏', label: { en: 'Clap', vi: 'Vỗ tay' } },
+  { id: 'think', emoji: '🤔', label: { en: 'Hmm', vi: 'Hmm' } },
+  { id: 'skull', emoji: '💀', label: { en: 'Dead', vi: 'Chết' } },
+  { id: 'eyes', emoji: '👀', label: { en: 'Eyes', vi: 'Nhìn' } },
+  { id: 'cold', emoji: '🥶', label: { en: 'Cold', vi: 'Lạnh' } },
 ];
+
+/** First N reactions shown in compact (mobile) mode */
+export const COMPACT_REACTION_COUNT = 4;
 
 /** Cooldown duration in milliseconds */
 export const REACTION_COOLDOWN_MS = 10000;

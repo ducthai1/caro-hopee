@@ -477,6 +477,11 @@
       "score": "pts",
       "timeoutMessage": "Time's up! {name} lost a life.",
       "editName": "Edit Name"
+    },
+    "chat": {
+      "placeholder": "Type a message...",
+      "send": "Send",
+      "tooltip": "Chat"
     }
   },
   "admin": {

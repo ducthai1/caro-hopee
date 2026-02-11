@@ -83,6 +83,16 @@ export interface ReceivedReaction {
   isSelf: boolean;
 }
 
+// ─── Chat Message ────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string;
+  message: string;
+  fromName: string;
+  slot: number;
+  isSelf: boolean;
+}
+
 // ─── Waiting Room Info (lobby card) ───────────────────────────
 
 export interface WaitingRoomInfo {
@@ -144,6 +154,9 @@ export interface WordChainState {
   // Reactions
   reactions: ReceivedReaction[];
 
+  // Chat
+  chatMessages: ChatMessage[];
+
   // UI
   error: string | null;
   notification: string | null;
@@ -180,4 +193,6 @@ export type WordChainAction =
   | { type: 'ROOM_UPDATED'; payload: { rules: WordChainRules; maxPlayers: number; players: WordChainPlayer[]; hasPassword: boolean } }
   | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
   | { type: 'REACTION_RECEIVED'; payload: ReceivedReaction }
-  | { type: 'CLEAR_REACTION'; payload: string };
+  | { type: 'CLEAR_REACTION'; payload: string }
+  | { type: 'CHAT_RECEIVED'; payload: ChatMessage }
+  | { type: 'CLEAR_CHAT'; payload: string };
