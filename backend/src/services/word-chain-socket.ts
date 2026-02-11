@@ -105,11 +105,14 @@ function clearTurnTimer(roomId: string): void {
   }
 }
 
-function cleanupRoom(roomId: string): void {
+function cleanupRoom(roomId: string, full = false): void {
   clearTurnTimer(roomId);
   roomDictionaries.delete(roomId);
-  roomPlayerNames.delete(roomId);
-  roomPlayerDevices.delete(roomId);
+  // Preserve player name & device caches for rematch — only delete on full cleanup
+  if (full) {
+    roomPlayerNames.delete(roomId);
+    roomPlayerDevices.delete(roomId);
+  }
   // Clear all disconnect timers and grace timers for this room
   for (const [key, timer] of disconnectTimers.entries()) {
     if (key.startsWith(`${roomId}:`)) {
@@ -915,9 +918,9 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
         // Transfer host if the leaving player was the host
         let newHostPlayerId: string | undefined;
         if (game.players.length === 0) {
-          // Empty room — mark abandoned
+          // Empty room — mark abandoned (full cleanup including caches)
           game.gameStatus = 'abandoned';
-          cleanupRoom(roomId);
+          cleanupRoom(roomId, true);
         } else if (playerId === game.hostPlayerId) {
           // Assign host to first remaining player
           const newHost = game.players[0];
