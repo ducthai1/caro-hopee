@@ -4233,7 +4233,6 @@ buốp
 buốt
 buốt như kim châm
 buốt ruột
-buồi
 buồm
 buồm câu
 buồm dọc
@@ -7413,7 +7412,6 @@ bùng nổ
 bùng nổ dân số
 bùng phát
 bú
-bú cặc
 bú dù
 bú mớm
 búa
@@ -7458,7 +7456,6 @@ bún tàu
 bún đậu mắm tôm
 bún ốc
 búng
-búng buồi
 búng báng
 búng lao
 búng quay
@@ -15464,7 +15461,6 @@ chua ngọt
 chua như cứt mãn
 chua như giấm
 chua như mẻ
-chua vãi đái
 chua xót
 chua đời
 chui
@@ -17836,9 +17832,6 @@ chó chê cứt nát
 chó chê mèo lắm lông
 chó chạy đường cùng
 chó chạy đường quai
-chó chết
-chó chết hết chuyện
-chó chết hết cắn
 chó càn cắn giậu
 chó càn dứt giậu
 chó cái
@@ -17861,7 +17854,6 @@ chó gio
 chó lài
 chó lào
 chó lửa
-chó má
 chó mèo
 chó mực
 chó ngao
@@ -17895,7 +17887,6 @@ chó đá
 chó đá vẫy đuôi
 chó đái
 chó đói
-chó đẻ
 chó đẻ răng cưa
 chó đểu
 chóa
@@ -20862,7 +20853,6 @@ chưa vọng
 chưa vốn
 chưa với
 chưa vời
-chưa vỡ bọng cứt
 chưa vợ
 chưa vụ
 chưa vụn
@@ -21925,7 +21915,6 @@ chạy nhóm
 chạy nhăng
 chạy như
 chạy như bay
-chạy như chó dái
 chạy như chạy loạn
 chạy như con thoi
 chạy như cờ lông công
@@ -24740,7 +24729,6 @@ chệu
 chọ
 chọc
 chọc chạch
-chọc cứt ra mà ngửi
 chọc gan
 chọc ghẹo
 chọc giận
@@ -25316,7 +25304,6 @@ chửi cạnh chửi khoé
 chửi lên mắng xuống
 chửi lắm mỏi mồm
 chửi lắm nghe nhiều
-chửi lồn
 chửi lộn
 chửi mèo mắng chó
 chửi mèo quèo chó
@@ -27166,7 +27153,6 @@ con ông sấm cháu ông sét
 con ông thánh cháu ông thần
 con út
 con đen
-con điếm
 con đàn
 con đàn cháu lũ
 con đàn cháu đống
@@ -27594,7 +27580,6 @@ cuồng chứng
 cuồng chữ
 cuồng cuống
 cuồng cẳng
-cuồng dâm
 cuồng dại
 cuồng hứng
 cuồng loạn
@@ -33320,7 +33305,6 @@ cười tét rún
 cười tủm
 cười vang
 cười vào mũi
-cười vãi đái
 cười vỡ bụng
 cười xoà
 cười xòa
@@ -35955,10 +35939,6 @@ cẳng tay
 cẵm
 cẵn
 cẵng
-cặc
-cặc bò
-cặc bần
-cặc heo
 cặm
 cặm cặm cụi cụi
 cặm cụi
@@ -39533,7 +39513,6 @@ cứt
 cứt ai vừa mũi người ấy
 cứt cò
 cứt gián
-cứt lộn lên đầu
 cứt lợn
 cứt mũi
 cứt mắm
@@ -39545,7 +39524,6 @@ cứt su
 cứt sắt
 cứt trâu
 cứt trâu để lâu hoá bùn
-cứt đái
 cứt đáy
 cứu
 cứu binh
@@ -43589,23 +43567,8 @@ dáu
 dáu quạt
 dáy
 dâm
-dâm bôn
 dâm bụt
 dâm dấp
-dâm dật
-dâm dục
-dâm hoạ
-dâm họa
-dâm loạn
-dâm ngôn
-dâm phu
-dâm phụ
-dâm thư
-dâm tà
-dâm từ
-dâm yêu
-dâm ô
-dâm đãng
 dân
 dân binh
 dân biểu
@@ -48194,7 +48157,6 @@ gian chết trong
 gian cơ
 gian của
 gian của sinh
-gian dâm
 gian dạy
 gian dạy học
 gian dối
@@ -48239,7 +48201,6 @@ gian nhiều
 gian nhiều hơn
 gian phi
 gian phu
-gian phu dâm phụ
 gian phụ
 gian quy
 gian sinh
@@ -52363,7 +52324,6 @@ gái giang hồ
 gái già
 gái goá
 gái góa
-gái gọi
 gái hoá
 gái hóa
 gái nhảy
@@ -52373,7 +52333,6 @@ gái trinh
 gái tân
 gái tơ
 gái tơ ngứa nghề
-gái điếm
 gám
 gán
 gán ghép
@@ -55607,7 +55566,6 @@ hoan nghênh
 hoan tống
 hoang
 hoang báo
-hoang dâm
 hoang dã
 hoang dại
 hoang hoá
@@ -57096,7 +57054,6 @@ hòm xiểng
 hòm đạn
 hòn
 hòn bi
-hòn dái
 hòn lố
 hòn ngọc
 hòn tre lớn
@@ -62410,7 +62367,6 @@ họ hàng
 họ mạc
 họ ngoại
 họ nhà khoai không ngứa cũng lăn tăn
-họ nhà tôm lộn cứt lên đầu
 họ nhà vạc
 họ nội
 họ tộc
@@ -83497,8 +83453,6 @@ lồm cồm
 lồm lộp
 lồm ngồm
 lồm xồm
-lồn
-lồn lột
 lồng
 lồng bàn
 lồng bồng
@@ -83546,7 +83500,6 @@ lỗ hở
 lỗ khoan
 lỗ lã
 lỗ lãi
-lỗ lồn
 lỗ mãng
 lỗ mũi
 lỗ mỗ
@@ -86960,7 +86913,6 @@ mã đương
 mã đầu
 mã đề
 mãi
-mãi dâm
 mãi keo
 mãi lộ
 mãi lực
@@ -87793,8 +87745,6 @@ mạch động
 mạchtương
 mại
 mại bản
-mại dâm
-mại dâm cao cấp
 mại quốc cầu danh
 mại quốc cầu vinh
 mạm
@@ -88482,7 +88432,6 @@ mẹ hoe
 mẹ hát con khen hay
 mẹ kiếp
 mẹ kế
-mẹ mày
 mẹ mốc
 mẹ nuôi
 mẹ ranh
@@ -96235,7 +96184,6 @@ ngu si
 ngu si đần độn
 ngu thần
 ngu tối
-ngu vãi
 ngu xuẩn
 ngu ý
 ngu đần
@@ -111454,7 +111402,6 @@ nứi
 nứm
 nứn
 nứng
-nứng cặc
 nứt
 nứt bụng
 nứt mắt
@@ -124578,7 +124525,6 @@ roem
 roen
 roeo
 roi
-roi cặc bò
 roi roi
 roi rói
 roi vọt
@@ -134671,8 +134617,6 @@ sụ đá
 sụa
 sục
 sục bùn
-sục cu
-sục cặc
 sục sôi
 sục sạo
 sụi
@@ -146842,7 +146786,6 @@ thủ công nghiệp
 thủ công nghệ
 thủ cấp
 thủ cựu
-thủ dâm
 thủ dầu một
 thủ giữ
 thủ hiến
@@ -157810,7 +157753,6 @@ trên môn học
 trên mạng
 trên một
 trên phòng
-trên răng dưới dái
 trên server
 trên slide
 trên thiết
@@ -167578,7 +167520,6 @@ tôm hùm sen
 tôm hùm xanh
 tôm khô
 tôm kẹt
-tôm lộn cứt lên đầu
 tôm lứa
 tôm mượn vỏ
 tôm quýt
@@ -180500,9 +180441,7 @@ vây ép
 vây điểm diệt viện
 vã
 vãi
-vãi cứt
 vãi linh hồn
-vãi lồn
 vãi ra quần
 vãm
 vãn
@@ -186029,7 +185968,6 @@ xuất sắc
 xuất thân
 xuất thần
 xuất thế
-xuất tinh
 xuất toán
 xuất trần xuất thế
 xuất trận
@@ -188471,7 +188409,6 @@ xợt
 xụ
 xụa
 xục
-xục cặc
 xục rục
 xụi
 xụi lơ
@@ -190229,7 +190166,6 @@ yệu
 ăn của
 ăn cứ
 ăn cứng
-ăn cứt không biết thối
 ăn cứu
 ăn cử
 ăn cửa
@@ -197272,7 +197208,6 @@ yệu
 đánh chép
 đánh chó
 đánh chó ngó chúa
-đánh chó đá vãi cứt
 đánh chông
 đánh chú
 đánh chúa
@@ -200244,8 +200179,6 @@ yệu
 đén
 đéng
 đénh
-đéo
-đéo mẹ
 đép
 đét
 đét xe
@@ -200565,11 +200498,6 @@ yệu
 đõm
 đõn
 đõng
-đù
-đù cha
-đù dục
-đù mẹ
-đù đà đù đờ
 đù đờ
 đùa
 đùa bỡn
@@ -209561,7 +209489,6 @@ yệu
 đồ bản
 đồ bỏ
 đồ bộ
-đồ chó
 đồ chơi
 đồ chừng
 đồ cúng
@@ -211650,9 +211577,6 @@ yệu
 đợn
 đợp
 đợt
-đụ
-đụ má
-đụ mẹ
 đụa
 đục
 đục gỗ
