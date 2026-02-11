@@ -470,6 +470,15 @@ function main() {
     console.log('  ⚠ duyet-wordlist.txt not found, skipping');
   }
   
+  // Source 11: Extracted Social Slang (UIT-VSFC)
+  console.log('  [11/12] Extracted Social Slang (UIT-VSFC)');
+  const slangPath = path.join(SOURCES_DIR, 'social-slang-candidates.txt');
+  if (fs.existsSync(slangPath)) {
+    processPlainTextFile(slangPath, wordSet, 'social-slang');
+  } else {
+    console.log('  ⚠ social-slang-candidates.txt not found (skipping)');
+  }
+  
   console.log(`\n  Total from all sources: ${wordSet.size} unique words\n`);
   
   // ===== Phase 3: Generate compound words for gameplay diversity =====

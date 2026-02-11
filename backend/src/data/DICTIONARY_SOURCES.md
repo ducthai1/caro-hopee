@@ -71,11 +71,18 @@ The current dictionary is a merge of the following 11+ distinct sources, filtere
 
 ---
 
+### 11. UIT-VSFC (Social Slang & Student Feedback)
+*   **Source:** Extracted from `UIT-VSFC` dataset (Vietnamese Students' Feedback Corpus).
+*   **File:** `src/data/sources/social-slang-candidates.txt` (Generated via `extract-social-words.js`)
+*   **Contribution:** ~13,000 phrases/words related to student life, university, and common feedback (e.g., "rớt môn", "chạy deadline", "máy lạnh", "giảng viên").
+
+---
+
 ## ⚙️ Generation Logic (Phase 3)
 
 In addition to static files, the dictionary is expanded algorithmically:
 
-### 11. Compound Word Generation
+### 12. Compound Word Generation
 *   **Script:** `backend/scripts/mega-merge-dictionary.js`
 *   **Method:** "Productive Morpheme Expansion"
 *   **Logic:**
@@ -95,5 +102,5 @@ All words from the above sources undergo these checks before acceptance:
 4.  **Blacklist:** English stop words (*admin, user, test*) and technical terms (*html, css*) are removed.
 
 ## 📊 Summary
-*   **Total Sources:** ~10+ distinct datasets.
-*   **Total Words:** ~200,173 unique words.
+*   **Total Sources:** ~12+ distinct datasets.
+*   **Total Words:** ~212,783 unique words.
