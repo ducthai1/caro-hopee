@@ -73,6 +73,16 @@ export interface WordEntry {
   reason?: RejectionReason;
 }
 
+// ─── Reaction ────────────────────────────────────────────────
+
+export interface ReceivedReaction {
+  id: string;
+  emoji: string;
+  fromName: string;
+  slot: number;
+  isSelf: boolean;
+}
+
 // ─── Waiting Room Info (lobby card) ───────────────────────────
 
 export interface WaitingRoomInfo {
@@ -131,6 +141,9 @@ export interface WordChainState {
   lastWord: string;              // the final word that ended the game
   showResult: boolean;
 
+  // Reactions
+  reactions: ReceivedReaction[];
+
   // UI
   error: string | null;
   notification: string | null;
@@ -165,4 +178,6 @@ export type WordChainAction =
   | { type: 'PLAYER_DISCONNECTED'; payload: { slot: number } }
   | { type: 'PLAYER_RECONNECTED'; payload: { slot: number } }
   | { type: 'ROOM_UPDATED'; payload: { rules: WordChainRules; maxPlayers: number; players: WordChainPlayer[]; hasPassword: boolean } }
-  | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } };
+  | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
+  | { type: 'REACTION_RECEIVED'; payload: ReceivedReaction }
+  | { type: 'CLEAR_REACTION'; payload: string };

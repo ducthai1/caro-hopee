@@ -1403,6 +1403,34 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
       }
     });
 
+    // ─── SEND REACTION ───────────────────────────────────────
+    socket.on('word-chain:send-reaction', async (data) => {
+      try {
+        const { roomId, emoji } = data;
+        if (!emoji || !roomId) return;
+
+        const playerId = socket.data.wordChainPlayerId;
+        if (!playerId) return;
+
+        const game = await WordChainGame.findOne({ roomId }).lean();
+        if (!game) return;
+
+        const player = game.players.find(
+          p => (p.userId?.toString() || p.guestId) === playerId
+        );
+        if (!player) return;
+
+        const playerName = getCachedPlayerName(roomId, player.slot);
+        socket.to(roomId).emit('word-chain:reaction-received', {
+          emoji,
+          slot: player.slot,
+          playerName,
+        });
+      } catch (error) {
+        console.error('[WordChain] Send reaction error:', error);
+      }
+    });
+
     // ─── DISCONNECT ──────────────────────────────────────────
     socket.on('disconnect', async () => {
       try {

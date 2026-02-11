@@ -18,6 +18,7 @@ import {
   WordChainPlayer,
   WaitingRoomInfo,
   CreateRoomPayload,
+  ReceivedReaction,
   DEFAULT_RULES,
 } from './word-chain-types';
 
@@ -60,6 +61,7 @@ const initialState: WordChainState = {
   winner: null,
   lastWord: '',
   showResult: false,
+  reactions: [],
   error: null,
   notification: null,
 };
@@ -319,6 +321,12 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
         ),
       };
 
+    case 'REACTION_RECEIVED':
+      return { ...state, reactions: [...state.reactions, action.payload] };
+
+    case 'CLEAR_REACTION':
+      return { ...state, reactions: state.reactions.filter(r => r.id !== action.payload) };
+
     default:
       return state;
   }
@@ -341,6 +349,8 @@ interface WordChainContextValue {
   kickPlayer: (slot: number) => void;
   updateRoom: (payload: { rules?: Partial<WordChainRules>; maxPlayers?: number; password?: string | null }) => Promise<boolean>;
   updateGuestName: (name: string) => void;
+  sendReaction: (emoji: string) => void;
+  clearReaction: (id: string) => void;
 }
 
 const WordChainContext = createContext<WordChainContextValue | undefined>(undefined);
@@ -607,6 +617,18 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
     };
 
+    const handleReactionReceived = (data: any) => {
+      if (!data?.emoji || data.slot == null) return;
+      const reaction: ReceivedReaction = {
+        id: `reaction-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        emoji: data.emoji,
+        fromName: data.playerName || `Player ${data.slot}`,
+        slot: data.slot,
+        isSelf: false,
+      };
+      dispatch({ type: 'REACTION_RECEIVED', payload: reaction });
+    };
+
     const handleError = (data: any) => {
       const errorCode = data.error || data.message || 'serverError';
       dispatch({ type: 'SET_ERROR', payload: errorCode });
@@ -647,6 +669,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     socket.on('word-chain:kicked' as any, handleKicked);
     socket.on('word-chain:room-updated' as any, handleRoomUpdated);
     socket.on('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
+    socket.on('word-chain:reaction-received' as any, handleReactionReceived);
     socket.on('word-chain:error' as any, handleError);
     socket.on('word-chain:rooms-updated' as any, handleRoomsUpdated);
 
@@ -669,6 +692,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       socket.off('word-chain:kicked' as any, handleKicked);
       socket.off('word-chain:room-updated' as any, handleRoomUpdated);
       socket.off('word-chain:player-name-updated' as any, handlePlayerNameUpdated);
+      socket.off('word-chain:reaction-received' as any, handleReactionReceived);
       socket.off('word-chain:error' as any, handleError);
       socket.off('word-chain:rooms-updated' as any, handleRoomsUpdated);
     };
@@ -884,6 +908,48 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     });
   }, []);
 
+  const sendReaction = useCallback((emoji: string) => {
+    const socket = socketService.getSocket();
+    if (!socket || !stateRef.current.roomId || !stateRef.current.mySlot) return;
+
+    // Show self-reaction immediately
+    const myPlayer = stateRef.current.players.find(p => p.slot === stateRef.current.mySlot);
+    const myName = myPlayer?.name || myPlayer?.guestName || 'You';
+    const selfReaction: ReceivedReaction = {
+      id: `reaction-self-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      emoji,
+      fromName: myName,
+      slot: stateRef.current.mySlot,
+      isSelf: true,
+    };
+    dispatch({ type: 'REACTION_RECEIVED', payload: selfReaction });
+
+    socket.emit('word-chain:send-reaction' as any, {
+      roomId: stateRef.current.roomId,
+      emoji,
+    });
+  }, []);
+
+  const clearReaction = useCallback((id: string) => {
+    dispatch({ type: 'CLEAR_REACTION', payload: id });
+  }, []);
+
+  // Auto-cleanup stale reactions (older than 5s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      for (const r of stateRef.current.reactions) {
+        const parts = r.id.split('-');
+        const tsIndex = parts[1] === 'self' ? 2 : 1;
+        const ts = parseInt(parts[tsIndex], 10);
+        if (!isNaN(ts) && now - ts > 5000) {
+          dispatch({ type: 'CLEAR_REACTION', payload: r.id });
+        }
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Sync guest name from storage changes (e.g. sidebar edit)
   useEffect(() => {
     const handleNameSync = () => {
@@ -953,6 +1019,8 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       kickPlayer,
       updateRoom,
       updateGuestName,
+      sendReaction,
+      clearReaction,
     }}>
       {children}
     </WordChainContext.Provider>
