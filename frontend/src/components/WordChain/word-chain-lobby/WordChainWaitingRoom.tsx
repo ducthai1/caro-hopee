@@ -30,6 +30,7 @@ import { WordType, WordChainGameMode } from '../word-chain-types';
 import { WordChainSettingsForm } from './WordChainSettingsForm';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
 import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
+import { ChatButton, FloatingChatMessage } from '../word-chain-game/WordChainChat';
 
 export const WordChainWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
@@ -40,7 +41,7 @@ export const WordChainWaitingRoom: React.FC = () => {
     'all': t('wordChain.wordTypeAll'),
   };
   const toast = useToast();
-  const { state, startGame, leaveRoom, kickPlayer, updateRoom, updateGuestName } = useWordChain();
+  const { state, startGame, leaveRoom, kickPlayer, updateRoom, updateGuestName, sendChat, clearChat } = useWordChain();
   const { isAuthenticated } = useAuth();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [kickTarget, setKickTarget] = useState<{ slot: number; name: string } | null>(null);
@@ -147,18 +148,21 @@ export const WordChainWaitingRoom: React.FC = () => {
           position: 'relative',
         }}
       >
-        {/* Edit settings button — top right of card */}
-        {state.isHost && (
-          <Tooltip title={t('wordChain.editSettings')}>
-            <IconButton
-              onClick={openSettings}
-              size="small"
-              sx={{ position: 'absolute', top: 8, right: 8, color: '#2ecc71' }}
-            >
-              <SettingsIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-          </Tooltip>
-        )}
+        {/* Top right actions: chat + settings */}
+        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <ChatButton onSend={sendChat} />
+          {state.isHost && (
+            <Tooltip title={t('wordChain.editSettings')}>
+              <IconButton
+                onClick={openSettings}
+                size="small"
+                sx={{ color: '#2ecc71' }}
+              >
+                <SettingsIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
 
         {/* Room Code */}
         <Box sx={{ textAlign: 'center', mb: 2 }}>
@@ -475,6 +479,16 @@ export const WordChainWaitingRoom: React.FC = () => {
         onClose={handleGuestNameUpdated}
         initialName={state.players.find(p => p.slot === state.mySlot)?.guestName || ''}
       />
+
+      {/* Floating Chat Messages */}
+      {state.chatMessages.map((chat, idx) => (
+        <FloatingChatMessage
+          key={chat.id}
+          chat={chat}
+          index={idx}
+          onDismiss={() => clearChat(chat.id)}
+        />
+      ))}
     </Box >
   );
 };

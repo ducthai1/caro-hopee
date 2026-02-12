@@ -67,21 +67,21 @@ export const WordChainGame: React.FC = () => {
         />
       </Paper>
 
-      {/* Timer + Current Word + Hint */}
+      {/* Timer + Current Word + Hint + Reactions */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          py: { xs: 1, sm: 2, md: 2.5 },
-          px: { xs: 2, sm: 4, md: 6 },
+          py: { xs: 1, sm: 1.5, md: 2 },
+          px: { xs: 1.5, sm: 2, md: 3 },
           bgcolor: '#fff',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           flexShrink: 0,
-          position: 'relative',
+          gap: { xs: 1, sm: 2 },
         }}
       >
-        <Box sx={{ position: 'absolute', left: { xs: 12, sm: 24, md: 32 }, top: '50%', transform: 'translateY(-50%)' }}>
+        {/* Timer - left */}
+        <Box sx={{ flexShrink: 0 }}>
           <WordChainTimer
             turnStartedAt={state.turnStartedAt}
             turnDuration={state.turnDuration}
@@ -89,7 +89,8 @@ export const WordChainGame: React.FC = () => {
           />
         </Box>
 
-        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+        {/* Current Word - center, takes remaining space */}
+        <Box sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
             {t('wordChain.game.currentWord')}
           </Typography>
@@ -100,6 +101,9 @@ export const WordChainGame: React.FC = () => {
               lineHeight: 1.2,
               mb: 0.25,
               fontSize: { xs: '1.1rem', sm: '1.5rem', md: '1.75rem' },
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
             {state.currentWord || '...'}
@@ -123,15 +127,12 @@ export const WordChainGame: React.FC = () => {
           )}
         </Box>
 
-        {/* Reactions + Chat - desktop: absolute right mirroring timer */}
+        {/* Reactions + Chat - desktop: right side */}
         <Box sx={{
-          position: 'absolute',
-          right: { xs: 8, sm: 24, md: 32 },
-          top: '50%',
-          transform: 'translateY(-50%)',
           display: { xs: 'none', sm: 'flex' },
           alignItems: 'center',
           gap: 1,
+          flexShrink: 0,
         }}>
           <ChatButton
             onSend={sendChat}
