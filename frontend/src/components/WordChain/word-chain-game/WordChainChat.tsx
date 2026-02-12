@@ -98,6 +98,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
         open={open}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
+        disableScrollLock
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
         slotProps={{
@@ -191,13 +192,17 @@ export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, 
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
+  // Self messages → right side, other messages → left side
+  const positionSx = chat.isSelf
+    ? { right: { xs: 12, sm: 24 }, left: 'auto' }
+    : { left: { xs: 12, sm: 24 }, right: 'auto' };
+
   return (
     <Box
       sx={{
         position: 'fixed',
         top: `${baseTop}%`,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        ...positionSx,
         zIndex: 1200,
         display: 'flex',
         alignItems: 'center',
@@ -211,7 +216,7 @@ export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, 
         border: `1px solid ${color}33`,
         animation: `${floatUp} ${FLOAT_DURATION_MS}ms ease-out forwards`,
         pointerEvents: 'none',
-        maxWidth: '80vw',
+        maxWidth: '70vw',
       }}
     >
       {/* Player color badge */}
