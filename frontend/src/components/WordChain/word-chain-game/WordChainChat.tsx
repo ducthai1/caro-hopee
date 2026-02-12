@@ -160,18 +160,19 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
 const floatUp = keyframes`
   0% {
     opacity: 0;
-    transform: translateY(20px) scale(0.9);
+    transform: translateY(10px);
   }
-  10% {
+  8% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
-  80% {
+  75% {
     opacity: 1;
+    transform: translateY(-40px);
   }
   100% {
     opacity: 0;
-    transform: translateY(-60px) scale(0.95);
+    transform: translateY(-55px);
   }
 `;
 
@@ -215,7 +216,7 @@ export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, 
         backdropFilter: 'blur(8px)',
         boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
         border: `1px solid ${color}33`,
-        animation: `${floatUp} ${FLOAT_DURATION_MS}ms ease-out forwards`,
+        animation: `${floatUp} ${FLOAT_DURATION_MS}ms linear forwards`,
         pointerEvents: 'none',
         maxWidth: '70vw',
       }}
