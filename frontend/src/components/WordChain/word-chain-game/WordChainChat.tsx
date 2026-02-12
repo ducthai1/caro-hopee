@@ -192,10 +192,11 @@ export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, 
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
-  // Self messages → right side, other messages → left side
+  // Position: offset from center so messages stay within game area
+  // Mobile: near screen edges. Desktop: offset from center (not at sidebar edge)
   const positionSx = chat.isSelf
-    ? { right: { xs: 12, sm: 24 }, left: 'auto' }
-    : { left: { xs: 12, sm: 24 }, right: 'auto' };
+    ? { right: { xs: 12, sm: '20%' }, left: 'auto' }
+    : { left: { xs: 12, sm: '20%' }, right: 'auto' };
 
   return (
     <Box
