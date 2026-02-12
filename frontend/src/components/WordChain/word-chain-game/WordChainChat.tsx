@@ -99,12 +99,12 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         disableScrollLock
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
         slotProps={{
           paper: {
             sx: {
-              mb: 1,
+              mt: 1,
               p: 1,
               borderRadius: 3,
               background: 'rgba(255, 255, 255, 0.95)',
@@ -184,8 +184,8 @@ interface FloatingChatMessageProps {
 export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, index, onDismiss }) => {
   const color = PLAYER_COLORS[(chat.slot - 1) % PLAYER_COLORS.length];
 
-  // Stagger vertical position: spread within 30%-55% of viewport height
-  const baseTop = 30 + ((index % 5) * 6);
+  // Stagger vertical position: spread within word history area (50%-75% of viewport)
+  const baseTop = 50 + ((index % 5) * 6);
 
   React.useEffect(() => {
     const timer = setTimeout(onDismiss, FLOAT_DURATION_MS);

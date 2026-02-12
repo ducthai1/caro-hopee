@@ -128,7 +128,7 @@ export const WordChainGame: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Reactions strip */}
+      {/* Chat + Reactions strip */}
       <Box sx={{
         display: 'flex',
         justifyContent: 'center',
@@ -140,6 +140,10 @@ export const WordChainGame: React.FC = () => {
         borderBottom: '1px solid rgba(0,0,0,0.06)',
         flexShrink: 0,
       }}>
+        <ChatButton
+          onSend={sendChat}
+          disabled={state.gameStatus !== 'playing'}
+        />
         <GameReactions
           onSendReaction={sendReaction}
           disabled={state.gameStatus !== 'playing'}
@@ -154,17 +158,9 @@ export const WordChainGame: React.FC = () => {
         currentWord={state.currentWord}
       />
 
-      {/* Input + Chat - bottom */}
-      <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', bgcolor: '#fff', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <WordChainInput />
-        </Box>
-        <Box sx={{ flexShrink: 0, pr: { xs: 1.5, sm: 3, md: 6 }, pb: { xs: 1.5, md: 2 }, mb: { xs: 5, sm: 0 } }}>
-          <ChatButton
-            onSend={sendChat}
-            disabled={state.gameStatus !== 'playing'}
-          />
-        </Box>
+      {/* Input - bottom */}
+      <Box sx={{ flexShrink: 0 }}>
+        <WordChainInput />
       </Box>
 
       {/* Floating Chat Messages */}

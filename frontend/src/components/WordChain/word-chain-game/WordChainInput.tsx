@@ -70,7 +70,7 @@ export const WordChainInput: React.FC = () => {
     : '';
 
   return (
-    <Box sx={{ pl: { xs: 2, sm: 3, md: 6 }, pr: { xs: 1, sm: 2, md: 3 }, py: { xs: 1.5, md: 2 }, bgcolor: '#fff', mb: { xs: 5, sm: 0 } }}>
+    <Box sx={{ pl: { xs: 2, sm: 3, md: 6 }, pr: { xs: 2, sm: 3, md: 6 }, py: { xs: 1.5, md: 2 }, borderTop: '1px solid rgba(0,0,0,0.08)', bgcolor: '#fff', mb: { xs: 5, sm: 0 } }}>
       {/* Hint */}
       {isPlaying && lastSyllable && (
         <Typography
