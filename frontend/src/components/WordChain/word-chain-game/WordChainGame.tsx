@@ -67,7 +67,7 @@ export const WordChainGame: React.FC = () => {
         />
       </Paper>
 
-      {/* Timer + Current Word + Hint + Reactions */}
+      {/* Timer + Current Word + Hint */}
       <Box
         sx={{
           display: 'flex',
@@ -89,7 +89,7 @@ export const WordChainGame: React.FC = () => {
           />
         </Box>
 
-        {/* Current Word - center, takes remaining space */}
+        {/* Current Word - center */}
         <Box sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
             {t('wordChain.game.currentWord')}
@@ -126,28 +126,11 @@ export const WordChainGame: React.FC = () => {
             </Typography>
           )}
         </Box>
-
-        {/* Reactions + Chat - desktop: right side */}
-        <Box sx={{
-          display: { xs: 'none', sm: 'flex' },
-          alignItems: 'center',
-          gap: 1,
-          flexShrink: 0,
-        }}>
-          <ChatButton
-            onSend={sendChat}
-            disabled={state.gameStatus !== 'playing'}
-          />
-          <GameReactions
-            onSendReaction={sendReaction}
-            disabled={state.gameStatus !== 'playing'}
-          />
-        </Box>
       </Box>
 
-      {/* Chat + Reactions - mobile: compact inline strip */}
+      {/* Chat + Reactions strip — shared layout for all screen sizes */}
       <Box sx={{
-        display: { xs: 'flex', sm: 'none' },
+        display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         gap: 0.5,
