@@ -99,12 +99,12 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         disableScrollLock
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         slotProps={{
           paper: {
             sx: {
-              mt: 1,
+              mb: 1,
               p: 1,
               borderRadius: 3,
               background: 'rgba(255, 255, 255, 0.95)',
