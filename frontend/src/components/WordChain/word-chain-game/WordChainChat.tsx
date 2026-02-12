@@ -184,14 +184,21 @@ interface FloatingChatMessageProps {
 
 export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, index, onDismiss }) => {
   const color = PLAYER_COLORS[(chat.slot - 1) % PLAYER_COLORS.length];
+  const onDismissRef = React.useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
-  // Stagger vertical position: spread within word history area (50%-75% of viewport)
-  const baseTop = 50 + ((index % 5) * 6);
+  // Stable stagger from message id (not array index) so position doesn't shift when others are removed
+  const stagger = React.useMemo(() => {
+    const hash = chat.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return hash % 5;
+  }, [chat.id]);
+  const baseTop = 50 + (stagger * 6);
 
+  // Timer only starts once on mount — ref avoids re-creating on every render
   React.useEffect(() => {
-    const timer = setTimeout(onDismiss, FLOAT_DURATION_MS);
+    const timer = setTimeout(() => onDismissRef.current(), FLOAT_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, []);
 
   // Position: offset from center so messages stay within game area
   // Mobile: near screen edges. Desktop: offset from center (not at sidebar edge)
