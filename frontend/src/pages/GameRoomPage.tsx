@@ -36,7 +36,13 @@ import { ReadyToStartState } from './GameRoomPage/ReadyToStartState';
 const CaroChatOverlay: React.FC = () => {
   const { chatMessages, clearChat } = useChat();
   return (
-    <>
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      pointerEvents: 'none',
+      zIndex: 1200,
+      isolation: 'isolate',
+    }}>
       {chatMessages.map((chat, idx) => (
         <FloatingChatMessage
           key={chat.id}
@@ -45,7 +51,7 @@ const CaroChatOverlay: React.FC = () => {
           onDismiss={() => clearChat(chat.id)}
         />
       ))}
-    </>
+    </div>
   );
 };
 
@@ -315,31 +321,9 @@ const GameRoomPage: React.FC = () => {
           position: 'relative',
           // Hide all overflow at page level - scroll only in GameBoard
           overflow: 'hidden',
-          // Note: Removed transform and contain to allow fixed positioning to work correctly
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 300,
-            height: 300,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(126, 200, 227, 0.1) 0%, transparent 70%)',
-            pointerEvents: 'none',
-            zIndex: 0,
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: 400,
-            height: 400,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(168, 230, 207, 0.1) 0%, transparent 70%)',
-            pointerEvents: 'none',
-            zIndex: 0,
-          },
+          // PERF FIX: Removed &::before and &::after radial gradient pseudo-elements.
+          // They were purely decorative but added GPU compositing overhead.
+          // The page already has a gradient background.
         }}
       >
         {/* Left Sidebar - Room Code, Game Info & Controls */}

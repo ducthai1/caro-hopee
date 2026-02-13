@@ -205,13 +205,15 @@ const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, on
   }, []);
 
   // All styles computed once (component is memoized, never re-renders)
+  // PERF FIX: position: absolute (inside a single fixed container) instead of
+  // position: fixed per message. This creates 1 GPU compositing layer for all
+  // messages instead of N separate layers.
   const style: React.CSSProperties = {
-    position: 'fixed',
+    position: 'absolute',
     top: `${50 + stagger * 6}%`,
     ...(chat.isSelf
       ? { right: 12, left: 'auto' }
       : { left: 12, right: 'auto' }),
-    zIndex: 1200,
     display: 'flex',
     alignItems: 'center',
     gap: 6,

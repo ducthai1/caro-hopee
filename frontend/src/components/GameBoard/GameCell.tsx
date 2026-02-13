@@ -138,10 +138,9 @@ const GameCell: React.FC<GameCellProps> = ({
     justifyContent: 'center',
     cursor: isEmpty ? 'pointer' : 'default',
     backgroundColor: background,
-    // PERF FIX: Only transition properties that actually change between cell states.
-    // Was `transition: all 0.3s` → 400 cells × 8+ properties = 3200+ GPU transitions.
-    // Now only 2 specific properties, and shorter duration.
-    transition: 'background-color 0.15s, border-color 0.15s',
+    // PERF FIX: Removed all transitions. Cells change value instantly on move placement,
+    // so transition animations are imperceptible. Eliminating 400 transition tracking
+    // allocations reduces GPU compositing overhead that contributed to Chrome crashes.
     position: 'relative',
     boxSizing: 'border-box',
     // PERF FIX: Only winning cells get boxShadow (max 5 cells, not 400).

@@ -138,6 +138,12 @@ const GameBoard: React.FC = () => {
         // Clip shadow overlays at edges
         overflow: 'hidden',
         borderRadius: { xs: 4, md: 0 },
+        // PERF FIX: CSS containment tells browser this subtree is independent,
+        // enabling layout/paint optimization. isolation creates stacking context
+        // boundary → prevents implicit compositing layer promotion of cells
+        // when chat animations overlap.
+        contain: 'content',
+        isolation: 'isolate',
       }}
     >
       {/* Left shadow overlay - mobile only */}
