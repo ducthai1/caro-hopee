@@ -8,7 +8,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import HistoryIcon from '@mui/icons-material/History';
 import { useNavigate } from 'react-router-dom';
-import { useGame } from '../../contexts/GameContext';
+// PERF FIX: Use split contexts instead of legacy useGame() to prevent re-renders on every move
+import { useGameState, useGamePlay, useGameActions } from '../../contexts/GameContext';
 import { useLanguage } from '../../i18n';
 import { logger } from '../../utils/logger';
 import { gameApi } from '../../services/api';
@@ -23,22 +24,10 @@ interface GameControlsProps {
 }
 
 const GameControls: React.FC<GameControlsProps> = ({ onLeaveGame }) => {
-  const {
-    game,
-    surrender,
-    startGame,
-    newGame,
-    leaveRoom,
-    requestUndo,
-    approveUndo,
-    rejectUndo,
-    myPlayerNumber,
-    pendingUndoMove,
-    undoRequestSent,
-    undoUsedCount,
-    clearPendingUndo,
-    players,
-  } = useGame();
+  // PERF FIX: Split context subscriptions — prevents re-rendering on every move
+  const { game, players, myPlayerNumber } = useGameState();
+  const { pendingUndoMove, undoRequestSent, undoUsedCount } = useGamePlay();
+  const { surrender, startGame, newGame, leaveRoom, requestUndo, approveUndo, rejectUndo, clearPendingUndo } = useGameActions();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const toast = useToast();

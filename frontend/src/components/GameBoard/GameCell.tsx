@@ -1,12 +1,27 @@
 import React, { memo, useMemo } from 'react';
-import { Box } from '@mui/material';
+import { Box, keyframes } from '@mui/material';
+
+// PERF FIX: Define keyframes ONCE at module level instead of inside every cell's sx.
+// Previously embedded in each cell's sx → Emotion reprocessed it for every re-render of every cell.
+const fadeIn = keyframes`
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+`;
 
 interface GameCellProps {
   value: number; // 0 = empty, 1 = player1, 2 = player2
   row: number;
   col: number;
   onClick: (row: number, col: number) => void;
-  disabled: boolean;
+  // PERF FIX: Removed `disabled` prop — it changed on every move (isMyTurn toggle),
+  // causing ALL cells to fail memo check and re-render (400 cells on 20×20 board).
+  // The click handler (GameBoard.handleCellClick) already checks turn state via refs.
   boardSize: number;
   cellSize: number;
   isLastMove?: boolean;
@@ -20,7 +35,6 @@ const GameCell: React.FC<GameCellProps> = ({
   row,
   col,
   onClick,
-  disabled,
   cellSize,
   isLastMove = false,
   isWinningCell = false,
@@ -86,9 +100,11 @@ const GameCell: React.FC<GameCellProps> = ({
 
   // FIX H6: Inline cell color calculation (simple ternary is faster than function call)
   const cellColor = value === 1 ? '#5ba8c7' : value === 2 ? '#88d6b7' : 'transparent';
+  const isEmpty = value === 0;
 
   const handleClick = (): void => {
-    if (!disabled && value === 0) {
+    // Only forward clicks for empty cells — turn/game-status checks are in GameBoard's handleCellClick via refs
+    if (isEmpty) {
       onClick(row, col);
     }
   };
@@ -103,61 +119,47 @@ const GameCell: React.FC<GameCellProps> = ({
         minHeight: `${cellSize}px`,
         border: isWinningCell
           ? '3px solid #ff6b6b'
-          : isLastMove 
+          : isLastMove
           ? '2px solid rgba(126, 200, 227, 0.8)'
           : '1px solid rgba(126, 200, 227, 0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: disabled || value !== 0 ? 'default' : 'pointer',
-        backgroundColor: value === 0 ? '#ffffff' : '#ffffff',
-        background: isWinningCell && value !== 0
-          ? `linear-gradient(135deg, ${value === 1 ? 'rgba(255, 107, 107, 0.25)' : 'rgba(255, 107, 107, 0.25)'} 0%, ${value === 1 ? 'rgba(255, 107, 107, 0.35)' : 'rgba(255, 107, 107, 0.35)'} 100%)`
-          : isLastMove && value !== 0
+        cursor: isEmpty ? 'pointer' : 'default',
+        backgroundColor: '#ffffff',
+        background: isWinningCell && !isEmpty
+          ? `linear-gradient(135deg, rgba(255, 107, 107, 0.25) 0%, rgba(255, 107, 107, 0.35) 100%)`
+          : isLastMove && !isEmpty
           ? `linear-gradient(135deg, ${value === 1 ? 'rgba(126, 200, 227, 0.15)' : 'rgba(168, 230, 207, 0.15)'} 0%, ${value === 1 ? 'rgba(126, 200, 227, 0.22)' : 'rgba(168, 230, 207, 0.22)'} 100%)`
-          : value === 0 
-          ? '#ffffff'
           : '#ffffff',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         boxShadow: isWinningCell
           ? '0 0 12px rgba(255, 107, 107, 0.5), inset 0 0 6px rgba(255, 107, 107, 0.2)'
-          : isLastMove 
+          : isLastMove
           ? '0 0 8px rgba(126, 200, 227, 0.35), inset 0 0 4px rgba(126, 200, 227, 0.15)'
           : 'none',
-        '&:hover': {
-          background: value === 0 && !disabled 
-            ? 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)'
-            : undefined,
-          boxShadow: value === 0 && !disabled ? 'inset 0 0 0 2px rgba(126, 200, 227, 0.4)' : undefined,
-          transform: value === 0 && !disabled ? 'scale(1.02)' : undefined,
-          zIndex: value === 0 && !disabled ? 1 : undefined,
-        },
+        '&:hover': isEmpty ? {
+          background: 'linear-gradient(135deg, rgba(126, 200, 227, 0.1) 0%, rgba(168, 230, 207, 0.1) 100%)',
+          boxShadow: 'inset 0 0 0 2px rgba(126, 200, 227, 0.4)',
+          transform: 'scale(1.02)',
+          zIndex: 1,
+        } : undefined,
         fontSize: `${cellSize * 0.65}px`,
         fontWeight: 800,
         color: cellColor,
-        textShadow: value !== 0 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-        '&::before': value !== 0 ? {
+        textShadow: !isEmpty ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+        '&::before': !isEmpty ? {
           content: '""',
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          animation: 'fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          zIndex: 0, // Behind the marker content
+          animation: `${fadeIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1)`,
+          zIndex: 0,
           pointerEvents: 'none',
         } : {},
-        '@keyframes fadeIn': {
-          from: { 
-            opacity: 0,
-            transform: 'scale(0.8)',
-          },
-          to: { 
-            opacity: 1,
-            transform: 'scale(1)',
-          },
-        },
       }}
     >
       {cellContent}
@@ -165,14 +167,14 @@ const GameCell: React.FC<GameCellProps> = ({
   );
 };
 
-// Custom comparison to prevent unnecessary re-renders (fixes Issue #6)
-// Only re-render when props that affect display actually change
+// PERF FIX: Removed `disabled` from memo comparison.
+// `disabled` changed on every move (isMyTurn toggle) → ALL cells re-rendered.
+// Now cells only re-render when their actual display data changes.
 const MemoizedGameCell = memo(GameCell, (prevProps, nextProps) => {
   return (
     prevProps.value === nextProps.value &&
     prevProps.row === nextProps.row &&
     prevProps.col === nextProps.col &&
-    prevProps.disabled === nextProps.disabled &&
     prevProps.cellSize === nextProps.cellSize &&
     prevProps.isLastMove === nextProps.isLastMove &&
     prevProps.isWinningCell === nextProps.isWinningCell &&
@@ -184,4 +186,3 @@ const MemoizedGameCell = memo(GameCell, (prevProps, nextProps) => {
 MemoizedGameCell.displayName = 'GameCell';
 
 export default MemoizedGameCell;
-

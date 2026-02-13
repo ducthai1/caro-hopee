@@ -403,13 +403,8 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
           isFull: true,
         });
 
-        // Emit to all players in the room
+        // Emit to all players in the room (io.to includes sender if they're in the room)
         io.to(roomId).emit('game-started', {
-          currentPlayer: game.currentPlayer,
-        });
-
-        // Also emit directly to the socket that sent the request (in case they're not in room yet)
-        socket.emit('game-started', {
           currentPlayer: game.currentPlayer,
         });
       } catch (error: any) {

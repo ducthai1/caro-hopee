@@ -229,7 +229,6 @@ const GameBoard: React.FC = () => {
                     row={rowIndex}
                     col={colIndex}
                     onClick={handleCellClick}
-                    disabled={!isMyTurn || game.gameStatus !== 'playing'}
                     boardSize={game.boardSize}
                     cellSize={cellSize}
                     isLastMove={isLastMoveCell}
