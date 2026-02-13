@@ -1403,9 +1403,21 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
       }
     });
 
+    // Per-socket rate limiter for chat/reactions (prevents event flooding → browser crash)
+    const wcRateLimits: Record<string, number[]> = {};
+    const isWcRateLimited = (type: string, maxPerWindow: number, windowMs: number = 5000): boolean => {
+      const now = Date.now();
+      if (!wcRateLimits[type]) wcRateLimits[type] = [];
+      wcRateLimits[type] = wcRateLimits[type].filter(t => now - t < windowMs);
+      if (wcRateLimits[type].length >= maxPerWindow) return true;
+      wcRateLimits[type].push(now);
+      return false;
+    };
+
     // ─── SEND REACTION ───────────────────────────────────────
     socket.on('word-chain:send-reaction', async (data) => {
       try {
+        if (isWcRateLimited('reaction', 3)) return; // max 3 reactions per 5s
         const { roomId, emoji } = data;
         if (!emoji || !roomId) return;
 
@@ -1434,6 +1446,7 @@ export function setupWordChainSocketHandlers(io: SocketIOServer): void {
     // ─── SEND CHAT ────────────────────────────────────────────
     socket.on('word-chain:send-chat', async (data) => {
       try {
+        if (isWcRateLimited('chat', 5)) return; // max 5 chats per 5s
         const { roomId, message } = data;
         if (!message || !roomId) return;
 

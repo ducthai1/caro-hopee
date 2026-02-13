@@ -3,7 +3,7 @@
  * Displays emoji with bounce animation, auto-dismisses after duration
  * No background - just emoji and text with shadow for visibility
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Grow, keyframes } from '@mui/material';
 import { REACTION_POPUP_DURATION_MS } from '../../constants/reactions';
 
@@ -53,21 +53,25 @@ const ReactionPopup: React.FC<ReactionPopupProps> = ({
 }) => {
   const [visible, setVisible] = useState(true);
 
+  // Use ref to avoid re-triggering timers when onDismiss reference changes
+  // (inline arrow from parent creates new ref every render → timer restart loop)
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
-    // Auto-dismiss after duration
     const timer = setTimeout(() => {
       setVisible(false);
-    }, REACTION_POPUP_DURATION_MS - 300); // Start fade out slightly early
+    }, REACTION_POPUP_DURATION_MS - 300);
 
     const dismissTimer = setTimeout(() => {
-      onDismiss();
+      onDismissRef.current();
     }, REACTION_POPUP_DURATION_MS);
 
     return () => {
       clearTimeout(timer);
       clearTimeout(dismissTimer);
     };
-  }, [onDismiss]);
+  }, []); // Empty deps - runs once, uses ref for latest onDismiss
 
   // Calculate horizontal position based on position prop
   const getPositionStyles = () => {

@@ -325,13 +325,13 @@ function wordChainReducer(state: WordChainState, action: WordChainAction): WordC
       };
 
     case 'REACTION_RECEIVED':
-      return { ...state, reactions: [...state.reactions, action.payload] };
+      return { ...state, reactions: [...state.reactions.slice(-4), action.payload] }; // max 5
 
     case 'CLEAR_REACTION':
       return { ...state, reactions: state.reactions.filter(r => r.id !== action.payload) };
 
     case 'CHAT_RECEIVED':
-      return { ...state, chatMessages: [...state.chatMessages, action.payload] };
+      return { ...state, chatMessages: [...state.chatMessages.slice(-4), action.payload] }; // max 5
 
     case 'CLEAR_CHAT':
       return { ...state, chatMessages: state.chatMessages.filter(m => m.id !== action.payload) };

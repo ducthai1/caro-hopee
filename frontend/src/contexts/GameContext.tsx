@@ -984,7 +984,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isSelf: false,
       };
 
-      setReactions(prev => [...prev, newReaction]);
+      setReactions(prev => [...prev.slice(-4), newReaction]); // max 5 reactions
       logger.log('[GameContext] Reaction received:', data);
     };
 
@@ -1346,7 +1346,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fromPlayerNumber: currentMyPlayerNumber,
         isSelf: true,
       };
-      setReactions(prev => [...prev, selfReaction]);
+      setReactions(prev => [...prev.slice(-4), selfReaction]); // max 5 reactions
     }
 
     socket.emit('send-reaction', { roomId: currentRoomId, emoji });

@@ -572,9 +572,21 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
       }
     });
 
+    // Per-socket rate limiter for chat/reactions (prevents event flooding → browser crash)
+    const socketRateLimits: Record<string, number[]> = {};
+    const isSocketRateLimited = (type: string, maxPerWindow: number, windowMs: number = 5000): boolean => {
+      const now = Date.now();
+      if (!socketRateLimits[type]) socketRateLimits[type] = [];
+      socketRateLimits[type] = socketRateLimits[type].filter(t => now - t < windowMs);
+      if (socketRateLimits[type].length >= maxPerWindow) return true;
+      socketRateLimits[type].push(now);
+      return false;
+    };
+
     // Send chat message to opponent
     socket.on('send-chat', async (data: { roomId: string; message: string }) => {
       try {
+        if (isSocketRateLimited('chat', 5)) return; // max 5 chats per 5s
         const { roomId, message } = data;
         if (!message || typeof message !== 'string') return;
 
@@ -630,6 +642,7 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
     // Send reaction to opponent
     socket.on('send-reaction', async (data: { roomId: string; emoji: string }) => {
       try {
+        if (isSocketRateLimited('reaction', 3)) return; // max 3 reactions per 5s
         const { roomId, emoji } = data;
 
         // Validate emoji (basic check)
