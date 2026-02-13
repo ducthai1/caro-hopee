@@ -1000,7 +1000,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fromPlayerNumber: data.fromPlayerNumber,
         isSelf: false,
       };
-      setChatMessages(prev => [...prev, chat]);
+      setChatMessages(prev => [...prev.slice(-4), chat]); // max 5 messages
       playChatSound();
     };
 
@@ -1382,7 +1382,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fromPlayerNumber: currentMyPlayerNumber,
         isSelf: true,
       };
-      setChatMessages(prev => [...prev, selfChat]);
+      setChatMessages(prev => [...prev.slice(-4), selfChat]); // max 5 messages
       playChatSound();
     }
 

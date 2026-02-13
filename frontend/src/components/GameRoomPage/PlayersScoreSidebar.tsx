@@ -1,9 +1,10 @@
 /**
- * PlayersScoreSidebar - Right sidebar showing players, scores, and reactions
+ * PlayersScoreSidebar - Right sidebar showing players, scores, chat and reactions
  */
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { useLanguage } from '../../i18n';
+import { useChat } from '../../contexts/GameContext';
 import { GameReactions } from '../GameReactions';
 import { ChatButton } from '../CaroChat';
 
@@ -27,10 +28,23 @@ interface PlayersScoreSidebarProps {
   players: Player[];
   myPlayerNumber: number | null;
   onSendReaction?: (emoji: string) => void;
-  onSendChat?: (message: string) => void;
 }
 
-const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players, myPlayerNumber, onSendReaction, onSendChat }) => {
+/** Isolated chat button — only this re-renders when chat state changes */
+const SidebarChatButton: React.FC<{ disabled: boolean }> = ({ disabled }) => {
+  const { t } = useLanguage();
+  const { sendChat } = useChat();
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5 }}>
+      <ChatButton onSend={sendChat} disabled={disabled} />
+      <Typography variant="caption" sx={{ color: '#5a6a7a', fontSize: '0.75rem' }}>
+        {t('game.chat.tooltip')}
+      </Typography>
+    </Box>
+  );
+};
+
+const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players, myPlayerNumber, onSendReaction }) => {
   const { t } = useLanguage();
   const showReactions = game.gameStatus === 'playing' && players.length === 2 && onSendReaction;
 
@@ -104,17 +118,7 @@ const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players
       {/* Chat + Reactions - only show when game is playing with 2 players */}
       {showReactions && (
         <>
-          {onSendChat && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5 }}>
-              <ChatButton
-                onSend={onSendChat}
-                disabled={game.gameStatus !== 'playing'}
-              />
-              <Typography variant="caption" sx={{ color: '#5a6a7a', fontSize: '0.75rem' }}>
-                {t('game.chat.tooltip')}
-              </Typography>
-            </Box>
-          )}
+          <SidebarChatButton disabled={game.gameStatus !== 'playing'} />
           <GameReactions
             onSendReaction={onSendReaction}
             disabled={game.gameStatus !== 'playing'}

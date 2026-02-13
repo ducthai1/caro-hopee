@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Container, Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import { useGame, useReaction, useChat } from '../contexts/GameContext';
+// Note: useChat is used by CaroChatOverlay and CaroChatButton below, not directly in GameRoomPage
 import { useAuth } from '../contexts/AuthContext';
 import { gameApi } from '../services/api';
 import { useLanguage } from '../i18n';
@@ -28,6 +29,31 @@ import {
 import { WaitingState } from './GameRoomPage/WaitingState';
 import { ReadyToStartState } from './GameRoomPage/ReadyToStartState';
 
+/**
+ * Isolated chat components — subscribed to ChatContext so re-renders
+ * stay within these small trees instead of re-rendering the entire GameRoomPage.
+ */
+const CaroChatOverlay: React.FC = () => {
+  const { chatMessages, clearChat } = useChat();
+  return (
+    <>
+      {chatMessages.map((chat, idx) => (
+        <FloatingChatMessage
+          key={chat.id}
+          chat={chat}
+          index={idx}
+          onDismiss={() => clearChat(chat.id)}
+        />
+      ))}
+    </>
+  );
+};
+
+const CaroChatButton: React.FC<{ disabled: boolean }> = ({ disabled }) => {
+  const { sendChat } = useChat();
+  return <ChatButton onSend={sendChat} disabled={disabled} />;
+};
+
 const GameRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -37,7 +63,6 @@ const GameRoomPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, updateGuestName, sendReaction } = useGame();
   const { reactions, clearReaction } = useReaction();
-  const { chatMessages, sendChat, clearChat } = useChat();
   const { isAuthenticated } = useAuth();
   
   // Guest name dialog state
@@ -408,10 +433,7 @@ const GameRoomPage: React.FC = () => {
                 {/* Reactions + Chat - mobile only (desktop shows in right sidebar) */}
                 {game.gameStatus === 'playing' && players.length === 2 && (
                   <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 1 }}>
-                    <ChatButton
-                      onSend={sendChat}
-                      disabled={game.gameStatus !== 'playing'}
-                    />
+                    <CaroChatButton disabled={game.gameStatus !== 'playing'} />
                     <GameReactions
                       onSendReaction={sendReaction}
                       disabled={game.gameStatus !== 'playing'}
@@ -430,7 +452,6 @@ const GameRoomPage: React.FC = () => {
           players={players}
           myPlayerNumber={myPlayerNumber}
           onSendReaction={sendReaction}
-          onSendChat={sendChat}
         />
 
         {/* Mobile Bottom Sheet */}
@@ -468,15 +489,8 @@ const GameRoomPage: React.FC = () => {
         );
       })}
 
-      {/* Floating Chat Messages */}
-      {chatMessages.map((chat, idx) => (
-        <FloatingChatMessage
-          key={chat.id}
-          chat={chat}
-          index={idx}
-          onDismiss={() => clearChat(chat.id)}
-        />
-      ))}
+      {/* Floating Chat Messages — isolated to avoid re-rendering entire page */}
+      <CaroChatOverlay />
 
       {/* Guest Name Dialog */}
       <GuestNameDialog
