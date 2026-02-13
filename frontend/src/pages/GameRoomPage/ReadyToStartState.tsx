@@ -36,7 +36,15 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
     : null;
   
   return (
-    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative', minHeight: { xs: '70vh', lg: '80vh' } }}>
+    <Box sx={{
+      width: '100%',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+      minHeight: { xs: '70vh', lg: '80vh' },
+      mb: { xs: '120px', lg: 0 },
+    }}>
       <GameErrorBoundary roomId={roomId}>
         <GameBoard />
       </GameErrorBoundary>
@@ -58,20 +66,20 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
             pointerEvents: 'none',
           }}
         />
-        {/* Marker Selector and Start Game Button */}
+        {/* Marker Selector and Start Game Button - use inset + flex centering
+            instead of top:50%/transform to prevent clipping on small boards */}
         <Box
           sx={{
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
+            inset: 0,
             zIndex: 10,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 3,
-            width: '90%',
-            maxWidth: '600px',
+            justifyContent: 'center',
+            gap: 2,
+            p: { xs: 2, md: 3 },
+            overflowY: 'auto',
           }}
         >
           {/* Marker Selector */}
@@ -79,7 +87,7 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
             <Box
               sx={{
                 bgcolor: 'rgba(255, 255, 255, 0.98)',
-                p: 3,
+                p: { xs: 2, md: 3 },
                 borderRadius: 3,
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
