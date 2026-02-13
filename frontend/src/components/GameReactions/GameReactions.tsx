@@ -148,8 +148,7 @@ const GameReactions: React.FC<GameReactionsProps> = ({ onSendReaction, disabled 
               width: '100%',
               maxWidth: '100%',
               maxHeight: '50vh',
-              background: 'rgba(255, 255, 255, 0.97)',
-              backdropFilter: 'blur(10px)',
+              background: 'rgba(255, 255, 255, 0.98)',
             },
           }}
         >
@@ -215,8 +214,7 @@ const GameReactions: React.FC<GameReactionsProps> = ({ onSendReaction, disabled 
         gap: 1,
         p: 1.5,
         borderRadius: 3,
-        background: 'rgba(255, 255, 255, 0.7)',
-        backdropFilter: 'blur(10px)',
+        background: 'rgba(255, 255, 255, 0.95)',
         border: '1px solid rgba(126, 200, 227, 0.2)',
         boxShadow: '0 4px 20px rgba(126, 200, 227, 0.1)',
       }}

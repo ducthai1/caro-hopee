@@ -2,15 +2,15 @@
  * WordChainChat - Floating chat for Word Chain game.
  * ChatButton: icon + mini input popup.
  * FloatingChatMessage: fly-up danmaku-style animation.
+ *
+ * PERF FIX: Same fixes as CaroChat — plain div + inline styles, no backdropFilter,
+ * React.memo to prevent re-renders.
  */
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, memo } from 'react';
 import {
-  Box,
   IconButton,
   TextField,
   Popover,
-  Typography,
-  keyframes,
   InputAdornment,
   Tooltip,
 } from '@mui/material';
@@ -24,6 +24,22 @@ import { PLAYER_COLORS } from './WordChainPlayerBar';
 
 const CHAT_COOLDOWN_MS = 3000;
 const FLOAT_DURATION_MS = 5000;
+
+// ─── Inject CSS keyframes once ──────────────────────────────────
+const ANIMATION_NAME = 'wc-chat-float-up';
+if (typeof document !== 'undefined' && !document.getElementById('wc-chat-keyframes')) {
+  const style = document.createElement('style');
+  style.id = 'wc-chat-keyframes';
+  style.textContent = `
+    @keyframes ${ANIMATION_NAME} {
+      0% { opacity: 0; transform: translateY(10px); }
+      8% { opacity: 1; transform: translateY(0); }
+      75% { opacity: 1; transform: translateY(-40px); }
+      100% { opacity: 0; transform: translateY(-55px); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 // ─── ChatButton ─────────────────────────────────────────────────
 
@@ -47,7 +63,6 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
       setAnchorEl(null);
     } else {
       setAnchorEl(e.currentTarget);
-      // Focus input after popover opens
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [open]);
@@ -107,8 +122,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
               mb: 1,
               p: 1,
               borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
+              background: 'rgba(255, 255, 255, 0.97)',
               border: '1px solid rgba(126, 200, 227, 0.2)',
               boxShadow: '0 4px 20px rgba(126, 200, 227, 0.15)',
               width: 260,
@@ -156,25 +170,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
 };
 
 // ─── FloatingChatMessage ────────────────────────────────────────
-
-const floatUp = keyframes`
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  8% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  75% {
-    opacity: 1;
-    transform: translateY(-40px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-55px);
-  }
-`;
+// PERF FIX: Plain div + inline styles, no backdropFilter, React.memo.
 
 interface FloatingChatMessageProps {
   chat: ChatMessage;
@@ -182,84 +178,74 @@ interface FloatingChatMessageProps {
   onDismiss: () => void;
 }
 
-export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, index, onDismiss }) => {
+const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, onDismiss }) => {
   const color = PLAYER_COLORS[(chat.slot - 1) % PLAYER_COLORS.length];
   const onDismissRef = React.useRef(onDismiss);
   onDismissRef.current = onDismiss;
 
-  // Stable stagger from message id (not array index) so position doesn't shift when others are removed
+  // Stable stagger from message id so position doesn't shift when others are removed
   const stagger = React.useMemo(() => {
     const hash = chat.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return hash % 5;
   }, [chat.id]);
-  const baseTop = 50 + (stagger * 6);
 
-  // Timer only starts once on mount — ref avoids re-creating on every render
   React.useEffect(() => {
     const timer = setTimeout(() => onDismissRef.current(), FLOAT_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  // Position: offset from center so messages stay within game area
-  // Mobile: near screen edges. Desktop: offset from center (not at sidebar edge)
-  const positionSx = chat.isSelf
-    ? { right: { xs: 12, sm: '20%' }, left: 'auto' }
-    : { left: { xs: 12, sm: '20%' }, right: 'auto' };
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    top: `${50 + stagger * 6}%`,
+    ...(chat.isSelf
+      ? { right: 12, left: 'auto' }
+      : { left: 12, right: 'auto' }),
+    zIndex: 1200,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 12px',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    border: `1px solid ${color}33`,
+    animation: `${ANIMATION_NAME} ${FLOAT_DURATION_MS}ms linear forwards`,
+    pointerEvents: 'none',
+    maxWidth: '70vw',
+  };
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: `${baseTop}%`,
-        ...positionSx,
-        zIndex: 1200,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0.75,
-        px: 1.5,
-        py: 0.5,
-        borderRadius: 3,
-        bgcolor: 'rgba(255, 255, 255, 0.92)',
-        backdropFilter: 'blur(8px)',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
-        border: `1px solid ${color}33`,
-        animation: `${floatUp} ${FLOAT_DURATION_MS}ms linear forwards`,
-        pointerEvents: 'none',
-        maxWidth: '70vw',
-      }}
-    >
-      {/* Player color badge */}
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          bgcolor: color,
-          flexShrink: 0,
-        }}
-      />
-      <Typography
-        sx={{
-          fontSize: { xs: '0.75rem', sm: '0.85rem' },
-          fontWeight: 700,
-          color,
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
-      >
+    <div style={style}>
+      <div style={{
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: color,
+        flexShrink: 0,
+      }} />
+      <span style={{
+        fontSize: '0.8rem',
+        fontWeight: 700,
+        color,
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+      }}>
         {chat.fromName}
-      </Typography>
-      <Typography
-        sx={{
-          fontSize: { xs: '0.8rem', sm: '0.9rem' },
-          color: '#2c3e50',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
+      </span>
+      <span style={{
+        fontSize: '0.85rem',
+        color: '#2c3e50',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
         {chat.message}
-      </Typography>
-    </Box>
+      </span>
+    </div>
   );
 };
+
+export const FloatingChatMessage = memo(FloatingChatMessageInner, (prev, next) => {
+  return prev.chat.id === next.chat.id;
+});
+FloatingChatMessage.displayName = 'FloatingChatMessage';

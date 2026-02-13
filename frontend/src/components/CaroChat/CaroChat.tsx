@@ -2,15 +2,17 @@
  * CaroChat - Floating chat for Caro game.
  * ChatButton: icon + mini input popup.
  * FloatingChatMessage: fly-up danmaku-style animation.
+ *
+ * PERF FIX: FloatingChatMessage uses plain div + inline styles instead of MUI Box + sx.
+ * Previously, each message rendered MUI Box with complex sx → Emotion reprocessed on every
+ * re-render of CaroChatOverlay, and `backdropFilter: blur()` on each `position: fixed`
+ * element created expensive GPU compositing layers → browser crash after a few messages.
  */
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, memo } from 'react';
 import {
-  Box,
   IconButton,
   TextField,
   Popover,
-  Typography,
-  keyframes,
   InputAdornment,
   Tooltip,
 } from '@mui/material';
@@ -29,6 +31,23 @@ const PLAYER_COLORS: Record<1 | 2, string> = {
   1: '#7ec8e3',
   2: '#a8e6cf',
 };
+
+// ─── Inject CSS keyframes once ──────────────────────────────────
+// Using a <style> tag instead of Emotion keyframes eliminates per-render Emotion processing.
+const ANIMATION_NAME = 'caro-chat-float-up';
+if (typeof document !== 'undefined' && !document.getElementById('caro-chat-keyframes')) {
+  const style = document.createElement('style');
+  style.id = 'caro-chat-keyframes';
+  style.textContent = `
+    @keyframes ${ANIMATION_NAME} {
+      0% { opacity: 0; transform: translateY(10px); }
+      8% { opacity: 1; transform: translateY(0); }
+      75% { opacity: 1; transform: translateY(-40px); }
+      100% { opacity: 0; transform: translateY(-55px); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 // ─── ChatButton ─────────────────────────────────────────────────
 
@@ -111,8 +130,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
               mb: 1,
               p: 1,
               borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
+              background: 'rgba(255, 255, 255, 0.97)',
               border: '1px solid rgba(126, 200, 227, 0.2)',
               boxShadow: '0 4px 20px rgba(126, 200, 227, 0.15)',
               width: 260,
@@ -160,25 +178,9 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ onSend, disabled = false
 };
 
 // ─── FloatingChatMessage ────────────────────────────────────────
-
-const floatUp = keyframes`
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  8% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  75% {
-    opacity: 1;
-    transform: translateY(-40px);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-55px);
-  }
-`;
+// PERF FIX: Uses plain div + inline styles instead of MUI Box + sx.
+// Removes backdropFilter: blur() which caused GPU compositing crash.
+// Wrapped in React.memo — only mounts once per message, never re-renders.
 
 interface FloatingChatMessageProps {
   chat: CaroChatMessage;
@@ -186,7 +188,7 @@ interface FloatingChatMessageProps {
   onDismiss: () => void;
 }
 
-export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, index, onDismiss }) => {
+const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, onDismiss }) => {
   const color = PLAYER_COLORS[chat.fromPlayerNumber];
   const onDismissRef = React.useRef(onDismiss);
   onDismissRef.current = onDismiss;
@@ -196,71 +198,73 @@ export const FloatingChatMessage: React.FC<FloatingChatMessageProps> = ({ chat, 
     const hash = chat.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return hash % 5;
   }, [chat.id]);
-  const baseTop = 50 + (stagger * 6);
 
   React.useEffect(() => {
     const timer = setTimeout(() => onDismissRef.current(), FLOAT_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  // Position: self on right, opponent on left
-  const positionSx = chat.isSelf
-    ? { right: { xs: 12, sm: '20%' }, left: 'auto' }
-    : { left: { xs: 12, sm: '20%' }, right: 'auto' };
+  // All styles computed once (component is memoized, never re-renders)
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    top: `${50 + stagger * 6}%`,
+    ...(chat.isSelf
+      ? { right: 12, left: 'auto' }
+      : { left: 12, right: 'auto' }),
+    zIndex: 1200,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '4px 12px',
+    borderRadius: 12,
+    // PERF FIX: Solid background instead of backdropFilter: blur()
+    // backdropFilter creates expensive GPU compositing layer per element
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    border: `1px solid ${color}33`,
+    animation: `${ANIMATION_NAME} ${FLOAT_DURATION_MS}ms linear forwards`,
+    pointerEvents: 'none',
+    maxWidth: '70vw',
+  };
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: `${baseTop}%`,
-        ...positionSx,
-        zIndex: 1200,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0.75,
-        px: 1.5,
-        py: 0.5,
-        borderRadius: 3,
-        bgcolor: 'rgba(255, 255, 255, 0.92)',
-        backdropFilter: 'blur(8px)',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
-        border: `1px solid ${color}33`,
-        animation: `${floatUp} ${FLOAT_DURATION_MS}ms linear forwards`,
-        pointerEvents: 'none',
-        maxWidth: '70vw',
-      }}
-    >
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          bgcolor: color,
-          flexShrink: 0,
-        }}
-      />
-      <Typography
-        sx={{
-          fontSize: { xs: '0.75rem', sm: '0.85rem' },
-          fontWeight: 700,
-          color,
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
-      >
+    <div style={style}>
+      {/* Player color badge */}
+      <div style={{
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: color,
+        flexShrink: 0,
+      }} />
+      {/* Player name */}
+      <span style={{
+        fontSize: '0.8rem',
+        fontWeight: 700,
+        color,
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+      }}>
         {chat.fromName}
-      </Typography>
-      <Typography
-        sx={{
-          fontSize: { xs: '0.8rem', sm: '0.9rem' },
-          color: '#2c3e50',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
+      </span>
+      {/* Message text */}
+      <span style={{
+        fontSize: '0.85rem',
+        color: '#2c3e50',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
         {chat.message}
-      </Typography>
-    </Box>
+      </span>
+    </div>
   );
 };
+
+// PERF FIX: React.memo — once mounted, a chat message never changes.
+// Only check chat.id since message data is immutable after creation.
+// onDismiss uses ref pattern internally so prop change doesn't matter.
+export const FloatingChatMessage = memo(FloatingChatMessageInner, (prev, next) => {
+  return prev.chat.id === next.chat.id;
+});
+FloatingChatMessage.displayName = 'FloatingChatMessage';

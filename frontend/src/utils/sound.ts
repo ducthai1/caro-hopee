@@ -21,9 +21,20 @@ function getAudioContext(): AudioContext | null {
 }
 
 /**
+ * Safely disconnect an AudioNode, ignoring errors if already disconnected.
+ */
+function safeDisconnect(node: AudioNode): void {
+  try { node.disconnect(); } catch { /* already disconnected */ }
+}
+
+/**
  * Play a bubbly "pop" chat notification.
  * Quick frequency sweep (600→1400Hz) + soft harmonic overlay = playful bubble pop.
  * All nodes are disconnected after playback to prevent leaks.
+ *
+ * PERF FIX: Added fallback setTimeout cleanup. If AudioContext is suspended,
+ * oscillator.onended may never fire → nodes leak forever. The fallback timer
+ * guarantees cleanup within 2 seconds regardless.
  */
 export function playChatSound(): void {
   try {
@@ -63,13 +74,23 @@ export function playChatSound(): void {
     sparkle.start(now + 0.03);
     sparkle.stop(now + 0.2);
 
-    // Cleanup all nodes after last oscillator ends
-    sparkle.onended = () => {
-      pop.disconnect();
-      sparkle.disconnect();
-      sparkleGain.disconnect();
-      master.disconnect();
+    // Track whether cleanup ran via onended
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      safeDisconnect(pop);
+      safeDisconnect(sparkle);
+      safeDisconnect(sparkleGain);
+      safeDisconnect(master);
     };
+
+    // Primary cleanup: when oscillator ends naturally
+    sparkle.onended = cleanup;
+
+    // PERF FIX: Fallback cleanup — if AudioContext is suspended or onended never fires,
+    // guarantee nodes are disconnected within 2 seconds to prevent memory leak.
+    setTimeout(cleanup, 2000);
   } catch {
     // Silently fail — audio is non-critical
   }
