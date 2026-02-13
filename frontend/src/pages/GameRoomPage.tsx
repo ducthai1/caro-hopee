@@ -33,16 +33,38 @@ import { ReadyToStartState } from './GameRoomPage/ReadyToStartState';
  * Isolated chat components — subscribed to ChatContext so re-renders
  * stay within these small trees instead of re-rendering the entire GameRoomPage.
  */
+
+// Inject responsive styles for chat overlay container (no Emotion overhead).
+// Mobile: full viewport. Desktop (lg+): shrink to content area between sidebars.
+// Messages use 25% offset from center within this container.
+if (typeof document !== 'undefined' && !document.getElementById('caro-chat-overlay-styles')) {
+  const style = document.createElement('style');
+  style.id = 'caro-chat-overlay-styles';
+  style.textContent = `
+    .caro-chat-overlay {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      z-index: 1200;
+      isolation: isolate;
+    }
+    @media (min-width: 1200px) {
+      .caro-chat-overlay {
+        left: 328px;
+        right: 328px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 const CaroChatOverlay: React.FC = () => {
   const { chatMessages, clearChat } = useChat();
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      pointerEvents: 'none',
-      zIndex: 1200,
-      isolation: 'isolate',
-    }}>
+    <div className="caro-chat-overlay">
       {chatMessages.map((chat, idx) => (
         <FloatingChatMessage
           key={chat.id}

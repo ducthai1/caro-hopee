@@ -215,9 +215,10 @@ const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, on
   const style: React.CSSProperties = {
     position: 'absolute',
     marginTop: `${stagger * 6}%`,
+    // Position at 25% offset from center of available area (container handles sidebar adjustment)
     ...(chat.isSelf
-      ? { right: 12, left: 'auto' }
-      : { left: 12, right: 'auto' }),
+      ? { right: '25%', left: 'auto' }
+      : { left: '25%', right: 'auto' }),
     display: 'flex',
     alignItems: 'center',
     gap: 6,
