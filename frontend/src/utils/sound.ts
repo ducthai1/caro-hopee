@@ -21,8 +21,8 @@ function getAudioContext(): AudioContext | null {
 }
 
 /**
- * Play a short chat notification chime.
- * Two-tone ascending beep (~150ms), gentle volume.
+ * Play a bubbly "pop" chat notification.
+ * Quick frequency sweep (600→1400Hz) + soft harmonic overlay = playful bubble pop.
  * All nodes are disconnected after playback to prevent leaks.
  */
 export function playChatSound(): void {
@@ -31,32 +31,44 @@ export function playChatSound(): void {
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    const endTime = now + 0.18;
 
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, endTime);
+    // Master gain — gentle volume
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    master.gain.setValueAtTime(0.15, now);
+    master.gain.linearRampToValueAtTime(0.12, now + 0.05);
+    master.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
-    const osc1 = ctx.createOscillator();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(880, now);
-    osc1.connect(gain);
-    osc1.start(now);
-    osc1.stop(now + 0.07);
+    // Main bubble: quick upward frequency sweep (pop feel)
+    const pop = ctx.createOscillator();
+    pop.type = 'sine';
+    pop.frequency.setValueAtTime(600, now);
+    pop.frequency.exponentialRampToValueAtTime(1400, now + 0.08);
+    pop.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+    pop.connect(master);
+    pop.start(now);
+    pop.stop(now + 0.15);
 
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1175, now + 0.07);
-    osc2.connect(gain);
-    osc2.start(now + 0.07);
-    osc2.stop(endTime);
+    // Soft harmonic sparkle on top (triangle wave, higher pitch)
+    const sparkle = ctx.createOscillator();
+    sparkle.type = 'triangle';
+    sparkle.frequency.setValueAtTime(1800, now + 0.03);
+    sparkle.frequency.exponentialRampToValueAtTime(2200, now + 0.1);
+    const sparkleGain = ctx.createGain();
+    sparkleGain.connect(master);
+    sparkleGain.gain.setValueAtTime(0, now);
+    sparkleGain.gain.linearRampToValueAtTime(0.06, now + 0.04);
+    sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    sparkle.connect(sparkleGain);
+    sparkle.start(now + 0.03);
+    sparkle.stop(now + 0.2);
 
-    // Disconnect all nodes after playback to prevent memory leak
-    osc2.onended = () => {
-      osc1.disconnect();
-      osc2.disconnect();
-      gain.disconnect();
+    // Cleanup all nodes after last oscillator ends
+    sparkle.onended = () => {
+      pop.disconnect();
+      sparkle.disconnect();
+      sparkleGain.disconnect();
+      master.disconnect();
     };
   } catch {
     // Silently fail — audio is non-critical
