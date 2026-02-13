@@ -46,7 +46,7 @@ export const WaitingState: React.FC<WaitingStateProps> = ({
         border: '2px dashed rgba(126, 200, 227, 0.3)',
         width: '100%',
         maxWidth: '600px',
-        minHeight: { xs: '50vh', lg: '60vh' },
+        minHeight: { xs: '60vh', lg: '70vh' },
         mb: { xs: '120px', lg: 0 },
       }}
     >

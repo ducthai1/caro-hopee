@@ -360,7 +360,7 @@ const GameRoomPage: React.FC = () => {
             pt: { xs: '15vh', lg: 3 },
             pb: { xs: 2, lg: 3 },
             width: { lg: 'calc(100% - 656px)' },
-            overflow: 'hidden',
+            overflow: (isWaiting || canStartGame) ? 'visible' : 'hidden',
             px: { xs: 2, lg: 0 },
           }}
         >
@@ -371,7 +371,8 @@ const GameRoomPage: React.FC = () => {
             width: '100%',
             maxWidth: '100%',
             position: 'relative',
-            overflow: 'hidden',
+            // Only clip overflow during active gameplay (GameBoard scroll), not waiting/ready states
+            overflow: (isWaiting || canStartGame) ? 'visible' : 'hidden',
           }}>
             {isWaiting ? (
               <WaitingState

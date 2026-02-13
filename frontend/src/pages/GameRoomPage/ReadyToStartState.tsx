@@ -36,7 +36,7 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
     : null;
   
   return (
-    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative', minHeight: { xs: '50vh', lg: '60vh' } }}>
+    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', position: 'relative', minHeight: { xs: '70vh', lg: '80vh' } }}>
       <GameErrorBoundary roomId={roomId}>
         <GameBoard />
       </GameErrorBoundary>
