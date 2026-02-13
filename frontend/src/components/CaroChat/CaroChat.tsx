@@ -38,12 +38,15 @@ const ANIMATION_NAME = 'caro-chat-float-up';
 if (typeof document !== 'undefined' && !document.getElementById('caro-chat-keyframes')) {
   const style = document.createElement('style');
   style.id = 'caro-chat-keyframes';
+  // PERF FIX: Use top (layout) instead of transform: translateY() (GPU compositing).
+  // Chrome promotes any element with transform animation to a separate GPU compositing
+  // layer. With max 3 messages, layout cost of animating top is negligible vs GPU crash.
   style.textContent = `
     @keyframes ${ANIMATION_NAME} {
-      0% { opacity: 0; transform: translateY(10px); }
-      8% { opacity: 1; transform: translateY(0); }
-      75% { opacity: 1; transform: translateY(-40px); }
-      100% { opacity: 0; transform: translateY(-55px); }
+      0% { opacity: 0; top: 55%; }
+      8% { opacity: 1; top: 50%; }
+      75% { opacity: 1; top: 38%; }
+      100% { opacity: 0; top: 33%; }
     }
   `;
   document.head.appendChild(style);
@@ -208,9 +211,10 @@ const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, on
   // PERF FIX: position: absolute (inside a single fixed container) instead of
   // position: fixed per message. This creates 1 GPU compositing layer for all
   // messages instead of N separate layers.
+  // Animation keyframes control `top` (float-up effect), stagger uses marginTop.
   const style: React.CSSProperties = {
     position: 'absolute',
-    top: `${50 + stagger * 6}%`,
+    marginTop: `${stagger * 6}%`,
     ...(chat.isSelf
       ? { right: 12, left: 'auto' }
       : { left: 12, right: 'auto' }),

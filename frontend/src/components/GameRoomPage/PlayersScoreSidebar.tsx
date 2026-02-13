@@ -146,7 +146,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, game, myPlayerNumber, t
       sx={{
         p: 2,
         borderRadius: 2,
-        bgcolor: isPlayer1 ? 'rgba(126, 200, 227, 0.08)' : 'rgba(168, 230, 207, 0.08)',
+        bgcolor: isCurrentTurn
+          ? (isPlayer1 ? 'rgba(126, 200, 227, 0.14)' : 'rgba(168, 230, 207, 0.14)')
+          : (isPlayer1 ? 'rgba(126, 200, 227, 0.08)' : 'rgba(168, 230, 207, 0.08)'),
         border: isCurrentTurn
           ? `2px solid ${isPlayer1 ? '#7ec8e3' : '#a8e6cf'}`
           : isPlayer1
@@ -157,21 +159,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, game, myPlayerNumber, t
         boxShadow: isCurrentTurn
           ? `0 4px 16px ${isPlayer1 ? 'rgba(126, 200, 227, 0.3)' : 'rgba(168, 230, 207, 0.3)'}`
           : 'none',
-        transform: isCurrentTurn ? 'scale(1.02)' : 'scale(1)',
-        transition: 'all 0.3s ease',
-        animation: isCurrentTurn ? 'pulse 2s ease-in-out infinite' : 'none',
-        '@keyframes pulse': {
-          '0%, 100%': {
-            boxShadow: isCurrentTurn
-              ? `0 4px 16px ${isPlayer1 ? 'rgba(126, 200, 227, 0.3)' : 'rgba(168, 230, 207, 0.3)'}`
-              : 'none',
-          },
-          '50%': {
-            boxShadow: isCurrentTurn
-              ? `0 6px 24px ${isPlayer1 ? 'rgba(126, 200, 227, 0.5)' : 'rgba(168, 230, 207, 0.5)'}`
-              : 'none',
-          },
-        },
+        // PERF FIX: Removed transform: scale(1.02), transition: all, and @keyframes pulse.
+        // Chrome promotes transform-animated elements to GPU compositing layers.
+        // Infinite pulse animation = persistent GPU layer during entire turn.
+        // Now uses static bgcolor change for current turn indicator instead.
+        transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
       }}
     >
       <Typography
