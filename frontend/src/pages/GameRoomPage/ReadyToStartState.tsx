@@ -57,10 +57,9 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            bgcolor: 'rgba(0, 0, 0, 0.3)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-            willChange: 'transform',
+            // PERF FIX: Solid semi-transparent bg instead of backdropFilter: blur()
+            // backdropFilter forces GPU compositing layer in Chrome
+            bgcolor: 'rgba(0, 0, 0, 0.4)',
             zIndex: 5,
             borderRadius: 4,
             pointerEvents: 'none',
@@ -86,11 +85,10 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
           {myPlayerNumber && (
             <Box
               sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.98)',
+                // PERF FIX: Opaque bg instead of backdropFilter: blur()
+                bgcolor: '#ffffff',
                 p: { xs: 2, md: 3 },
                 borderRadius: 3,
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                 width: '100%',
                 maxWidth: '500px',
@@ -119,11 +117,11 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
               fontSize: '1.2rem',
               textTransform: 'none',
               boxShadow: '0 8px 24px rgba(126, 200, 227, 0.4)',
-              transition: 'all 0.3s ease',
+              // PERF FIX: Specific transitions, no transform (creates GPU layer in Chrome)
+              transition: 'background 0.3s ease, box-shadow 0.3s ease',
               '&:hover': {
                 background: 'linear-gradient(135deg, #5ba8c7 0%, #88d6b7 100%)',
                 boxShadow: '0 12px 32px rgba(126, 200, 227, 0.5)',
-                transform: 'translateY(-2px)',
               },
             }}
           >
@@ -131,13 +129,11 @@ export const ReadyToStartState: React.FC<ReadyToStartStateProps> = ({
           </Button>
           <Box
             sx={{
-              bgcolor: 'rgba(255, 255, 255, 0.95)',
+              // PERF FIX: Opaque bg instead of backdropFilter: blur()
+              bgcolor: '#ffffff',
               px: 2,
               py: 1.5,
               borderRadius: 2,
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              willChange: 'transform',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               textAlign: 'center',
             }}
