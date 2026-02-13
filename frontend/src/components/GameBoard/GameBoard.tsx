@@ -198,7 +198,6 @@ const GameBoard: React.FC = () => {
             borderRadius: 4,
             boxShadow: '0 12px 40px rgba(126, 200, 227, 0.15)',
             border: '2px solid rgba(126, 200, 227, 0.2)',
-            transition: 'all 0.3s ease',
             // Inline-block: Paper sizes based on grid content, allows scroll
             display: 'inline-block',
           }}
