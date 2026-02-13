@@ -15,6 +15,7 @@ export interface ClientToServerEvents {
   'update-rules': (data: { roomId: string; rules: GameRules }) => void;
   'update-guest-name': (data: { roomId: string; guestName: string }) => void;
   'send-reaction': (data: { roomId: string; emoji: string }) => void;
+  'send-chat': (data: { roomId: string; message: string }) => void;
 }
 
 // Server → Client Events
@@ -53,6 +54,7 @@ export interface ServerToClientEvents {
   'guest-name-updated': (data: { playerNumber: 1 | 2; guestName: string; guestId: string }) => void;
   'achievement-unlocked': (data: { playerId: string; achievementIds: string[]; achievements: Array<{ id: string; name: { en: string; vi: string }; desc: { en: string; vi: string }; icon: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; category: 'wins' | 'streaks' | 'games' | 'special' | 'score'; requirement: { type: string; value: number } }> }) => void;
   'reaction-received': (data: { fromPlayerNumber: 1 | 2; emoji: string; fromName: string }) => void;
+  'chat-received': (data: { fromPlayerNumber: 1 | 2; message: string; fromName: string }) => void;
   'lucky-wheel-config-updated': (data: { targetId: string; targetType: 'guest' | 'user'; items: Array<{ label: string; weight: number }>; updatedAt: string }) => void;
   'lucky-wheel-guest-left': (data: { guestId: string }) => void;
 }

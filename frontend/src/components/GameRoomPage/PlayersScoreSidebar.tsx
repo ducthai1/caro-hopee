@@ -5,6 +5,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { useLanguage } from '../../i18n';
 import { GameReactions } from '../GameReactions';
+import { ChatButton } from '../CaroChat';
 
 interface Player {
   playerNumber: number;
@@ -26,9 +27,10 @@ interface PlayersScoreSidebarProps {
   players: Player[];
   myPlayerNumber: number | null;
   onSendReaction?: (emoji: string) => void;
+  onSendChat?: (message: string) => void;
 }
 
-const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players, myPlayerNumber, onSendReaction }) => {
+const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players, myPlayerNumber, onSendReaction, onSendChat }) => {
   const { t } = useLanguage();
   const showReactions = game.gameStatus === 'playing' && players.length === 2 && onSendReaction;
 
@@ -99,12 +101,25 @@ const PlayersScoreSidebar: React.FC<PlayersScoreSidebarProps> = ({ game, players
         </Box>
       </Box>
 
-      {/* Reactions - only show when game is playing with 2 players */}
+      {/* Chat + Reactions - only show when game is playing with 2 players */}
       {showReactions && (
-        <GameReactions
-          onSendReaction={onSendReaction}
-          disabled={game.gameStatus !== 'playing'}
-        />
+        <>
+          {onSendChat && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5 }}>
+              <ChatButton
+                onSend={onSendChat}
+                disabled={game.gameStatus !== 'playing'}
+              />
+              <Typography variant="caption" sx={{ color: '#5a6a7a', fontSize: '0.75rem' }}>
+                {t('game.chat.tooltip')}
+              </Typography>
+            </Box>
+          )}
+          <GameReactions
+            onSendReaction={onSendReaction}
+            disabled={game.gameStatus !== 'playing'}
+          />
+        </>
       )}
     </Box>
   );

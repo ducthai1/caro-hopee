@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Container, Box, CircularProgress, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
-import { useGame, useReaction } from '../contexts/GameContext';
+import { useGame, useReaction, useChat } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { gameApi } from '../services/api';
 import { useLanguage } from '../i18n';
@@ -17,6 +17,7 @@ import RoomCodeDisplay from '../components/RoomCodeDisplay';
 import GameErrorBoundary from '../components/GameErrorBoundary';
 import GuestNameDialog from '../components/GuestNameDialog/GuestNameDialog';
 import { GameReactions, ReactionPopup } from '../components/GameReactions';
+import { ChatButton, FloatingChatMessage } from '../components/CaroChat';
 import { logger } from '../utils/logger';
 import { hasGuestName } from '../utils/guestName';
 import {
@@ -36,6 +37,7 @@ const GameRoomPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { game, players, joinRoom, setGame, myPlayerNumber, leaveRoom, startGame, updateGuestName, sendReaction } = useGame();
   const { reactions, clearReaction } = useReaction();
+  const { chatMessages, sendChat, clearChat } = useChat();
   const { isAuthenticated } = useAuth();
   
   // Guest name dialog state
@@ -402,12 +404,17 @@ const GameRoomPage: React.FC = () => {
                 <GameErrorBoundary roomId={roomId}>
                   <GameBoard />
                 </GameErrorBoundary>
-                {/* Reactions - mobile only (desktop shows in right sidebar) */}
+                {/* Reactions + Chat - mobile only (desktop shows in right sidebar) */}
                 {game.gameStatus === 'playing' && players.length === 2 && (
-                  <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                  <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 1 }}>
+                    <ChatButton
+                      onSend={sendChat}
+                      disabled={game.gameStatus !== 'playing'}
+                    />
                     <GameReactions
                       onSendReaction={sendReaction}
                       disabled={game.gameStatus !== 'playing'}
+                      compact
                     />
                   </Box>
                 )}
@@ -422,6 +429,7 @@ const GameRoomPage: React.FC = () => {
           players={players}
           myPlayerNumber={myPlayerNumber}
           onSendReaction={sendReaction}
+          onSendChat={sendChat}
         />
 
         {/* Mobile Bottom Sheet */}
@@ -458,6 +466,16 @@ const GameRoomPage: React.FC = () => {
           />
         );
       })}
+
+      {/* Floating Chat Messages */}
+      {chatMessages.map((chat, idx) => (
+        <FloatingChatMessage
+          key={chat.id}
+          chat={chat}
+          index={idx}
+          onDismiss={() => clearChat(chat.id)}
+        />
+      ))}
 
       {/* Guest Name Dialog */}
       <GuestNameDialog

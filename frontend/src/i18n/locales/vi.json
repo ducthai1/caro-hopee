@@ -585,7 +585,12 @@
     "guestNameDescription": "Nhập tên của bạn để hiển thị trong trận đấu. Tên này sẽ được lưu trong phiên làm việc hiện tại.",
     "guestNamePlaceholder": "Nhập tên của bạn (tối đa 20 ký tự)",
     "guestNameRequired": "Vui lòng nhập tên của bạn",
-    "guestNameTooLong": "Tên quá dài. Tối đa 20 ký tự"
+    "guestNameTooLong": "Tên quá dài. Tối đa 20 ký tự",
+    "chat": {
+      "placeholder": "Nhập tin nhắn...",
+      "send": "Gửi",
+      "tooltip": "Chat"
+    }
   },
   "gameRoom": {
     "loading": "Đang tải trò chơi...",

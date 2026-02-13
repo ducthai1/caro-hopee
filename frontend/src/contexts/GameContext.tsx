@@ -11,6 +11,7 @@ import { saveGuestHistory } from '../utils/guestHistory';
 import { logger } from '../utils/logger';
 import { AchievementDefinition } from '../constants/achievements';
 import { getToast } from './ToastContext';
+import { playChatSound } from '../utils/sound';
 
 /**
  * GameContext - Split into 3 separate contexts to prevent re-render cascade
@@ -76,6 +77,22 @@ interface ReactionContextType {
   clearReaction: (id: string) => void;
 }
 
+// Chat message received (from opponent or self)
+export interface CaroChatMessage {
+  id: string;
+  message: string;
+  fromName: string;
+  fromPlayerNumber: 1 | 2;
+  isSelf: boolean;
+}
+
+// Chat context for components that need to listen to chat
+interface ChatContextType {
+  chatMessages: CaroChatMessage[];
+  sendChat: (message: string) => void;
+  clearChat: (id: string) => void;
+}
+
 // Combined type for backward compatibility
 interface GameContextType extends GameStateContextType, GamePlayContextType, GameActionsContextType { }
 
@@ -87,6 +104,7 @@ const GameStateContext = createContext<GameStateContextType | undefined>(undefin
 const GamePlayContext = createContext<GamePlayContextType | undefined>(undefined);
 const GameActionsContext = createContext<GameActionsContextType | undefined>(undefined);
 const ReactionContext = createContext<ReactionContextType | undefined>(undefined);
+const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 // Legacy context for backward compatibility
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -115,6 +133,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [undoUsedCount, setUndoUsedCount] = useState<number>(0);
   const [lastMove, setLastMove] = useState<{ row: number; col: number } | null>(null);
   const [reactions, setReactions] = useState<ReceivedReaction[]>([]);
+  const [chatMessages, setChatMessages] = useState<CaroChatMessage[]>([]);
 
   // FIX C1: Auto-cleanup reactions array to prevent unbounded memory growth
   // Reactions older than 5 seconds are automatically removed
@@ -137,6 +156,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(cleanupInterval);
+  }, []);
+
+  // Auto-cleanup chat messages older than 6 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setChatMessages(prev => {
+        if (prev.length === 0) return prev;
+        const now = Date.now();
+        const filtered = prev.filter(m => {
+          const parts = m.id.split('-');
+          const tsIndex = parts[1] === 'self' ? 2 : 1;
+          const ts = parseInt(parts[tsIndex], 10);
+          return !isNaN(ts) && (now - ts) < 6000;
+        });
+        return filtered.length !== prev.length ? filtered : prev;
+      });
+    }, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   // Refs for cleanup and latest values
@@ -951,6 +988,22 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       logger.log('[GameContext] Reaction received:', data);
     };
 
+    // Handle chat message received from opponent
+    const handleChatReceived = (data: { fromPlayerNumber: 1 | 2; message: string; fromName: string }) => {
+      if (!isMountedRef.current) return;
+      if (!data || !data.message || !data.fromName || (data.fromPlayerNumber !== 1 && data.fromPlayerNumber !== 2)) return;
+
+      const chat: CaroChatMessage = {
+        id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        message: data.message,
+        fromName: data.fromName,
+        fromPlayerNumber: data.fromPlayerNumber,
+        isSelf: false,
+      };
+      setChatMessages(prev => [...prev, chat]);
+      playChatSound();
+    };
+
     socket.on('room-joined', handleRoomJoined);
     socket.on('player-joined', handlePlayerJoined);
     socket.on('player-left', handlePlayerLeft);
@@ -969,6 +1022,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     socket.on('guest-name-updated', handleGuestNameUpdated);
     socket.on('achievement-unlocked', handleAchievementUnlocked);
     socket.on('reaction-received', handleReactionReceived);
+    socket.on('chat-received', handleChatReceived);
 
     return () => {
       isMountedRef.current = false;
@@ -994,6 +1048,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       socket.off('guest-name-updated', handleGuestNameUpdated);
       socket.off('achievement-unlocked', handleAchievementUnlocked);
       socket.off('reaction-received', handleReactionReceived);
+      socket.off('chat-received', handleChatReceived);
     };
   }, [debouncedReloadGame, socketConnected]);
 
@@ -1302,6 +1357,43 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setReactions(prev => prev.filter(r => r.id !== id));
   }, []);
 
+  // Send chat message to opponent
+  const sendChat = useCallback((message: string): void => {
+    const trimmed = message.trim().slice(0, 100);
+    if (!trimmed) return;
+
+    const currentRoomId = roomIdRef.current;
+    if (!currentRoomId) return;
+
+    const socket = socketService.getSocket();
+    if (!socket) return;
+
+    // Show self message immediately
+    const currentMyPlayerNumber = myPlayerNumberRef.current;
+    const currentPlayers = playersRef.current;
+    const myPlayer = currentPlayers.find(p => p.playerNumber === currentMyPlayerNumber);
+    const myName = myPlayer?.username || 'You';
+
+    if (currentMyPlayerNumber) {
+      const selfChat: CaroChatMessage = {
+        id: `chat-self-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        message: trimmed,
+        fromName: myName,
+        fromPlayerNumber: currentMyPlayerNumber,
+        isSelf: true,
+      };
+      setChatMessages(prev => [...prev, selfChat]);
+      playChatSound();
+    }
+
+    socket.emit('send-chat', { roomId: currentRoomId, message: trimmed });
+  }, []);
+
+  // Clear a specific chat message by id
+  const clearChat = useCallback((id: string): void => {
+    setChatMessages(prev => prev.filter(m => m.id !== id));
+  }, []);
+
   // ============================================================================
   // Derived State
   // ============================================================================
@@ -1355,6 +1447,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clearReaction,
   }), [reactions, clearReaction]);
 
+  // Chat context value
+  const chatValue = useMemo<ChatContextType>(() => ({
+    chatMessages,
+    sendChat,
+    clearChat,
+  }), [chatMessages, sendChat, clearChat]);
+
   // Combined context for backward compatibility
   const combinedValue = useMemo<GameContextType>(() => ({
     ...stateValue,
@@ -1371,9 +1470,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       <GamePlayContext.Provider value={playValue}>
         <GameActionsContext.Provider value={actionsValue}>
           <ReactionContext.Provider value={reactionValue}>
-            <GameContext.Provider value={combinedValue}>
-              {children}
-            </GameContext.Provider>
+            <ChatContext.Provider value={chatValue}>
+              <GameContext.Provider value={combinedValue}>
+                {children}
+              </GameContext.Provider>
+            </ChatContext.Provider>
           </ReactionContext.Provider>
         </GameActionsContext.Provider>
       </GamePlayContext.Provider>
@@ -1441,6 +1542,18 @@ export const useReaction = (): ReactionContextType => {
   const context = useContext(ReactionContext);
   if (context === undefined) {
     throw new Error('useReaction must be used within a GameProvider');
+  }
+  return context;
+};
+
+/**
+ * useChat - Subscribe to chat events
+ * Use for: displaying chat messages and sending chat in game room
+ */
+export const useChat = (): ChatContextType => {
+  const context = useContext(ChatContext);
+  if (context === undefined) {
+    throw new Error('useChat must be used within a GameProvider');
   }
   return context;
 };

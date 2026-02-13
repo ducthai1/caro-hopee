@@ -585,7 +585,12 @@
     "guestNameDescription": "Enter your name to display in the game. This name will be saved for the current session.",
     "guestNamePlaceholder": "Enter your name (max 20 characters)",
     "guestNameRequired": "Please enter your name",
-    "guestNameTooLong": "Name is too long. Maximum 20 characters"
+    "guestNameTooLong": "Name is too long. Maximum 20 characters",
+    "chat": {
+      "placeholder": "Type a message...",
+      "send": "Send",
+      "tooltip": "Chat"
+    }
   },
   "gameRoom": {
     "loading": "Loading game...",

@@ -10,6 +10,7 @@ import { useSocket } from '../../contexts/SocketContext';
 import { getGuestId } from '../../utils/guestId';
 import { getGuestName } from '../../utils/guestName';
 import { API_BASE_URL } from '../../utils/constants';
+import { playChatSound } from '../../utils/sound';
 import {
   WordChainState,
   WordChainAction,
@@ -649,6 +650,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
         isSelf: false,
       };
       dispatch({ type: 'CHAT_RECEIVED', payload: chat });
+      playChatSound();
     };
 
     const handleError = (data: any) => {
@@ -976,6 +978,7 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
       isSelf: true,
     };
     dispatch({ type: 'CHAT_RECEIVED', payload: selfChat });
+    playChatSound();
 
     socket.emit('word-chain:send-chat' as any, {
       roomId: stateRef.current.roomId,

@@ -572,6 +572,61 @@ export const setupSocketHandlers = (io: SocketIOServer): void => {
       }
     });
 
+    // Send chat message to opponent
+    socket.on('send-chat', async (data: { roomId: string; message: string }) => {
+      try {
+        const { roomId, message } = data;
+        if (!message || typeof message !== 'string') return;
+
+        const trimmed = message.trim().slice(0, 100);
+        if (!trimmed) return;
+
+        const game = await Game.findOne({ roomId }).lean();
+        if (!game) return;
+
+        // Determine sender
+        let fromPlayerNumber: 1 | 2 | null = null;
+        let fromName = '';
+
+        if (socketData.userId) {
+          if (game.player1?.toString() === socketData.userId) {
+            fromPlayerNumber = 1;
+          } else if (game.player2?.toString() === socketData.userId) {
+            fromPlayerNumber = 2;
+          }
+        }
+
+        if (!fromPlayerNumber && socketData.playerId) {
+          if (game.player1GuestId === socketData.playerId) {
+            fromPlayerNumber = 1;
+            fromName = game.player1GuestName || `Guest ${game.player1GuestId.slice(-6)}`;
+          } else if (game.player2GuestId === socketData.playerId) {
+            fromPlayerNumber = 2;
+            fromName = game.player2GuestName || `Guest ${game.player2GuestId.slice(-6)}`;
+          }
+        }
+
+        // Fetch username if authenticated and name not yet resolved
+        if (fromPlayerNumber && !fromName) {
+          const userIdToFetch = fromPlayerNumber === 1 ? game.player1 : game.player2;
+          if (userIdToFetch) {
+            const user = await User.findById(userIdToFetch).select('username').lean();
+            fromName = user?.username || `Player ${fromPlayerNumber}`;
+          }
+        }
+
+        if (!fromPlayerNumber) return;
+
+        socket.to(roomId).emit('chat-received', {
+          fromPlayerNumber,
+          message: trimmed,
+          fromName,
+        });
+      } catch (error: any) {
+        console.error('[send-chat] Error:', error.message);
+      }
+    });
+
     // Send reaction to opponent
     socket.on('send-reaction', async (data: { roomId: string; emoji: string }) => {
       try {
