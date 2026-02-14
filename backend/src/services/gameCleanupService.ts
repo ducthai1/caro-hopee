@@ -5,6 +5,7 @@
 import Game from '../models/Game';
 import XiDachSession from '../models/XiDachSession';
 import WordChainGame from '../models/WordChainGame';
+import TinhTuyGame from '../models/TinhTuyGame';
 import { io } from '../server';
 
 const INACTIVE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -85,14 +86,40 @@ export const cleanupInactiveWordChainGames = async (): Promise<number> => {
 };
 
 /**
+ * Cleanup Tinh Tuy Dai Chien games inactive for more than 24 hours
+ * Also marks stale 'waiting'/'playing' rooms as 'abandoned' after 30 min
+ */
+export const cleanupInactiveTinhTuyGames = async (): Promise<number> => {
+  try {
+    const cutoffDate = new Date(Date.now() - INACTIVE_THRESHOLD_MS);
+    const staleCutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    await TinhTuyGame.updateMany(
+      {
+        gameStatus: { $in: ['waiting', 'playing'] },
+        updatedAt: { $lt: staleCutoff },
+      },
+      { $set: { gameStatus: 'abandoned' } }
+    );
+
+    const result = await TinhTuyGame.deleteMany({ updatedAt: { $lt: cutoffDate } });
+    return result.deletedCount || 0;
+  } catch (error) {
+    console.error('[GameCleanup] Error cleaning up Tinh Tuy games:', error);
+    return 0;
+  }
+};
+
+/**
  * Run all game cleanup tasks
  */
 export const cleanupAllInactiveGames = async (): Promise<void> => {
   const caroCount = await cleanupInactiveCaroGames();
   const xiDachCount = await cleanupInactiveXiDachSessions();
   const wordChainCount = await cleanupInactiveWordChainGames();
+  const tinhTuyCount = await cleanupInactiveTinhTuyGames();
 
-  if (caroCount > 0 || xiDachCount > 0 || wordChainCount > 0) {
-    console.log(`[GameCleanup] Deleted ${caroCount} Caro, ${xiDachCount} Xi Dach, ${wordChainCount} Word Chain (inactive > 24h)`);
+  if (caroCount > 0 || xiDachCount > 0 || wordChainCount > 0 || tinhTuyCount > 0) {
+    console.log(`[GameCleanup] Deleted ${caroCount} Caro, ${xiDachCount} Xi Dach, ${wordChainCount} Word Chain, ${tinhTuyCount} Tinh Tuy (inactive > 24h)`);
   }
 };

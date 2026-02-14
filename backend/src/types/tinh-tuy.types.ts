@@ -1,0 +1,130 @@
+/**
+ * Tinh Tuy Dai Chien — TypeScript type definitions
+ * Monopoly-style board game with Vietnamese landmarks, 2-4 players
+ */
+import { Document } from 'mongoose';
+import mongoose from 'mongoose';
+
+// ─── Enums ────────────────────────────────────────────────────
+export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
+export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'END_TURN';
+
+export type CellType =
+  | 'GO'            // cell 0: Xuat Phat
+  | 'PROPERTY'      // 20 properties in 8 color groups
+  | 'STATION'       // 2 stations (Nha Ga)
+  | 'UTILITY'       // 2 utilities (Dien, Nuoc)
+  | 'KHI_VAN'       // 3 chance cards
+  | 'CO_HOI'        // 3 community chest cards
+  | 'TAX'           // 2 tax cells
+  | 'TRAVEL'        // cell 9: Du Lich (free parking)
+  | 'ISLAND'        // cell 27: Ra Dao (jail)
+  | 'GO_TO_ISLAND'  // cell 18: Di Ra Dao
+  | 'FESTIVAL';     // cell 14: Le Hoi
+
+export type PropertyGroup =
+  | 'brown' | 'light_blue' | 'purple' | 'orange'
+  | 'red' | 'yellow' | 'green' | 'dark_blue';
+
+// ─── Settings ─────────────────────────────────────────────────
+export interface ITinhTuySettings {
+  maxPlayers: number;           // 2-4
+  startingPoints: number;       // 10000, 15000, 20000, 30000, 50000
+  gameMode: TinhTuyGameMode;
+  timeLimit?: number;           // minutes (timed mode)
+  maxRounds?: number;           // rounds mode
+  turnDuration: number;         // seconds: 30, 60, 90, 120
+  password?: string;            // hashed
+}
+
+// ─── Player ───────────────────────────────────────────────────
+export interface ITinhTuyPlayer {
+  slot: number;                 // 1-4
+  userId?: mongoose.Types.ObjectId;
+  guestId?: string;
+  guestName?: string;
+  points: number;
+  position: number;             // 0-35
+  properties: number[];         // cell indices owned
+  houses: Record<string, number>;   // cellIndex → 0-4
+  hotels: Record<string, boolean>;  // cellIndex → true/false
+  islandTurns: number;          // turns remaining on island (0 = free)
+  cards: string[];              // held card IDs (e.g., 'escape-island')
+  isBankrupt: boolean;
+  isConnected: boolean;
+  disconnectedAt?: Date;
+  consecutiveDoubles: number;
+  deviceType?: string;
+}
+
+// ─── Winner ───────────────────────────────────────────────────
+export interface ITinhTuyWinner {
+  slot: number;
+  userId?: mongoose.Types.ObjectId;
+  guestId?: string;
+  guestName?: string;
+  finalPoints: number;
+}
+
+// ─── Board Cell Definition ────────────────────────────────────
+export interface IBoardCell {
+  index: number;                // 0-35
+  type: CellType;
+  name: string;                 // i18n key: 'tinhTuy.cells.quangTri'
+  group?: PropertyGroup;        // only for PROPERTY
+  price?: number;               // purchase price
+  rentBase?: number;            // base rent (no houses)
+  rentGroup?: number;           // rent with full group (2x base)
+  rentHouse?: number[];         // [1house, 2house, 3house, 4house]
+  rentHotel?: number;
+  houseCost?: number;
+  hotelCost?: number;
+  taxAmount?: number;           // for TAX cells
+  icon?: string;                // filename: 'quang-tri.png'
+}
+
+// ─── Game Document ────────────────────────────────────────────
+export interface ITinhTuyGame extends Document {
+  roomId: string;
+  roomCode: string;
+  gameType: 'tinh-tuy';
+  hostPlayerId: string;
+
+  settings: ITinhTuySettings;
+  players: ITinhTuyPlayer[];
+
+  gameStatus: TinhTuyGameStatus;
+  currentPlayerSlot: number;
+  turnPhase: TurnPhase;
+  turnStartedAt?: Date;
+  lastDiceResult?: { dice1: number; dice2: number };
+
+  // Card decks (Phase 3 — placeholder arrays for now)
+  luckCardDeck: string[];
+  luckCardIndex: number;
+  opportunityCardDeck: string[];
+  opportunityCardIndex: number;
+
+  round: number;
+  gameStartedAt?: Date;
+  finishedAt?: Date;
+
+  winner?: ITinhTuyWinner | null;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Socket Callback Types ────────────────────────────────────
+export interface TinhTuyCallback {
+  (response: { success: boolean; [key: string]: unknown }): void;
+}
+
+// ─── Dice Result ──────────────────────────────────────────────
+export interface DiceResult {
+  dice1: number;
+  dice2: number;
+  total: number;
+  isDouble: boolean;
+}

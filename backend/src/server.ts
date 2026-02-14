@@ -15,7 +15,9 @@ import luckyWheelRoutes from './routes/luckyWheelRoutes';
 import adminRoutes from './routes/adminRoutes';
 import xiDachRoutes from './routes/xiDachRoutes';
 import wordChainRoutes from './routes/wordChainRoutes';
+import tinhTuyRoutes from './routes/tinhTuyRoutes';
 import { setupWordChainSocketHandlers } from './services/word-chain-socket';
+import { setupTinhTuySocketHandlers } from './services/tinh-tuy-socket';
 import { authLimiter, gameCreationLimiter, gameJoinLimiter, apiLimiter } from './middleware/rateLimiter';
 import { cleanupInactiveGuests } from './controllers/luckyWheelController';
 import { cleanupAllInactiveGames } from './services/gameCleanupService';
@@ -50,6 +52,7 @@ app.use('/api/lucky-wheel', luckyWheelRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/xi-dach', xiDachRoutes);
 app.use('/api/word-chain', wordChainRoutes);
+app.use('/api/tinh-tuy', tinhTuyRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
@@ -63,6 +66,7 @@ app.get('/ping', (req, res) => {
 // Setup socket handlers
 setupSocketHandlers(io);
 setupWordChainSocketHandlers(io);
+setupTinhTuySocketHandlers(io);
 
 // Error handler
 app.use(errorHandler);

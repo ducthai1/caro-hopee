@@ -1,0 +1,94 @@
+/**
+ * TinhTuyGame — Mongoose model for Tinh Tuy Dai Chien (Monopoly-style board game).
+ * Supports 2-4 players, turn-based gameplay, property ownership.
+ */
+import mongoose, { Schema } from 'mongoose';
+import { ITinhTuyGame } from '../types/tinh-tuy.types';
+
+// ─── Sub-schemas ───────────────────────────────────────────────
+
+const TinhTuyPlayerSchema = new Schema({
+  slot: { type: Number, required: true, min: 1, max: 4 },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  guestId: { type: String, default: null },
+  guestName: { type: String, default: null, maxlength: 20 },
+  points: { type: Number, required: true },
+  position: { type: Number, default: 0 },
+  properties: { type: [Number], default: [] },
+  houses: { type: Schema.Types.Mixed, default: {} },
+  hotels: { type: Schema.Types.Mixed, default: {} },
+  islandTurns: { type: Number, default: 0 },
+  cards: { type: [String], default: [] },
+  isBankrupt: { type: Boolean, default: false },
+  isConnected: { type: Boolean, default: true },
+  disconnectedAt: { type: Date, default: null },
+  consecutiveDoubles: { type: Number, default: 0 },
+  deviceType: { type: String, default: 'desktop' },
+}, { _id: false });
+
+const TinhTuySettingsSchema = new Schema({
+  maxPlayers: { type: Number, default: 4, min: 2, max: 4 },
+  startingPoints: { type: Number, default: 20000 },
+  gameMode: { type: String, enum: ['classic', 'timed', 'rounds'], default: 'classic' },
+  timeLimit: { type: Number, default: null },
+  maxRounds: { type: Number, default: null },
+  turnDuration: { type: Number, default: 60, min: 30, max: 120 },
+  password: { type: String, default: null, select: false },
+}, { _id: false });
+
+// ─── Main Schema ───────────────────────────────────────────────
+
+const TinhTuyGameSchema = new Schema({
+  roomId: { type: String, required: true, unique: true, index: true },
+  roomCode: {
+    type: String, required: true, unique: true,
+    uppercase: true, minlength: 6, maxlength: 6, index: true,
+  },
+  gameType: { type: String, required: true, default: 'tinh-tuy', immutable: true },
+  hostPlayerId: { type: String, required: true },
+
+  settings: { type: TinhTuySettingsSchema, required: true, default: () => ({}) },
+  players: {
+    type: [TinhTuyPlayerSchema], default: [],
+    validate: { validator: (v: unknown[]) => v.length <= 4, message: 'Maximum 4 players' },
+  },
+
+  gameStatus: {
+    type: String,
+    enum: ['waiting', 'playing', 'finished', 'abandoned'],
+    default: 'waiting',
+  },
+  currentPlayerSlot: { type: Number, default: 1 },
+  turnPhase: {
+    type: String,
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'END_TURN'],
+    default: 'ROLL_DICE',
+  },
+  turnStartedAt: { type: Date, default: null },
+  lastDiceResult: { type: Schema.Types.Mixed, default: null },
+
+  // Card decks (Phase 3 — placeholder for now)
+  luckCardDeck: { type: [String], default: [] },
+  luckCardIndex: { type: Number, default: 0 },
+  opportunityCardDeck: { type: [String], default: [] },
+  opportunityCardIndex: { type: Number, default: 0 },
+
+  round: { type: Number, default: 0 },
+  gameStartedAt: { type: Date, default: null },
+  finishedAt: { type: Date, default: null },
+
+  winner: { type: Schema.Types.Mixed, default: null },
+}, { timestamps: true });
+
+// ─── Hooks ─────────────────────────────────────────────────────
+
+TinhTuyGameSchema.pre('save', function (next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// ─── Indexes ───────────────────────────────────────────────────
+
+TinhTuyGameSchema.index({ gameStatus: 1, createdAt: -1 });
+
+export default mongoose.model<ITinhTuyGame>('TinhTuyGame', TinhTuyGameSchema);
