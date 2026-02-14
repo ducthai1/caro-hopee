@@ -43,8 +43,8 @@ export const TinhTuyBoard: React.FC = () => {
   const housesMap = new Map<number, { houses: number; hotel: boolean }>();
   for (const player of state.players) {
     for (const cellIdx of player.properties) {
-      const houses = player.houses[String(cellIdx)] || 0;
-      const hotel = !!player.hotels[String(cellIdx)];
+      const houses = (player.houses || {})[String(cellIdx)] || 0;
+      const hotel = !!(player.hotels || {})[String(cellIdx)];
       if (houses > 0 || hotel) {
         housesMap.set(cellIdx, { houses, hotel });
       }
