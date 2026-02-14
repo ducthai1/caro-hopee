@@ -12,7 +12,7 @@ import { WordChainWordHistory } from './WordChainWordHistory';
 import { WordChainInput } from './WordChainInput';
 import { WordChainResultModal } from './WordChainResult';
 import { GameReactions, ReactionPopup } from '../../GameReactions';
-import { ChatButton, FloatingChatMessage } from './WordChainChat';
+import { ChatButton, FloatingChatMessage, WordChainChatOverlay } from './WordChainChat';
 import { useLanguage } from '../../../i18n';
 import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -164,14 +164,16 @@ export const WordChainGame: React.FC = () => {
       </Box>
 
       {/* Floating Chat Messages */}
-      {state.chatMessages.map((chat, idx) => (
-        <FloatingChatMessage
-          key={chat.id}
-          chat={chat}
-          index={idx}
-          onDismiss={() => clearChat(chat.id)}
-        />
-      ))}
+      <WordChainChatOverlay>
+        {state.chatMessages.map((chat, idx) => (
+          <FloatingChatMessage
+            key={chat.id}
+            chat={chat}
+            index={idx}
+            onDismiss={() => clearChat(chat.id)}
+          />
+        ))}
+      </WordChainChatOverlay>
 
       {/* Reaction Popups */}
       {state.reactions.map((reaction) => {

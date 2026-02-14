@@ -25,7 +25,7 @@ import { PLAYER_COLORS } from './WordChainPlayerBar';
 const CHAT_COOLDOWN_MS = 3000;
 const FLOAT_DURATION_MS = 5000;
 
-// ─── Inject CSS keyframes once ──────────────────────────────────
+// ─── Inject CSS keyframes + overlay styles once ────────────────
 const ANIMATION_NAME = 'wc-chat-float-up';
 if (typeof document !== 'undefined' && !document.getElementById('wc-chat-keyframes')) {
   const style = document.createElement('style');
@@ -36,6 +36,21 @@ if (typeof document !== 'undefined' && !document.getElementById('wc-chat-keyfram
       8% { opacity: 1; transform: translateY(0); }
       75% { opacity: 1; transform: translateY(-40px); }
       100% { opacity: 0; transform: translateY(-55px); }
+    }
+    .wc-chat-overlay {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      z-index: 1200;
+      isolation: isolate;
+    }
+    @media (min-width: 900px) {
+      .wc-chat-overlay {
+        left: var(--sidebar-width, 0px);
+      }
     }
   `;
   document.head.appendChild(style);
@@ -195,11 +210,12 @@ const FloatingChatMessageInner: React.FC<FloatingChatMessageProps> = ({ chat, on
   }, []);
 
   const style: React.CSSProperties = {
-    position: 'fixed',
+    position: 'absolute',
     top: `${50 + stagger * 6}%`,
+    // 25% offset from center of available area (container handles sidebar adjustment)
     ...(chat.isSelf
-      ? { right: 12, left: 'auto' }
-      : { left: 12, right: 'auto' }),
+      ? { right: '25%', left: 'auto' }
+      : { left: '25%', right: 'auto' }),
     zIndex: 1200,
     display: 'flex',
     alignItems: 'center',
@@ -249,3 +265,9 @@ export const FloatingChatMessage = memo(FloatingChatMessageInner, (prev, next) =
   return prev.chat.id === next.chat.id;
 });
 FloatingChatMessage.displayName = 'FloatingChatMessage';
+
+// ─── Chat Overlay Container ─────────────────────────────────────
+// Wraps floating messages. Accounts for sidebar on desktop via CSS variable.
+export const WordChainChatOverlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="wc-chat-overlay">{children}</div>
+);

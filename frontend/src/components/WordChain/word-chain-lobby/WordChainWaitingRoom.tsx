@@ -30,7 +30,7 @@ import { WordType, WordChainGameMode } from '../word-chain-types';
 import { WordChainSettingsForm } from './WordChainSettingsForm';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
 import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
-import { ChatButton, FloatingChatMessage } from '../word-chain-game/WordChainChat';
+import { ChatButton, FloatingChatMessage, WordChainChatOverlay } from '../word-chain-game/WordChainChat';
 
 export const WordChainWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
@@ -481,14 +481,16 @@ export const WordChainWaitingRoom: React.FC = () => {
       />
 
       {/* Floating Chat Messages */}
-      {state.chatMessages.map((chat, idx) => (
-        <FloatingChatMessage
-          key={chat.id}
-          chat={chat}
-          index={idx}
-          onDismiss={() => clearChat(chat.id)}
-        />
-      ))}
+      <WordChainChatOverlay>
+        {state.chatMessages.map((chat, idx) => (
+          <FloatingChatMessage
+            key={chat.id}
+            chat={chat}
+            index={idx}
+            onDismiss={() => clearChat(chat.id)}
+          />
+        ))}
+      </WordChainChatOverlay>
     </Box >
   );
 };

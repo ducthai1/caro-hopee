@@ -91,6 +91,12 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
 
   const drawerWidth = isMobile ? DRAWER_WIDTH_EXPANDED : (sidebarCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH_EXPANDED);
 
+  // Expose sidebar width as CSS variable for fixed-position overlays (chat, reactions)
+  useEffect(() => {
+    const sidebarOffset = isMobile ? 0 : drawerWidth;
+    document.documentElement.style.setProperty('--sidebar-width', `${sidebarOffset}px`);
+  }, [isMobile, drawerWidth]);
+
   // Render content based on selected game
   const renderContent = () => {
     if (children) {
