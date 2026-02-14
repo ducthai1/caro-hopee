@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import { DiceResult, ITinhTuyGame, ITinhTuyPlayer } from '../types/tinh-tuy.types';
 import {
-  BOARD_CELLS, BOARD_SIZE, GO_SALARY,
+  BOARD_CELLS, BOARD_SIZE, GO_SALARY, ISLAND_ESCAPE_COST, MAX_ISLAND_TURNS, PROPERTY_GROUPS,
   getCell, ownsFullGroup, countStationsOwned, getStationRent, getUtilityRent,
 } from './tinh-tuy-board';
 
@@ -32,7 +32,7 @@ export function calculateNewPosition(
 
 // ─── Rent Calculation ─────────────────────────────────────────
 
-/** Calculate rent owed for landing on a cell */
+/** Calculate rent owed for landing on a cell. Accounts for owner's doubleRentTurns. */
 export function calculateRent(
   game: ITinhTuyGame,
   cellIndex: number,
@@ -44,34 +44,40 @@ export function calculateRent(
   const owner = game.players.find(p => p.properties.includes(cellIndex));
   if (!owner || owner.isBankrupt) return 0;
 
+  let rent = 0;
+
   // Station rent: 250 per station owned
   if (cell.type === 'STATION') {
-    return getStationRent(countStationsOwned(owner.properties));
-  }
-
-  // Utility rent: diceTotal * multiplier
-  if (cell.type === 'UTILITY') {
+    rent = getStationRent(countStationsOwned(owner.properties));
+  } else if (cell.type === 'UTILITY') {
+    // Utility rent: diceTotal * multiplier
     const utilitiesOwned = owner.properties.filter(
       idx => BOARD_CELLS[idx]?.type === 'UTILITY'
     ).length;
-    return getUtilityRent(utilitiesOwned, diceTotal);
+    rent = getUtilityRent(utilitiesOwned, diceTotal);
+  } else if (cell.type === 'PROPERTY' && cell.group) {
+    // Check hotel first, then houses
+    const cellKey = String(cellIndex);
+    if (owner.hotels[cellKey] && cell.rentHotel) {
+      rent = cell.rentHotel;
+    } else {
+      const houseCount = owner.houses[cellKey] || 0;
+      if (houseCount > 0 && cell.rentHouse) {
+        rent = cell.rentHouse[houseCount - 1];
+      } else if (ownsFullGroup(cell.group, owner.properties)) {
+        rent = cell.rentGroup || (cell.rentBase || 0) * 2;
+      } else {
+        rent = cell.rentBase || 0;
+      }
+    }
   }
 
-  if (cell.type !== 'PROPERTY' || !cell.group) return 0;
-
-  // Check hotel first, then houses
-  const cellKey = String(cellIndex);
-  if (owner.hotels[cellKey] && cell.rentHotel) return cell.rentHotel;
-
-  const houseCount = owner.houses[cellKey] || 0;
-  if (houseCount > 0 && cell.rentHouse) return cell.rentHouse[houseCount - 1];
-
-  // No improvements — check monopoly bonus (2x)
-  if (ownsFullGroup(cell.group, owner.properties)) {
-    return cell.rentGroup || (cell.rentBase || 0) * 2;
+  // Owner has double rent buff
+  if (owner.doubleRentTurns && owner.doubleRentTurns > 0) {
+    rent *= 2;
   }
 
-  return cell.rentBase || 0;
+  return rent;
 }
 
 // ─── Turn Rotation ────────────────────────────────────────────
@@ -160,6 +166,129 @@ export async function generateUniqueRoomCode(
   return generateRoomCode() + crypto.randomInt(0, 10);
 }
 
+// ─── Island / Jail Mechanics ─────────────────────────────────
+
+/** Send player to island (jail). Resets consecutiveDoubles. */
+export function sendToIsland(player: ITinhTuyPlayer): void {
+  player.position = 27;
+  player.islandTurns = MAX_ISLAND_TURNS;
+  player.consecutiveDoubles = 0;
+}
+
+/** Handle island escape attempt. Returns whether player escaped. */
+export function handleIslandEscape(
+  player: ITinhTuyPlayer,
+  method: 'PAY' | 'ROLL' | 'USE_CARD',
+  diceResult?: DiceResult
+): { escaped: boolean; diceResult?: DiceResult; costPaid?: number } {
+  if (method === 'PAY') {
+    if (player.points < ISLAND_ESCAPE_COST) return { escaped: false };
+    player.points -= ISLAND_ESCAPE_COST;
+    player.islandTurns = 0;
+    return { escaped: true, costPaid: ISLAND_ESCAPE_COST };
+  }
+
+  if (method === 'USE_CARD') {
+    const cardIdx = player.cards.indexOf('escape-island');
+    if (cardIdx === -1) return { escaped: false };
+    player.cards.splice(cardIdx, 1);
+    player.islandTurns = 0;
+    return { escaped: true };
+  }
+
+  if (method === 'ROLL' && diceResult) {
+    if (diceResult.isDouble) {
+      player.islandTurns = 0;
+      return { escaped: true, diceResult };
+    }
+    player.islandTurns--;
+    if (player.islandTurns <= 0) {
+      // Forced pay on last turn
+      player.points -= ISLAND_ESCAPE_COST;
+      player.islandTurns = 0;
+      return { escaped: true, diceResult, costPaid: ISLAND_ESCAPE_COST };
+    }
+    return { escaped: false, diceResult };
+  }
+
+  return { escaped: false };
+}
+
+// ─── House / Hotel Build System ──────────────────────────────
+
+/** Check if player can build a house on cellIndex */
+export function canBuildHouse(
+  game: ITinhTuyGame, playerSlot: number, cellIndex: number
+): { valid: boolean; error?: string; cost?: number } {
+  const player = game.players.find(p => p.slot === playerSlot);
+  if (!player) return { valid: false, error: 'playerNotFound' };
+
+  const cell = getCell(cellIndex);
+  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable' };
+  if (!player.properties.includes(cellIndex)) return { valid: false, error: 'notOwned' };
+  if (!ownsFullGroup(cell.group, player.properties)) return { valid: false, error: 'needFullGroup' };
+
+  const currentHouses = player.houses[String(cellIndex)] || 0;
+  if (currentHouses >= 4) return { valid: false, error: 'maxHouses' };
+  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel' };
+
+  // Even-build rule: can't be more than 1 ahead of any sibling in group
+  const groupCells = PROPERTY_GROUPS[cell.group];
+  for (const idx of groupCells) {
+    if (idx === cellIndex) continue;
+    const otherHouses = player.houses[String(idx)] || 0;
+    if (currentHouses > otherHouses) return { valid: false, error: 'evenBuildRule' };
+  }
+
+  const cost = cell.houseCost || 0;
+  if (player.points < cost) return { valid: false, error: 'cannotAfford' };
+
+  return { valid: true, cost };
+}
+
+/** Build house. Returns true on success. */
+export function buildHouse(game: ITinhTuyGame, playerSlot: number, cellIndex: number): boolean {
+  const check = canBuildHouse(game, playerSlot, cellIndex);
+  if (!check.valid) return false;
+
+  const player = game.players.find(p => p.slot === playerSlot)!;
+  player.points -= check.cost!;
+  player.houses[String(cellIndex)] = (player.houses[String(cellIndex)] || 0) + 1;
+  return true;
+}
+
+/** Check if player can upgrade to hotel on cellIndex (requires 4 houses) */
+export function canBuildHotel(
+  game: ITinhTuyGame, playerSlot: number, cellIndex: number
+): { valid: boolean; error?: string; cost?: number } {
+  const player = game.players.find(p => p.slot === playerSlot);
+  if (!player) return { valid: false, error: 'playerNotFound' };
+
+  const cell = getCell(cellIndex);
+  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable' };
+
+  const currentHouses = player.houses[String(cellIndex)] || 0;
+  if (currentHouses !== 4) return { valid: false, error: 'need4Houses' };
+  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel' };
+
+  const cost = cell.hotelCost || 0;
+  if (player.points < cost) return { valid: false, error: 'cannotAfford' };
+
+  return { valid: true, cost };
+}
+
+/** Build hotel (replaces 4 houses). Returns true on success. */
+export function buildHotel(game: ITinhTuyGame, playerSlot: number, cellIndex: number): boolean {
+  const check = canBuildHotel(game, playerSlot, cellIndex);
+  if (!check.valid) return false;
+
+  const player = game.players.find(p => p.slot === playerSlot)!;
+  player.points -= check.cost!;
+  player.houses[String(cellIndex)] = 0;
+  player.hotels[String(cellIndex)] = true;
+  return true;
+}
+
 // ─── Cell Resolution ──────────────────────────────────────────
 
 /** Determine what action is needed when player lands on a cell */
@@ -169,7 +298,7 @@ export function resolveCellAction(
   cellIndex: number,
   diceTotal: number
 ): {
-  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card';
+  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card' | 'festival';
   amount?: number;
   ownerSlot?: number;
 } {
@@ -201,8 +330,10 @@ export function resolveCellAction(
       return { action: 'go_to_island' };
     case 'KHI_VAN':
     case 'CO_HOI':
-      return { action: 'card' }; // Phase 3 — for now treat as 'none'
+      return { action: 'card' };
+    case 'FESTIVAL':
+      return { action: 'festival', amount: 500 };
     default:
-      return { action: 'none' }; // GO, TRAVEL, ISLAND, FESTIVAL
+      return { action: 'none' }; // GO, TRAVEL, ISLAND
   }
 }

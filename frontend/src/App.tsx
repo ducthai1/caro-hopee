@@ -148,6 +148,10 @@ const router = createBrowserRouter([
     element: <MainLayout />,
   },
   {
+    path: '/tinh-tuy',
+    element: <MainLayout />,
+  },
+  {
     path: '/login',
     element: <LoginPage />,
   },

@@ -68,6 +68,14 @@ export const GAMES: GameItem[] = [
     color: '#2ecc71',
   },
   {
+    id: 'tinh-tuy',
+    name: 'games.tinhTuy',
+    icon: '🔮',
+    description: 'home.tinhTuyDescription',
+    available: true,
+    color: '#9b59b6',
+  },
+  {
     id: 'werewolf',
     name: 'games.werewolf',
     icon: '🐺',

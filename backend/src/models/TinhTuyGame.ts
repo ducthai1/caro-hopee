@@ -23,6 +23,9 @@ const TinhTuyPlayerSchema = new Schema({
   isConnected: { type: Boolean, default: true },
   disconnectedAt: { type: Date, default: null },
   consecutiveDoubles: { type: Number, default: 0 },
+  skipNextTurn: { type: Boolean, default: false },
+  immunityNextRent: { type: Boolean, default: false },
+  doubleRentTurns: { type: Number, default: 0 },
   deviceType: { type: String, default: 'desktop' },
 }, { _id: false });
 
@@ -61,7 +64,7 @@ const TinhTuyGameSchema = new Schema({
   currentPlayerSlot: { type: Number, default: 1 },
   turnPhase: {
     type: String,
-    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'END_TURN'],
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_CARD', 'ISLAND_TURN', 'END_TURN'],
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },

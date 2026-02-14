@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -55,6 +55,9 @@ export interface ITinhTuyPlayer {
   isConnected: boolean;
   disconnectedAt?: Date;
   consecutiveDoubles: number;
+  skipNextTurn?: boolean;
+  immunityNextRent?: boolean;
+  doubleRentTurns?: number;          // remaining turns where owned rents are doubled
   deviceType?: string;
 }
 
@@ -127,4 +130,45 @@ export interface DiceResult {
   dice2: number;
   total: number;
   isDouble: boolean;
+}
+
+// ─── Card Action Types ────────────────────────────────────────
+export type CardAction =
+  | { type: 'MOVE_TO'; position: number }
+  | { type: 'MOVE_RELATIVE'; steps: number }
+  | { type: 'GAIN_POINTS'; amount: number }
+  | { type: 'LOSE_POINTS'; amount: number }
+  | { type: 'GAIN_FROM_EACH'; amount: number }
+  | { type: 'LOSE_TO_EACH'; amount: number }
+  | { type: 'GO_TO_ISLAND' }
+  | { type: 'HOLD_CARD'; cardId: string }
+  | { type: 'SKIP_TURN' }
+  | { type: 'FREE_HOUSE' }
+  | { type: 'PER_HOUSE_COST'; amount: number }
+  | { type: 'DOUBLE_RENT_NEXT'; turns: number }
+  | { type: 'RANDOM_POINTS'; min: number; max: number }
+  | { type: 'LOSE_ONE_HOUSE' }
+  | { type: 'ALL_LOSE_POINTS'; amount: number }
+  | { type: 'IMMUNITY_NEXT_RENT' };
+
+export interface ITinhTuyCard {
+  id: string;
+  type: 'KHI_VAN' | 'CO_HOI';
+  nameKey: string;
+  descriptionKey: string;
+  action: CardAction;
+  holdable?: boolean;
+}
+
+// ─── Card Effect Result ───────────────────────────────────────
+export interface CardEffectResult {
+  pointsChanged: Record<number, number>; // slot → delta
+  playerMoved?: { slot: number; to: number; passedGo: boolean };
+  cardHeld?: { slot: number; cardId: string };
+  houseRemoved?: { slot: number; cellIndex: number };
+  skipTurn?: boolean;
+  requiresChoice?: 'FREE_HOUSE';
+  goToIsland?: boolean;
+  immunityNextRent?: boolean;
+  doubleRentTurns?: number;
 }

@@ -9,6 +9,7 @@ import LuckyWheelContent from './LuckyWheelContent';
 import { LuckyWheelProvider } from '../LuckyWheel';
 import { XiDachScoreProvider, XiDachScoreContent } from '../XiDachScore';
 import { WordChainProvider, WordChainContent } from '../WordChain';
+import { TinhTuyProvider, TinhTuyContent } from '../TinhTuy';
 import { MainLayoutProvider, useMainLayout } from './MainLayoutContext';
 import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
 import { getGuestName } from '../../utils/guestName';
@@ -32,6 +33,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     if (location.pathname === '/lucky-wheel') return 'lucky-wheel';
     if (location.pathname === '/xi-dach-score') return 'xi-dach-score';
     if (location.pathname === '/word-chain') return 'word-chain';
+    if (location.pathname === '/tinh-tuy') return 'tinh-tuy';
     if (location.pathname === '/') return 'caro';
     return 'caro';
   });
@@ -54,6 +56,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
       setSelectedGame('xi-dach-score');
     } else if (location.pathname === '/word-chain') {
       setSelectedGame('word-chain');
+    } else if (location.pathname === '/tinh-tuy') {
+      setSelectedGame('tinh-tuy');
     } else if (location.pathname === '/') {
       setSelectedGame('caro');
     }
@@ -77,7 +81,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     const targetPath = gameId === 'lucky-wheel' ? '/lucky-wheel'
       : gameId === 'xi-dach-score' ? '/xi-dach-score'
         : gameId === 'word-chain' ? '/word-chain'
-          : '/';
+          : gameId === 'tinh-tuy' ? '/tinh-tuy'
+            : '/';
 
     // Skip if already on target route
     if (location.pathname === targetPath) return;
@@ -123,6 +128,12 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
           <WordChainProvider>
             <WordChainContent />
           </WordChainProvider>
+        );
+      case 'tinh-tuy':
+        return (
+          <TinhTuyProvider>
+            <TinhTuyContent />
+          </TinhTuyProvider>
         );
       case 'caro':
       default:

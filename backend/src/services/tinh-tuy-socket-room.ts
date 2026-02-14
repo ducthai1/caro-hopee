@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import TinhTuyGame from '../models/TinhTuyGame';
 import { TinhTuyCallback } from '../types/tinh-tuy.types';
 import { generateUniqueRoomCode } from './tinh-tuy-engine';
+import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
 import {
   activePlayerSockets, disconnectTimers, roomPlayerNames,
   resolvePlayerName, cachePlayerName, cachePlayerDevice,
@@ -287,6 +288,13 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
       game.turnStartedAt = new Date();
       game.gameStartedAt = new Date();
       game.round = 1;
+
+      // Initialize card decks (shuffled)
+      game.luckCardDeck = shuffleDeck(getKhiVanDeckIds());
+      game.luckCardIndex = 0;
+      game.opportunityCardDeck = shuffleDeck(getCoHoiDeckIds());
+      game.opportunityCardIndex = 0;
+
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:game-started', {
