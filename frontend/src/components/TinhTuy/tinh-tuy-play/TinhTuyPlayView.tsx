@@ -8,6 +8,7 @@ import { Box, Button, Typography, Paper, Chip } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import FlagIcon from '@mui/icons-material/Flag';
+import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
 import { useLanguage } from '../../../i18n';
 import { useMainLayout } from '../../MainLayout/MainLayoutContext';
 import { useTinhTuy } from '../TinhTuyContext';
@@ -98,7 +99,7 @@ export const TinhTuyPlayView: React.FC = () => {
   }, [setFullscreen]);
 
   const [buildOpen, setBuildOpen] = useState(false);
-  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
@@ -109,15 +110,6 @@ export const TinhTuyPlayView: React.FC = () => {
   const halfIdx = Math.ceil(state.players.length / 2);
   const leftPlayers = state.players.slice(0, halfIdx);
   const rightPlayers = state.players.slice(halfIdx);
-
-  const handleLeave = () => {
-    if (!confirmLeave) {
-      setConfirmLeave(true);
-      setTimeout(() => setConfirmLeave(false), 3000);
-      return;
-    }
-    leaveRoom();
-  };
 
   return (
     <Box
@@ -142,30 +134,10 @@ export const TinhTuyPlayView: React.FC = () => {
           overflowY: 'auto',
         }}
       >
-        {/* Round + Leave */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#9b59b6' }}>
-            {t('tinhTuy.game.round')} {state.round}
-          </Typography>
-          <Button
-            size="small"
-            variant={confirmLeave ? 'contained' : 'outlined'}
-            onClick={handleLeave}
-            startIcon={<ExitToAppIcon sx={{ fontSize: '1rem !important' }} />}
-            sx={{
-              borderColor: confirmLeave ? undefined : 'rgba(231,76,60,0.5)',
-              color: confirmLeave ? '#fff' : '#e74c3c',
-              bgcolor: confirmLeave ? '#e74c3c' : undefined,
-              fontWeight: 600, fontSize: '0.7rem', px: 1, py: 0.25,
-              '&:hover': {
-                borderColor: '#c0392b',
-                bgcolor: confirmLeave ? '#c0392b' : 'rgba(231,76,60,0.08)',
-              },
-            }}
-          >
-            {confirmLeave ? t('tinhTuy.game.confirmLeave' as any) : t('tinhTuy.game.leave' as any)}
-          </Button>
-        </Box>
+        {/* Round */}
+        <Typography variant="body2" sx={{ fontWeight: 700, color: '#9b59b6' }}>
+          {t('tinhTuy.game.round')} {state.round}
+        </Typography>
 
         {/* Turn Timer */}
         <TinhTuyTurnTimer />
@@ -182,7 +154,7 @@ export const TinhTuyPlayView: React.FC = () => {
         ))}
 
         {/* Action buttons */}
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 'auto' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', mt: 'auto' }}>
           {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
             <Button
               size="small"
@@ -190,7 +162,7 @@ export const TinhTuyPlayView: React.FC = () => {
               startIcon={<ConstructionIcon />}
               onClick={() => setBuildOpen(true)}
               sx={{
-                borderColor: '#27ae60', color: '#27ae60', fontWeight: 600, flex: 1,
+                borderColor: '#27ae60', color: '#27ae60', fontWeight: 600,
                 '&:hover': { borderColor: '#2ecc71', bgcolor: 'rgba(39,174,96,0.08)' },
               }}
             >
@@ -211,6 +183,18 @@ export const TinhTuyPlayView: React.FC = () => {
               {t('tinhTuy.game.surrender')}
             </Button>
           )}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ExitToAppIcon />}
+            onClick={() => setShowLeaveConfirm(true)}
+            sx={{
+              borderColor: 'rgba(231,76,60,0.4)', color: '#e74c3c', fontWeight: 600,
+              '&:hover': { borderColor: '#c0392b', bgcolor: 'rgba(231,76,60,0.08)' },
+            }}
+          >
+            {t('tinhTuy.game.leave' as any)}
+          </Button>
         </Box>
 
         {/* Volume */}
@@ -275,6 +259,17 @@ export const TinhTuyPlayView: React.FC = () => {
           <TinhTuyChat />
         </Box>
       </Box>
+
+      {/* Leave confirm dialog */}
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title={t('tinhTuy.lobby.leaveConfirmTitle')}
+        message={t('tinhTuy.lobby.leaveConfirmMsg')}
+        confirmText={t('tinhTuy.game.leave' as any)}
+        variant="warning"
+        onConfirm={() => { setShowLeaveConfirm(false); leaveRoom(); }}
+        onCancel={() => setShowLeaveConfirm(false)}
+      />
 
       {/* Modals */}
       <TinhTuyActionModal />
