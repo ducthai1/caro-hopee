@@ -81,6 +81,8 @@ export interface BoardCellClient {
   group?: PropertyGroup;
   price?: number;
   rentBase?: number;
+  houseCost?: number;
+  hotelCost?: number;
   icon?: string;
   taxAmount?: number;
 }
@@ -205,43 +207,43 @@ export const GROUP_COLORS: Record<PropertyGroup, string> = {
 export const BOARD_CELLS: BoardCellClient[] = [
   // TOP (0-8)
   { index: 0, type: 'GO', name: 'tinhTuy.cells.go' },
-  { index: 1, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'brown', price: 600, rentBase: 20, icon: 'quang-tri.png' },
+  { index: 1, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'brown', price: 600, rentBase: 20, houseCost: 500, hotelCost: 500, icon: 'quang-tri.png' },
   { index: 2, type: 'STATION', name: 'tinhTuy.cells.canTho', price: 2000, rentBase: 250, icon: 'can-tho.png' },
-  { index: 3, type: 'PROPERTY', name: 'tinhTuy.cells.pleiku', group: 'brown', price: 600, rentBase: 40, icon: 'pleiku.png' },
+  { index: 3, type: 'PROPERTY', name: 'tinhTuy.cells.pleiku', group: 'brown', price: 600, rentBase: 40, houseCost: 500, hotelCost: 500, icon: 'pleiku.png' },
   { index: 4, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan' },
-  { index: 5, type: 'PROPERTY', name: 'tinhTuy.cells.hoiAn', group: 'light_blue', price: 1000, rentBase: 60, icon: 'hoi-an.png' },
+  { index: 5, type: 'PROPERTY', name: 'tinhTuy.cells.hoiAn', group: 'light_blue', price: 1000, rentBase: 60, houseCost: 500, hotelCost: 500, icon: 'hoi-an.png' },
   { index: 6, type: 'UTILITY', name: 'tinhTuy.cells.electric', price: 1500 },
-  { index: 7, type: 'PROPERTY', name: 'tinhTuy.cells.hue', group: 'light_blue', price: 1000, rentBase: 60, icon: 'hue.png' },
+  { index: 7, type: 'PROPERTY', name: 'tinhTuy.cells.hue', group: 'light_blue', price: 1000, rentBase: 60, houseCost: 500, hotelCost: 500, icon: 'hue.png' },
   { index: 8, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
   // RIGHT (9-17)
   { index: 9, type: 'TRAVEL', name: 'tinhTuy.cells.travel' },
-  { index: 10, type: 'PROPERTY', name: 'tinhTuy.cells.benThanh', group: 'purple', price: 1400, rentBase: 100, icon: 'ben-thanh.png' },
-  { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple', price: 1400, rentBase: 100, icon: 'duc-ba.png' },
+  { index: 10, type: 'PROPERTY', name: 'tinhTuy.cells.benThanh', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'ben-thanh.png' },
+  { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'duc-ba.png' },
   { index: 12, type: 'TAX', name: 'tinhTuy.cells.tax', taxAmount: 1500 },
-  { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'orange', price: 1800, rentBase: 140, icon: 'quoc-tu-giam.png' },
+  { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'quoc-tu-giam.png' },
   { index: 14, type: 'FESTIVAL', name: 'tinhTuy.cells.festival' },
-  { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'orange', price: 1800, rentBase: 140, icon: 'ho-guom.png' },
+  { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'ho-guom.png' },
   { index: 16, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan' },
-  { index: 17, type: 'PROPERTY', name: 'tinhTuy.cells.haLong', group: 'red', price: 2200, rentBase: 180, icon: 'ha-long.png' },
+  { index: 17, type: 'PROPERTY', name: 'tinhTuy.cells.haLong', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'ha-long.png' },
   // BOTTOM (18-26)
   { index: 18, type: 'GO_TO_ISLAND', name: 'tinhTuy.cells.goToIsland' },
-  { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red', price: 2200, rentBase: 180, icon: 'phong-nha.png' },
+  { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'phong-nha.png' },
   { index: 20, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
-  { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.cauVang', group: 'yellow', price: 2600, rentBase: 220, icon: 'cau-vang.png' },
+  { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.cauVang', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'cau-vang.png' },
   { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.water', price: 1500 },
-  { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow', price: 2600, rentBase: 220, icon: 'sapa.png' },
+  { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'sapa.png' },
   { index: 24, type: 'TAX', name: 'tinhTuy.cells.tax', taxAmount: 2000 },
-  { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'green', price: 3000, rentBase: 260, icon: 'nha-trang.png' },
-  { index: 26, type: 'PROPERTY', name: 'tinhTuy.cells.muiNe', group: 'green', price: 3000, rentBase: 260, icon: 'mui-ne.png' },
+  { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'nha-trang.png' },
+  { index: 26, type: 'PROPERTY', name: 'tinhTuy.cells.muiNe', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'mui-ne.png' },
   // LEFT (27-35)
   { index: 27, type: 'ISLAND', name: 'tinhTuy.cells.island' },
   { index: 28, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan' },
-  { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.daLat', group: 'green', price: 3200, rentBase: 280, icon: 'da-lat.png' },
+  { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.daLat', group: 'green', price: 3200, rentBase: 280, houseCost: 2000, hotelCost: 2000, icon: 'da-lat.png' },
   { index: 30, type: 'STATION', name: 'tinhTuy.cells.ninhBinh', price: 2000, rentBase: 250, icon: 'ninh-binh.png' },
-  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.phuQuoc', group: 'dark_blue', price: 3500, rentBase: 350, icon: 'phu-quoc.png' },
+  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.phuQuoc', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'phu-quoc.png' },
   { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
-  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'dark_blue', price: 3500, rentBase: 350, icon: 'con-dao.png' },
-  { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, icon: 'landmark.png' },
+  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
+  { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
   { index: 35, type: 'TAX', name: 'tinhTuy.cells.tax', taxAmount: 1000 },
 ];
 

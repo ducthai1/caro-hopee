@@ -53,7 +53,7 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
         if (!cell) continue;
         const houses = myPlayer.houses[String(idx)] || 0;
         const hasHotel = !!myPlayer.hotels[String(idx)];
-        const houseCost = Math.round((cell.price || 0) * 0.5);
+        const houseCost = cell.houseCost || Math.round((cell.price || 0) * 0.5);
 
         // Even-build: can only build if this is at min level in group
         const minHouses = Math.min(...props.map(i => myPlayer.houses[String(i)] || 0));

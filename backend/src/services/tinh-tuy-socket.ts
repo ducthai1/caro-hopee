@@ -162,6 +162,7 @@ export function setupTinhTuySocketHandlers(io: SocketIOServer): void {
 
             // In-game: mark as bankrupt (no AI, just eliminate)
             p.isBankrupt = true;
+            g.markModified('players');
             await g.save();
             io.to(roomId).emit('tinh-tuy:player-bankrupt', { slot: p.slot });
 

@@ -55,8 +55,9 @@ async function checkBankruptcy(
   player.isBankrupt = true;
   player.points = 0;
   player.properties = [];
-  player.houses = {};
-  player.hotels = {};
+  player.houses = {} as Record<string, number>;
+  player.hotels = {} as Record<string, boolean>;
+  game.markModified('players');
   io.to(game.roomId).emit('tinh-tuy:player-bankrupt', { slot: player.slot });
 
   const endCheck = checkGameEnd(game);
@@ -231,6 +232,7 @@ async function handleCardDraw(
 
   const effect = executeCardEffect(game, player.slot, card);
   applyCardEffect(game, player, effect);
+  game.markModified('players'); // houses/hotels/cards may have changed
 
   // Broadcast card drawn
   io.to(game.roomId).emit('tinh-tuy:card-drawn', {
@@ -317,8 +319,8 @@ async function handleCardDraw(
       return check.valid;
     });
     if (buildable !== undefined) {
-      const cell = getCell(buildable);
       player.houses[String(buildable)] = (player.houses[String(buildable)] || 0) + 1;
+      game.markModified('players');
       io.to(game.roomId).emit('tinh-tuy:house-built', {
         slot: player.slot, cellIndex: buildable,
         houseCount: player.houses[String(buildable)], free: true,
@@ -559,6 +561,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       if (!check.valid) return callback({ success: false, error: check.error || 'cannotBuild' });
 
       buildHouse(game, player.slot, cellIndex);
+      game.markModified('players');
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:house-built', {
@@ -598,6 +601,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       if (!check.valid) return callback({ success: false, error: check.error || 'cannotBuild' });
 
       buildHotel(game, player.slot, cellIndex);
+      game.markModified('players');
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:hotel-built', {
@@ -690,8 +694,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       player.isBankrupt = true;
       player.points = 0;
       player.properties = [];
-      player.houses = {};
-      player.hotels = {};
+      player.houses = {} as Record<string, number>;
+      player.hotels = {} as Record<string, boolean>;
+      game.markModified('players');
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:player-surrendered', { slot: player.slot });
@@ -711,75 +716,78 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
   });
 
   // ── Chat Message ─────────────────────────────────────────────
-  socket.on('tinh-tuy:send-chat', async (data: any, callback: TinhTuyCallback) => {
+  socket.on('tinh-tuy:send-chat', async (data: any, callback?: TinhTuyCallback) => {
+    const cb = typeof callback === 'function' ? callback : () => {};
     try {
       const roomId = socket.data.tinhTuyRoomId as string;
-      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+      if (!roomId) return cb({ success: false, error: 'notInRoom' });
 
       // Rate limit: 1 msg per second
       const now = Date.now();
       const lastMsg = chatLastMessage.get(socket.id) || 0;
-      if (now - lastMsg < CHAT_RATE_MS) return callback({ success: false, error: 'tooFast' });
+      if (now - lastMsg < CHAT_RATE_MS) return cb({ success: false, error: 'tooFast' });
       chatLastMessage.set(socket.id, now);
 
       const { message } = data || {};
-      if (!message || typeof message !== 'string') return callback({ success: false, error: 'invalidMessage' });
+      if (!message || typeof message !== 'string') return cb({ success: false, error: 'invalidMessage' });
 
       const trimmed = message.trim().slice(0, 200);
-      if (!trimmed) return callback({ success: false, error: 'emptyMessage' });
+      if (!trimmed) return cb({ success: false, error: 'emptyMessage' });
 
       const game = await TinhTuyGame.findOne({ roomId }).lean();
-      if (!game) return callback({ success: false, error: 'roomNotFound' });
+      if (!game) return cb({ success: false, error: 'roomNotFound' });
 
       const playerId = socket.data.tinhTuyPlayerId as string;
       const player = game.players.find(
         p => (p.userId?.toString() === playerId) || (p.guestId === playerId)
       );
-      if (!player) return callback({ success: false, error: 'notInRoom' });
+      if (!player) return cb({ success: false, error: 'notInRoom' });
 
       io.to(roomId).emit('tinh-tuy:chat-message', {
         slot: player.slot, message: trimmed, timestamp: now,
       });
-      callback({ success: true });
+      cb({ success: true });
     } catch (err: any) {
       console.error('[tinh-tuy:send-chat]', err.message);
-      callback({ success: false, error: 'chatFailed' });
+      cb({ success: false, error: 'chatFailed' });
     }
   });
 
   // ── Reaction ─────────────────────────────────────────────────
-  socket.on('tinh-tuy:send-reaction', async (data: any, callback: TinhTuyCallback) => {
+  socket.on('tinh-tuy:send-reaction', async (data: any, callback?: TinhTuyCallback) => {
+    const cb = typeof callback === 'function' ? callback : () => {};
     try {
       const roomId = socket.data.tinhTuyRoomId as string;
-      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+      if (!roomId) return cb({ success: false, error: 'notInRoom' });
 
       // Rate limit: 1 per 500ms
       const now = Date.now();
       const lastReact = chatLastMessage.get(`react:${socket.id}`) || 0;
-      if (now - lastReact < REACTION_RATE_MS) return callback({ success: false, error: 'tooFast' });
+      if (now - lastReact < REACTION_RATE_MS) return cb({ success: false, error: 'tooFast' });
       chatLastMessage.set(`react:${socket.id}`, now);
 
-      const { emoji } = data || {};
-      if (!emoji || typeof emoji !== 'string' || emoji.length > 8) {
-        return callback({ success: false, error: 'invalidEmoji' });
+      const { emoji, reaction } = data || {};
+      const emojiVal = emoji || reaction;
+      if (!emojiVal || typeof emojiVal !== 'string' || emojiVal.length > 8) {
+        return cb({ success: false, error: 'invalidEmoji' });
       }
 
       const playerId = socket.data.tinhTuyPlayerId as string;
       const game = await TinhTuyGame.findOne({ roomId }).lean();
-      if (!game) return callback({ success: false, error: 'roomNotFound' });
+      if (!game) return cb({ success: false, error: 'roomNotFound' });
 
       const player = game.players.find(
         p => (p.userId?.toString() === playerId) || (p.guestId === playerId)
       );
-      if (!player) return callback({ success: false, error: 'notInRoom' });
+      if (!player) return cb({ success: false, error: 'notInRoom' });
 
       io.to(roomId).emit('tinh-tuy:reaction', {
-        slot: player.slot, emoji, timestamp: now,
+        slot: player.slot, emoji: emojiVal, timestamp: now,
       });
-      callback({ success: true });
+      cb({ success: true });
     } catch (err: any) {
       console.error('[tinh-tuy:send-reaction]', err.message);
-      callback({ success: false, error: 'reactionFailed' });
+      cb({ success: false, error: 'reactionFailed' });
     }
   });
 }

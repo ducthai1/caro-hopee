@@ -802,13 +802,19 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   const sendChat = useCallback((message: string) => {
     const socket = socketService.getSocket();
     if (!socket) return;
-    socket.emit('tinh-tuy:send-chat' as any, { message });
+    socket.emit('tinh-tuy:send-chat' as any, { message }, (res: any) => {
+      if (res && !res.success && res.error !== 'tooFast') {
+        dispatch({ type: 'SET_ERROR', payload: res.error });
+      }
+    });
   }, []);
 
   const sendReaction = useCallback((reaction: string) => {
     const socket = socketService.getSocket();
     if (!socket) return;
-    socket.emit('tinh-tuy:send-reaction' as any, { reaction });
+    socket.emit('tinh-tuy:send-reaction' as any, { emoji: reaction }, (res: any) => {
+      // Silently ignore reaction errors
+    });
   }, []);
 
   const setView = useCallback((view: TinhTuyView) => {

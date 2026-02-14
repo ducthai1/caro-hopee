@@ -12,7 +12,7 @@ import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards
 import {
   activePlayerSockets, disconnectTimers, roomPlayerNames,
   resolvePlayerName, cachePlayerName, cachePlayerDevice,
-  getDeviceType, cleanupRoom, RECONNECT_WINDOW_MS,
+  getDeviceType, cleanupRoom, startTurnTimer, RECONNECT_WINDOW_MS,
 } from './tinh-tuy-socket';
 
 // Input validation helpers
@@ -242,8 +242,59 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
       } else if (game.gameStatus === 'playing') {
         // Mark as surrendered/bankrupt
         player.isBankrupt = true;
+        player.points = 0;
+        player.properties = [];
+        player.houses = {} as Record<string, number>;
+        player.hotels = {} as Record<string, boolean>;
+        game.markModified('players');
         await game.save();
         io.to(roomId).emit('tinh-tuy:player-surrendered', { slot: player.slot });
+
+        // Check if game should end
+        const { checkGameEnd, getNextActivePlayer } = await import('./tinh-tuy-engine');
+        const endCheck = checkGameEnd(game);
+        if (endCheck.ended) {
+          game.gameStatus = 'finished';
+          game.finishedAt = new Date();
+          if (endCheck.winner) {
+            game.winner = {
+              slot: endCheck.winner.slot, userId: endCheck.winner.userId,
+              guestId: endCheck.winner.guestId, guestName: endCheck.winner.guestName,
+              finalPoints: endCheck.winner.points,
+            };
+          }
+          await game.save();
+          cleanupRoom(roomId);
+          io.to(roomId).emit('tinh-tuy:game-finished', { winner: game.winner, reason: 'lastStanding' });
+        } else if (game.currentPlayerSlot === player.slot) {
+          // Advance turn if it was their turn
+          game.currentPlayerSlot = getNextActivePlayer(game.players, game.currentPlayerSlot);
+          game.turnPhase = 'ROLL_DICE';
+          game.turnStartedAt = new Date();
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:turn-changed', {
+            currentSlot: game.currentPlayerSlot,
+            turnPhase: game.turnPhase,
+            turnStartedAt: game.turnStartedAt,
+          });
+          // Start timer for next player
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.gameStatus !== 'playing') return;
+              const nextSlot = getNextActivePlayer(g.players, g.currentPlayerSlot);
+              g.currentPlayerSlot = nextSlot;
+              g.turnPhase = 'ROLL_DICE';
+              g.turnStartedAt = new Date();
+              await g.save();
+              io.to(roomId).emit('tinh-tuy:turn-changed', {
+                currentSlot: g.currentPlayerSlot,
+                turnPhase: g.turnPhase,
+                turnStartedAt: g.turnStartedAt,
+              });
+            } catch (err) { console.error('[tinh-tuy] Leave turn timeout:', err); }
+          });
+        }
       }
 
       socket.leave(roomId);
@@ -299,6 +350,26 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
 
       io.to(roomId).emit('tinh-tuy:game-started', {
         game: game.toObject(),
+      });
+
+      // Start turn timer for first turn
+      startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const { getNextActivePlayer } = await import('./tinh-tuy-engine');
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || g.gameStatus !== 'playing') return;
+          // Skip first player's turn (AFK)
+          const nextSlot = getNextActivePlayer(g.players, g.currentPlayerSlot);
+          g.currentPlayerSlot = nextSlot;
+          g.turnPhase = 'ROLL_DICE';
+          g.turnStartedAt = new Date();
+          await g.save();
+          io.to(roomId).emit('tinh-tuy:turn-changed', {
+            currentSlot: g.currentPlayerSlot,
+            turnPhase: g.turnPhase,
+            turnStartedAt: g.turnStartedAt,
+          });
+        } catch (err) { console.error('[tinh-tuy] First turn timeout:', err); }
       });
 
       callback({ success: true });
