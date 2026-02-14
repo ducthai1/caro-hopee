@@ -126,6 +126,8 @@ export interface TinhTuyState {
   error: string | null;
   drawnCard: CardInfo | null;
   chatMessages: ChatMessage[];
+  animatingToken: { slot: number; path: number[]; currentStep: number } | null;
+  showGoPopup: boolean;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -160,7 +162,10 @@ export type TinhTuyAction =
   | { type: 'HOTEL_BUILT'; payload: { slot: number; cellIndex: number; remainingPoints?: number } }
   | { type: 'ISLAND_ESCAPED'; payload: { slot: number; method: string; costPaid?: number } }
   | { type: 'FESTIVAL_PAID'; payload: { amounts: Record<number, number> } }
-  | { type: 'CHAT_MESSAGE'; payload: ChatMessage };
+  | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
+  | { type: 'ANIMATION_STEP' }
+  | { type: 'SHOW_GO_POPUP' }
+  | { type: 'HIDE_GO_POPUP' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

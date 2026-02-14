@@ -1,11 +1,12 @@
 /**
- * TinhTuyCell — Single cell on the board.
+ * TinhTuyCell — Single cell on the board with house/hotel indicators.
  */
 import React from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { BoardCellClient, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../tinh-tuy-types';
 import { TinhTuyPlayerToken } from './TinhTuyPlayerToken';
+import './tinh-tuy-board.css';
 
 interface Props {
   cell: BoardCellClient;
@@ -14,6 +15,10 @@ interface Props {
   ownerSlot?: number;
   playersOnCell: number[];
   isCurrentCell?: boolean;
+  houseCount?: number;
+  hasHotel?: boolean;
+  isAnimating?: boolean;
+  onClick?: () => void;
 }
 
 // Cell type icons
@@ -30,12 +35,13 @@ const CELL_ICONS: Record<string, string> = {
   STATION: '🚂',
 };
 
-export const TinhTuyCell: React.FC<Props> = ({ cell, col, row, ownerSlot, playersOnCell, isCurrentCell }) => {
+export const TinhTuyCell: React.FC<Props> = React.memo(({
+  cell, col, row, ownerSlot, playersOnCell, isCurrentCell,
+  houseCount = 0, hasHotel = false, isAnimating, onClick,
+}) => {
   const { t } = useLanguage();
   const isProperty = cell.type === 'PROPERTY';
   const isCorner = [0, 9, 18, 27].includes(cell.index);
-
-  // Determine which side for group color strip placement
   const groupColor = cell.group ? GROUP_COLORS[cell.group as PropertyGroup] : undefined;
 
   return (
@@ -46,6 +52,7 @@ export const TinhTuyCell: React.FC<Props> = ({ cell, col, row, ownerSlot, player
       enterDelay={300}
     >
       <Box
+        onClick={onClick}
         sx={{
           gridColumn: col,
           gridRow: row,
@@ -63,8 +70,9 @@ export const TinhTuyCell: React.FC<Props> = ({ cell, col, row, ownerSlot, player
           bgcolor: ownerSlot ? `${PLAYER_COLORS[ownerSlot]}15` : 'background.paper',
           boxShadow: isCurrentCell ? '0 0 6px rgba(155, 89, 182, 0.5)' : 'none',
           transition: 'box-shadow 0.2s ease',
-          cursor: 'default',
+          cursor: 'pointer',
           minHeight: 0,
+          '&:hover': { borderColor: '#9b59b6', boxShadow: '0 0 4px rgba(155,89,182,0.3)' },
         }}
       >
         {/* Group color strip */}
@@ -90,6 +98,19 @@ export const TinhTuyCell: React.FC<Props> = ({ cell, col, row, ownerSlot, player
               bgcolor: PLAYER_COLORS[ownerSlot] || '#999',
             }}
           />
+        )}
+
+        {/* House/Hotel indicators */}
+        {(houseCount > 0 || hasHotel) && (
+          <Box sx={{ position: 'absolute', bottom: 1, left: 1, display: 'flex', gap: '1px' }}>
+            {hasHotel ? (
+              <div className="tt-hotel" />
+            ) : (
+              Array.from({ length: houseCount }).map((_, i) => (
+                <div key={i} className="tt-house" />
+              ))
+            )}
+          </Box>
         )}
 
         {/* Cell icon / name */}
@@ -131,11 +152,11 @@ export const TinhTuyCell: React.FC<Props> = ({ cell, col, row, ownerSlot, player
         {playersOnCell.length > 0 && (
           <Box sx={{ display: 'flex', gap: '1px', mt: '1px', flexWrap: 'wrap', justifyContent: 'center' }}>
             {playersOnCell.map(slot => (
-              <TinhTuyPlayerToken key={slot} slot={slot} size={8} />
+              <TinhTuyPlayerToken key={slot} slot={slot} size={8} isAnimating={isAnimating} />
             ))}
           </Box>
         )}
       </Box>
     </Tooltip>
   );
-};
+});

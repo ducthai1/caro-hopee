@@ -64,6 +64,8 @@ const initialState: TinhTuyState = {
   error: null,
   drawnCard: null,
   chatMessages: [],
+  animatingToken: null,
+  showGoPopup: false,
 };
 
 // ─── Reducer ──────────────────────────────────────────
@@ -142,16 +144,45 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, lastDiceResult: { dice1: action.payload.dice1, dice2: action.payload.dice2 } };
 
     case 'PLAYER_MOVED': {
+      const { slot, from, to, goBonus } = action.payload;
+      // Compute movement path (wrap around at 36)
+      const path: number[] = [];
+      let pos = from;
+      while (pos !== to) {
+        pos = (pos + 1) % 36;
+        path.push(pos);
+      }
+      // Update points immediately (Go bonus), start animation
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot
-          ? {
-            ...p, position: action.payload.to,
-            points: action.payload.goBonus ? p.points + action.payload.goBonus : p.points,
-          }
-          : p
+        p.slot === slot ? { ...p, points: goBonus ? p.points + goBonus : p.points } : p
       );
-      return { ...state, players: updated };
+      return {
+        ...state,
+        players: updated,
+        animatingToken: { slot, path, currentStep: 0 },
+        showGoPopup: action.payload.passedGo ? true : state.showGoPopup,
+      };
     }
+
+    case 'ANIMATION_STEP': {
+      if (!state.animatingToken) return state;
+      const next = state.animatingToken.currentStep + 1;
+      if (next >= state.animatingToken.path.length) {
+        // Animation complete — update actual position
+        const finalPos = state.animatingToken.path[state.animatingToken.path.length - 1];
+        const updated = state.players.map(p =>
+          p.slot === state.animatingToken!.slot ? { ...p, position: finalPos } : p
+        );
+        return { ...state, players: updated, animatingToken: null };
+      }
+      return { ...state, animatingToken: { ...state.animatingToken, currentStep: next } };
+    }
+
+    case 'SHOW_GO_POPUP':
+      return { ...state, showGoPopup: true };
+
+    case 'HIDE_GO_POPUP':
+      return { ...state, showGoPopup: false };
 
     case 'AWAITING_ACTION':
       return {
@@ -782,6 +813,22 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (savedCode) joinRoom(savedCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthLoading, isConnected, joinRoom]);
+
+  // Movement animation driver — step every 180ms
+  useEffect(() => {
+    if (!state.animatingToken) return;
+    const timer = setInterval(() => {
+      dispatch({ type: 'ANIMATION_STEP' });
+    }, 180);
+    return () => clearInterval(timer);
+  }, [state.animatingToken?.slot, state.animatingToken?.path.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Go popup auto-dismiss after 1.5s
+  useEffect(() => {
+    if (!state.showGoPopup) return;
+    const timer = setTimeout(() => dispatch({ type: 'HIDE_GO_POPUP' }), 1500);
+    return () => clearTimeout(timer);
+  }, [state.showGoPopup]);
 
   return (
     <TinhTuyContext.Provider value={{

@@ -894,6 +894,15 @@
       "noMessages": "No messages yet",
       "chatPlaceholder": "Type a message..."
     },
+    "property": {
+      "owner": "Owner",
+      "unowned": "Unowned",
+      "buildings": "Buildings",
+      "rentBase": "Base rent",
+      "house": "House",
+      "buildCost": "Build cost",
+      "taxAmount": "Tax amount"
+    },
     "cards": {
       "khiVanTitle": "Luck Card",
       "coHoiTitle": "Chance Card",

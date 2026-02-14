@@ -7,12 +7,13 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { TinhTuyBoard } from './TinhTuyBoard';
-import { TinhTuyDice } from './TinhTuyDice';
+import { TinhTuyDice3D } from './TinhTuyDice3D';
 import { TinhTuyPlayerPanel } from './TinhTuyPlayerPanel';
 import { TinhTuyActionModal } from './TinhTuyActionModal';
 import { TinhTuyCardModal } from './TinhTuyCardModal';
 import { TinhTuyBuildModal } from './TinhTuyBuildModal';
 import { TinhTuyIslandModal } from './TinhTuyIslandModal';
+import { TinhTuyGoPopup } from './TinhTuyGoPopup';
 import { TinhTuyChat } from './TinhTuyChat';
 
 export const TinhTuyPlayView: React.FC = () => {
@@ -41,7 +42,7 @@ export const TinhTuyPlayView: React.FC = () => {
       {/* Left: Board */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%' }}>
         <TinhTuyBoard />
-        <TinhTuyDice />
+        <TinhTuyDice3D />
         {/* Build button (only when it's my turn and I own properties) */}
         {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
           <Button
@@ -70,6 +71,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyCardModal />
       <TinhTuyIslandModal />
       <TinhTuyBuildModal open={buildOpen} onClose={() => setBuildOpen(false)} />
+      <TinhTuyGoPopup />
     </Box>
   );
 };

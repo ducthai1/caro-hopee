@@ -894,6 +894,15 @@
       "noMessages": "Chưa có tin nhắn",
       "chatPlaceholder": "Nhập tin nhắn..."
     },
+    "property": {
+      "owner": "Chủ sở hữu",
+      "unowned": "Chưa có chủ",
+      "buildings": "Công trình",
+      "rentBase": "Tiền thuê cơ bản",
+      "house": "Nhà",
+      "buildCost": "Chi phí xây",
+      "taxAmount": "Số thuế"
+    },
     "cards": {
       "khiVanTitle": "Khí Vận",
       "coHoiTitle": "Cơ Hội",
