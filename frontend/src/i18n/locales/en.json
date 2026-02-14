@@ -892,7 +892,9 @@
       "islandUseCard": "Use escape card",
       "chat": "Chat",
       "noMessages": "No messages yet",
-      "chatPlaceholder": "Type a message..."
+      "chatPlaceholder": "Type a message...",
+      "leave": "Leave",
+      "confirmLeave": "Tap again to leave"
     },
     "property": {
       "owner": "Owner",

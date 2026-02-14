@@ -131,16 +131,16 @@ export const TinhTuyDice3D: React.FC = () => {
   const isDouble = state.lastDiceResult && state.lastDiceResult.dice1 === state.lastDiceResult.dice2;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
       {/* 3D Dice */}
-      <Box sx={{ display: 'flex', gap: 3, perspective: 600, py: 1 }}>
+      <Box sx={{ display: 'flex', gap: 2, perspective: 600, py: 0.5 }}>
         <DiceCube value={dice1} isRolling={isRolling} />
         <DiceCube value={dice2} isRolling={isRolling} />
       </Box>
 
       {/* Doubles indicator */}
       {isDouble && !isRolling && (
-        <Typography variant="caption" sx={{ color: '#e74c3c', fontWeight: 700, fontSize: '0.75rem' }}>
+        <Typography sx={{ color: '#e74c3c', fontWeight: 700, fontSize: '0.65rem', lineHeight: 1 }}>
           DOUBLES!
         </Typography>
       )}
@@ -149,19 +149,21 @@ export const TinhTuyDice3D: React.FC = () => {
       {canRoll && (
         <Button
           variant="contained"
-          startIcon={<CasinoIcon />}
+          size="small"
+          startIcon={<CasinoIcon sx={{ fontSize: '0.9rem !important' }} />}
           onClick={handleRoll}
           disabled={isRolling}
           sx={{
             background: 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)',
             '&:hover': { background: 'linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%)' },
-            px: 4, py: 1.25, fontWeight: 700, fontSize: '1rem',
-            borderRadius: 3,
-            boxShadow: '0 4px 12px rgba(155, 89, 182, 0.4)',
+            px: 2, py: 0.5, fontWeight: 700, fontSize: '0.75rem',
+            borderRadius: 2,
+            boxShadow: '0 3px 8px rgba(155, 89, 182, 0.35)',
+            minWidth: 0,
           }}
         >
           {isRolling
-            ? t('tinhTuy.game.waitingPhase')
+            ? '...'
             : state.turnPhase === 'ISLAND_TURN'
               ? t('tinhTuy.game.islandRoll' as any)
               : t('tinhTuy.game.rollDice')
@@ -169,9 +171,9 @@ export const TinhTuyDice3D: React.FC = () => {
         </Button>
       )}
 
-      {/* Status text */}
+      {/* Status text — compact */}
       {!canRoll && !isRolling && (
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+        <Typography sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.6rem', lineHeight: 1 }}>
           {isMyTurn
             ? state.turnPhase === 'AWAITING_ACTION'
               ? t('tinhTuy.game.chooseAction')

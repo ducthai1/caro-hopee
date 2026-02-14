@@ -1,76 +1,131 @@
 /**
- * TinhTuyPlayView — Main game view: board + dice + player panel + modals + chat.
+ * TinhTuyPlayView — Full-screen board-centric game view.
+ * No sidebar: dice in board center, player HUD overlay, leave button.
  */
 import React, { useState } from 'react';
-import { Box, Button, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, IconButton, Tooltip } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { TinhTuyBoard } from './TinhTuyBoard';
-import { TinhTuyDice3D } from './TinhTuyDice3D';
-import { TinhTuyPlayerPanel } from './TinhTuyPlayerPanel';
 import { TinhTuyActionModal } from './TinhTuyActionModal';
 import { TinhTuyCardModal } from './TinhTuyCardModal';
 import { TinhTuyBuildModal } from './TinhTuyBuildModal';
 import { TinhTuyIslandModal } from './TinhTuyIslandModal';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
-import { TinhTuyTurnTimer } from './TinhTuyTurnTimer';
 import { TinhTuyChat } from './TinhTuyChat';
 
 export const TinhTuyPlayView: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, leaveRoom } = useTinhTuy();
   const [buildOpen, setBuildOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const hasProperties = myPlayer && myPlayer.properties.length > 0;
 
+  const handleLeave = () => {
+    if (!confirmLeave) {
+      setConfirmLeave(true);
+      // Auto-reset after 3s
+      setTimeout(() => setConfirmLeave(false), 3000);
+      return;
+    }
+    leaveRoom();
+  };
+
   return (
     <Box
       sx={{
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: 2,
-        p: { xs: 1, sm: 2, md: 3 },
-        pt: { xs: '88px', md: 3 },
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         minHeight: '100vh',
-        alignItems: 'flex-start',
+        p: { xs: 0.5, sm: 1, md: 2 },
+        pt: { xs: '72px', md: 2 },
+        position: 'relative',
       }}
     >
-      {/* Left: Board */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%' }}>
-        <TinhTuyBoard />
-        <TinhTuyDice3D />
-        {/* Build button (only when it's my turn and I own properties) */}
-        {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
+      {/* Top-left: Leave button */}
+      <Box sx={{ position: 'fixed', top: { xs: 72, md: 12 }, left: 12, zIndex: 100, display: 'flex', gap: 1 }}>
+        <Tooltip title={confirmLeave ? t('tinhTuy.game.confirmLeave' as any) : t('tinhTuy.game.leave' as any)}>
           <Button
-            variant="outlined"
             size="small"
-            startIcon={<ConstructionIcon />}
-            onClick={() => setBuildOpen(true)}
+            variant={confirmLeave ? 'contained' : 'outlined'}
+            onClick={handleLeave}
+            startIcon={<ExitToAppIcon />}
             sx={{
-              borderColor: '#27ae60', color: '#27ae60', fontWeight: 600,
-              '&:hover': { borderColor: '#2ecc71', bgcolor: 'rgba(39,174,96,0.08)' },
+              borderColor: confirmLeave ? undefined : 'rgba(231,76,60,0.5)',
+              color: confirmLeave ? '#fff' : '#e74c3c',
+              bgcolor: confirmLeave ? '#e74c3c' : undefined,
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              minWidth: 0,
+              px: 1.5,
+              '&:hover': {
+                borderColor: '#c0392b',
+                bgcolor: confirmLeave ? '#c0392b' : 'rgba(231,76,60,0.08)',
+              },
             }}
           >
-            {t('tinhTuy.game.build' as any)}
+            {confirmLeave ? t('tinhTuy.game.confirmLeave' as any) : t('tinhTuy.game.leave' as any)}
           </Button>
+        </Tooltip>
+      </Box>
+
+      {/* Top-right: Volume + Chat toggle + Build */}
+      <Box sx={{ position: 'fixed', top: { xs: 72, md: 12 }, right: 12, zIndex: 100, display: 'flex', gap: 1, alignItems: 'center' }}>
+        {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
+          <Tooltip title={t('tinhTuy.game.build' as any)}>
+            <IconButton
+              size="small"
+              onClick={() => setBuildOpen(true)}
+              sx={{ color: '#27ae60', bgcolor: 'rgba(39,174,96,0.1)', '&:hover': { bgcolor: 'rgba(39,174,96,0.2)' } }}
+            >
+              <ConstructionIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
-      </Box>
-
-      {/* Right: Player Panel + Timer + Volume + Chat */}
-      <Box sx={{ width: isMobile ? '100%' : 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <TinhTuyPlayerPanel />
-        <TinhTuyTurnTimer />
+        <Tooltip title="Chat">
+          <IconButton
+            size="small"
+            onClick={() => setChatOpen(prev => !prev)}
+            sx={{ color: '#9b59b6', bgcolor: 'rgba(155,89,182,0.1)', '&:hover': { bgcolor: 'rgba(155,89,182,0.2)' } }}
+          >
+            <ChatBubbleOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <TinhTuyVolumeControl />
-        <TinhTuyChat />
       </Box>
 
-      {/* Modals (overlays) */}
+      {/* Board — full width, centered */}
+      <TinhTuyBoard />
+
+      {/* Chat drawer — fixed bottom-right when open */}
+      {chatOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 12, right: 12,
+            width: 280, maxHeight: 300,
+            zIndex: 200,
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            overflow: 'hidden',
+          }}
+        >
+          <TinhTuyChat />
+        </Box>
+      )}
+
+      {/* Modals */}
       <TinhTuyActionModal />
       <TinhTuyCardModal />
       <TinhTuyIslandModal />
