@@ -3,8 +3,7 @@
  * Board center is decorative only (game title). Interactive elements live outside.
  */
 import React, { useState } from 'react';
-import { Box, Typography } from '@mui/material';
-import { useLanguage } from '../../../i18n';
+import { Box } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, getCellPosition } from '../tinh-tuy-types';
 import { TinhTuyCell } from './TinhTuyCell';
@@ -14,7 +13,6 @@ import './tinh-tuy-board.css';
 const EMPTY_SLOTS: number[] = [];
 
 export const TinhTuyBoard: React.FC = () => {
-  const { t } = useLanguage();
   const { state } = useTinhTuy();
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
 
@@ -89,23 +87,8 @@ export const TinhTuyBoard: React.FC = () => {
             );
           })}
 
-          {/* Board center — decorative only */}
-          <Box className="tt-board-center">
-            <Typography
-              sx={{
-                fontSize: { xs: '0.8rem', sm: '1.1rem' },
-                fontWeight: 800,
-                background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: 1,
-                textAlign: 'center',
-                userSelect: 'none',
-              }}
-            >
-              {t('tinhTuy.title' as any)}
-            </Typography>
-          </Box>
+          {/* Board center — empty, dice overlay sits on top via absolute positioning */}
+          <Box className="tt-board-center" />
         </Box>
       </div>
 

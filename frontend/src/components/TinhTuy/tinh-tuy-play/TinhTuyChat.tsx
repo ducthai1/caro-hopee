@@ -38,7 +38,7 @@ export const TinhTuyChat: React.FC = () => {
   };
 
   return (
-    <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 240 }}>
+    <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 200 }}>
       {/* Header */}
       <Box sx={{ px: 1.5, py: 0.75, bgcolor: 'rgba(155,89,182,0.08)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
         <Typography variant="caption" sx={{ fontWeight: 700, color: '#9b59b6' }}>
