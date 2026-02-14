@@ -110,7 +110,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, pt: { xs: '96px', md: 4 }, maxWidth: 900, mx: 'auto', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, pt: { xs: '96px', md: 4 }, width: '100%', maxWidth: 900, mx: 'auto', minHeight: '100vh' }}>
       {/* Room Code Card */}
       <Paper
         elevation={2}
