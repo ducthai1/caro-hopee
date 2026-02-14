@@ -348,7 +348,7 @@ interface WordChainContextValue {
   createRoom: (payload: CreateRoomPayload) => void;
   joinRoom: (roomCode: string, password?: string) => void;
   leaveRoom: () => void;
-  startGame: () => void;
+  startGame: () => Promise<boolean>;
   submitWord: (word: string) => void;
   surrender: () => void;
   newGame: () => void;
@@ -843,16 +843,25 @@ export const WordChainProvider: React.FC<{ children: ReactNode }> = ({ children 
     setTimeout(() => refreshRooms(), 300);
   }, [refreshRooms]);
 
-  const startGame = useCallback(() => {
-    const socket = socketService.getSocket();
-    if (!socket || !stateRef.current.roomId) return;
+  const startGame = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const socket = socketService.getSocket();
+      if (!socket || !stateRef.current.roomId) { resolve(false); return; }
 
-    socket.emit('word-chain:start-game' as any, {
-      roomId: stateRef.current.roomId,
-    }, (res: any) => {
-      if (res && !res.success) {
-        dispatch({ type: 'SET_ERROR', payload: res.error || 'failedToStart' });
-      }
+      // Safety timeout if socket callback never fires (connection drop)
+      const timeout = setTimeout(() => resolve(false), 10_000);
+
+      socket.emit('word-chain:start-game' as any, {
+        roomId: stateRef.current.roomId,
+      }, (res: any) => {
+        clearTimeout(timeout);
+        if (res && !res.success) {
+          dispatch({ type: 'SET_ERROR', payload: res.error || 'failedToStart' });
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
     });
   }, []);
 

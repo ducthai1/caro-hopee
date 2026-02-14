@@ -3,7 +3,7 @@
  * Desktop: centered card layout with room code, settings, players, actions.
  * Mobile: stacked single column.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box, Typography, Paper, Button, Chip, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
@@ -48,11 +48,6 @@ export const WordChainWaitingRoom: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showGuestNameDialog, setShowGuestNameDialog] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-
-  // Reset loading state if an error occurs (e.g. failedToStart callback)
-  useEffect(() => {
-    if (state.error && isStarting) setIsStarting(false);
-  }, [state.error, isStarting]);
 
   // Edit settings state (initialized when dialog opens)
   const [editMaxPlayers, setEditMaxPlayers] = useState(state.maxPlayers);
@@ -112,12 +107,12 @@ export const WordChainWaitingRoom: React.FC = () => {
 
   const canStart = state.isHost && state.players.length >= 2 && !isStarting;
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     if (isStarting) return;
     setIsStarting(true);
-    startGame();
-    // Safety reset if game doesn't start within 10s (e.g. server error without callback)
-    setTimeout(() => setIsStarting(false), 10_000);
+    const success = await startGame();
+    // Reset on failure; on success the view switches to 'playing' and this component unmounts
+    if (!success) setIsStarting(false);
   };
 
   const handleCopyCode = async () => {
