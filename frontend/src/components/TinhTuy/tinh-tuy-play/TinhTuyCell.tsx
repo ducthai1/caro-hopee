@@ -131,8 +131,8 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
               src={`/location/${cell.icon}`}
               alt=""
               sx={{
-                width: isCorner ? '80%' : '70%',
-                maxHeight: isCorner ? 28 : 20,
+                width: isCorner ? '90%' : '88%',
+                maxHeight: isCorner ? 48 : 40,
                 objectFit: 'contain',
               }}
             />
