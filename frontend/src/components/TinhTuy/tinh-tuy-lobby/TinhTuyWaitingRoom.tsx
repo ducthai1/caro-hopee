@@ -1,7 +1,8 @@
 /**
  * TinhTuyWaitingRoom — After creating/joining a room. Shows room code, players, start/leave.
+ * Includes floating chat (danmaku-style) like Word Chain.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Paper, Button, Chip, IconButton, Tooltip, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -20,11 +21,16 @@ import { useToast } from '../../../contexts/ToastContext';
 import { TinhTuySettingsForm } from './TinhTuySettingsForm';
 import { TinhTuyGameMode, PLAYER_COLORS } from '../tinh-tuy-types';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
+import {
+  TinhTuyChatButton,
+  TinhTuyFloatingMessage,
+  TinhTuyChatOverlay,
+} from '../tinh-tuy-play/TinhTuyChat';
 
 export const TinhTuyWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
   const toast = useToast();
-  const { state, startGame, leaveRoom, updateRoom } = useTinhTuy();
+  const { state, startGame, leaveRoom, updateRoom, sendChat } = useTinhTuy();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -36,6 +42,33 @@ export const TinhTuyWaitingRoom: React.FC = () => {
   const [editTurnDuration, setEditTurnDuration] = useState(state.settings?.turnDuration || 60);
   const [editPassword, setEditPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Floating chat messages — track locally with unique keys
+  const [floatingMsgs, setFloatingMsgs] = useState<Array<{ key: string; msg: any }>>([]);
+  const prevLenRef = useRef(state.chatMessages.length);
+
+  useEffect(() => {
+    if (state.chatMessages.length > prevLenRef.current) {
+      const newMsgs = state.chatMessages.slice(prevLenRef.current);
+      const enriched = newMsgs.map((m, i) => {
+        const player = state.players.find(p => p.slot === m.slot);
+        return {
+          key: `${m.timestamp}-${m.slot}-${i}`,
+          msg: {
+            ...m,
+            displayName: player?.displayName || `P${m.slot}`,
+            isSelf: m.slot === state.mySlot,
+          },
+        };
+      });
+      setFloatingMsgs(prev => [...prev, ...enriched].slice(-20));
+    }
+    prevLenRef.current = state.chatMessages.length;
+  }, [state.chatMessages.length, state.chatMessages, state.players, state.mySlot]);
+
+  const dismissMsg = useCallback((key: string) => {
+    setFloatingMsgs(prev => prev.filter(m => m.key !== key));
+  }, []);
 
   const openSettings = () => {
     setEditMaxPlayers(state.settings?.maxPlayers || 4);
@@ -77,7 +110,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, pt: { xs: '96px', md: 4 }, maxWidth: 760, mx: 'auto', minHeight: '100vh' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, pt: { xs: '96px', md: 4 }, maxWidth: 900, mx: 'auto', minHeight: '100vh' }}>
       {/* Room Code Card */}
       <Paper
         elevation={2}
@@ -87,15 +120,17 @@ export const TinhTuyWaitingRoom: React.FC = () => {
           position: 'relative',
         }}
       >
-        {state.isHost && (
-          <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+        {/* Top right: Chat + Settings */}
+        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <TinhTuyChatButton onSend={sendChat} />
+          {state.isHost && (
             <Tooltip title={t('tinhTuy.settings.edit')}>
               <IconButton onClick={openSettings} size="small" sx={{ color: '#9b59b6' }}>
                 <SettingsIcon sx={{ fontSize: 20 }} />
               </IconButton>
             </Tooltip>
-          </Box>
-        )}
+          )}
+        </Box>
 
         <Box sx={{ textAlign: 'center', mb: 2 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -266,6 +301,18 @@ export const TinhTuyWaitingRoom: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Floating Chat Messages */}
+      <TinhTuyChatOverlay>
+        {floatingMsgs.map(({ key, msg }) => (
+          <TinhTuyFloatingMessage
+            key={key}
+            msgKey={key}
+            msg={msg}
+            onDismiss={() => dismissMsg(key)}
+          />
+        ))}
+      </TinhTuyChatOverlay>
     </Box>
   );
 };
