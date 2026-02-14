@@ -2,12 +2,13 @@
  * TinhTuyPlayView — Full-screen board-centric game view.
  * No sidebar: dice in board center, player HUD overlay, leave button.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, IconButton, Tooltip } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { useLanguage } from '../../../i18n';
+import { useMainLayout } from '../../MainLayout/MainLayoutContext';
 import { useTinhTuy } from '../TinhTuyContext';
 import { TinhTuyBoard } from './TinhTuyBoard';
 import { TinhTuyActionModal } from './TinhTuyActionModal';
@@ -20,7 +21,14 @@ import { TinhTuyChat } from './TinhTuyChat';
 
 export const TinhTuyPlayView: React.FC = () => {
   const { t } = useLanguage();
+  const { setFullscreen } = useMainLayout();
   const { state, leaveRoom } = useTinhTuy();
+
+  // Activate fullscreen (hide sidebar + mobile header) while playing
+  useEffect(() => {
+    setFullscreen(true);
+    return () => setFullscreen(false);
+  }, [setFullscreen]);
   const [buildOpen, setBuildOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -48,12 +56,11 @@ export const TinhTuyPlayView: React.FC = () => {
         justifyContent: 'center',
         minHeight: '100vh',
         p: { xs: 0.5, sm: 1, md: 2 },
-        pt: { xs: '72px', md: 2 },
         position: 'relative',
       }}
     >
       {/* Top-left: Leave button */}
-      <Box sx={{ position: 'fixed', top: { xs: 72, md: 12 }, left: 12, zIndex: 100, display: 'flex', gap: 1 }}>
+      <Box sx={{ position: 'fixed', top: 12, left: 12, zIndex: 100, display: 'flex', gap: 1 }}>
         <Tooltip title={confirmLeave ? t('tinhTuy.game.confirmLeave' as any) : t('tinhTuy.game.leave' as any)}>
           <Button
             size="small"
@@ -80,7 +87,7 @@ export const TinhTuyPlayView: React.FC = () => {
       </Box>
 
       {/* Top-right: Volume + Chat toggle + Build */}
-      <Box sx={{ position: 'fixed', top: { xs: 72, md: 12 }, right: 12, zIndex: 100, display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Box sx={{ position: 'fixed', top: 12, right: 12, zIndex: 100, display: 'flex', gap: 1, alignItems: 'center' }}>
         {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
           <Tooltip title={t('tinhTuy.game.build' as any)}>
             <IconButton

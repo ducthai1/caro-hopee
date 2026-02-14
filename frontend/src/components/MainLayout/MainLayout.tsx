@@ -141,29 +141,33 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
+  const { fullscreen } = useMainLayout();
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar - Cố định, không thay đổi khi chuyển tab */}
-      <HomeSidebar
-        isMobile={isMobile}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
-        selectedGame={selectedGame}
-        setSelectedGame={handleGameSelection}
-        isAuthenticated={isAuthenticated}
-        user={user}
-        logout={logout}
-        onEditGuestName={!isAuthenticated ? openGuestNameDialog : undefined}
-      />
+      {/* Sidebar - hidden in fullscreen mode */}
+      {!fullscreen && (
+        <HomeSidebar
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          selectedGame={selectedGame}
+          setSelectedGame={handleGameSelection}
+          isAuthenticated={isAuthenticated}
+          user={user}
+          logout={logout}
+          onEditGuestName={!isAuthenticated ? openGuestNameDialog : undefined}
+        />
+      )}
 
-      {/* Main Content - Thay đổi động với fade animation */}
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
+          width: fullscreen ? '100%' : { md: `calc(100% - ${drawerWidth}px)` },
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
@@ -171,8 +175,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
           position: 'relative',
         }}
       >
-        {/* Mobile Header with Hamburger + Logo - Fixed overlay */}
-        {isMobile && !sidebarOpen && (
+        {/* Mobile Header - hidden in fullscreen mode */}
+        {isMobile && !sidebarOpen && !fullscreen && (
           <Box
             sx={{
               position: 'fixed',
