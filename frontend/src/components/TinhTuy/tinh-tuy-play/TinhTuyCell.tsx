@@ -21,7 +21,7 @@ interface Props {
   onClick?: () => void;
 }
 
-// Cell type icons
+// Fallback icons for cells without images
 const CELL_ICONS: Record<string, string> = {
   GO: '🚀',
   KHI_VAN: '🎲',
@@ -40,9 +40,11 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
   houseCount = 0, hasHotel = false, isAnimating, onClick,
 }) => {
   const { t } = useLanguage();
-  const isProperty = cell.type === 'PROPERTY';
   const isCorner = [0, 9, 18, 27].includes(cell.index);
   const groupColor = cell.group ? GROUP_COLORS[cell.group as PropertyGroup] : undefined;
+
+  // 3D CSS class
+  const cellClass = isCurrentCell ? 'tt-cell-active' : isCorner ? 'tt-cell-corner' : 'tt-cell-3d';
 
   return (
     <Tooltip
@@ -52,12 +54,13 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
       enterDelay={300}
     >
       <Box
+        className={cellClass}
         onClick={onClick}
         sx={{
           gridColumn: col,
           gridRow: row,
           border: '1px solid',
-          borderColor: isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.12)',
+          borderColor: isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.15)',
           borderRadius: isCorner ? '6px' : '3px',
           p: '2px',
           fontSize: '0.5rem',
@@ -67,12 +70,10 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           justifyContent: 'center',
           position: 'relative',
           overflow: 'hidden',
-          bgcolor: ownerSlot ? `${PLAYER_COLORS[ownerSlot]}15` : 'background.paper',
-          boxShadow: isCurrentCell ? '0 0 6px rgba(155, 89, 182, 0.5)' : 'none',
-          transition: 'box-shadow 0.2s ease',
+          bgcolor: ownerSlot ? `${PLAYER_COLORS[ownerSlot]}15` : '#fffdf8',
           cursor: 'pointer',
           minHeight: 0,
-          '&:hover': { borderColor: '#9b59b6', boxShadow: '0 0 4px rgba(155,89,182,0.3)' },
+          '&:hover': { borderColor: '#9b59b6' },
         }}
       >
         {/* Group color strip */}
@@ -113,33 +114,41 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           </Box>
         )}
 
-        {/* Cell icon / name */}
-        <Typography
+        {/* Cell icon / image */}
+        <Box
           sx={{
-            fontSize: isCorner ? '0.7rem' : '0.5rem',
-            fontWeight: 600,
-            lineHeight: 1.1,
-            textAlign: 'center',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             width: '100%',
-            px: '1px',
+            flex: 1,
+            minHeight: 0,
           }}
         >
-          {isProperty || cell.type === 'STATION' ? (
-            cell.icon ? (
-              <Box
-                component="img"
-                src={`/location/${cell.icon}`}
-                alt=""
-                sx={{ width: '70%', maxHeight: 20, objectFit: 'contain' }}
-              />
-            ) : t(cell.name as any)
+          {cell.icon ? (
+            <Box
+              component="img"
+              src={`/location/${cell.icon}`}
+              alt=""
+              sx={{
+                width: isCorner ? '80%' : '70%',
+                maxHeight: isCorner ? 28 : 20,
+                objectFit: 'contain',
+              }}
+            />
           ) : (
-            CELL_ICONS[cell.type] || t(cell.name as any)
+            <Typography
+              sx={{
+                fontSize: isCorner ? '0.7rem' : '0.5rem',
+                fontWeight: 600,
+                lineHeight: 1.1,
+                textAlign: 'center',
+              }}
+            >
+              {CELL_ICONS[cell.type] || t(cell.name as any)}
+            </Typography>
           )}
-        </Typography>
+        </Box>
 
         {/* Price (small) */}
         {cell.price && (
