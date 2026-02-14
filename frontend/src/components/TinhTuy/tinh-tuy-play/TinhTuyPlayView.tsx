@@ -14,6 +14,8 @@ import { TinhTuyCardModal } from './TinhTuyCardModal';
 import { TinhTuyBuildModal } from './TinhTuyBuildModal';
 import { TinhTuyIslandModal } from './TinhTuyIslandModal';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
+import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
+import { TinhTuyTurnTimer } from './TinhTuyTurnTimer';
 import { TinhTuyChat } from './TinhTuyChat';
 
 export const TinhTuyPlayView: React.FC = () => {
@@ -60,9 +62,11 @@ export const TinhTuyPlayView: React.FC = () => {
         )}
       </Box>
 
-      {/* Right: Player Panel + Chat */}
+      {/* Right: Player Panel + Timer + Volume + Chat */}
       <Box sx={{ width: isMobile ? '100%' : 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TinhTuyPlayerPanel />
+        <TinhTuyTurnTimer />
+        <TinhTuyVolumeControl />
         <TinhTuyChat />
       </Box>
 

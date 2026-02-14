@@ -14,6 +14,7 @@ import {
   TinhTuyState, TinhTuyAction, TinhTuyView, TinhTuyPlayer,
   TinhTuySettings, WaitingRoomInfo, CreateRoomPayload, DEFAULT_SETTINGS,
 } from './tinh-tuy-types';
+import { tinhTuySounds } from './tinh-tuy-sounds';
 
 // ─── Session Storage ──────────────────────────────────
 const TT_SESSION_KEY = 'tinhtuy_room';
@@ -435,6 +436,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleDiceResult = (data: any) => {
       dispatch({ type: 'DICE_RESULT', payload: data });
+      tinhTuySounds.playSFX('diceRoll');
     };
 
     const handlePlayerMoved = (data: any) => {
@@ -447,10 +449,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handlePropertyBought = (data: any) => {
       dispatch({ type: 'PROPERTY_BOUGHT', payload: data });
+      tinhTuySounds.playSFX('purchase');
     };
 
     const handleRentPaid = (data: any) => {
       dispatch({ type: 'RENT_PAID', payload: data });
+      tinhTuySounds.playSFX('rentPay');
     };
 
     const handleTaxPaid = (data: any) => {
@@ -459,6 +463,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleTurnChanged = (data: any) => {
       dispatch({ type: 'TURN_CHANGED', payload: data });
+      // Play "your turn" sound if it's my turn
+      if (data.currentSlot === stateRef.current.mySlot) {
+        tinhTuySounds.playSFX('yourTurn');
+      }
     };
 
     const handlePlayerBankrupt = (data: any) => {
@@ -471,10 +479,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handlePlayerIsland = (data: any) => {
       dispatch({ type: 'PLAYER_ISLAND', payload: data });
+      tinhTuySounds.playSFX('island');
     };
 
     const handleGameFinished = (data: any) => {
       dispatch({ type: 'GAME_FINISHED', payload: data });
+      tinhTuySounds.playSFX('victory');
     };
 
     const handlePlayerDisconnected = (data: any) => {
@@ -487,6 +497,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleCardDrawn = (data: any) => {
       dispatch({ type: 'CARD_DRAWN', payload: data });
+      tinhTuySounds.playSFX('cardDraw');
       // Auto-clear card after 3s — clear previous timer to prevent overlap
       if (cardTimerRef.current) clearTimeout(cardTimerRef.current);
       cardTimerRef.current = window.setTimeout(() => {
@@ -497,10 +508,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleHouseBuilt = (data: any) => {
       dispatch({ type: 'HOUSE_BUILT', payload: data });
+      tinhTuySounds.playSFX('buildHouse');
     };
 
     const handleHotelBuilt = (data: any) => {
       dispatch({ type: 'HOTEL_BUILT', payload: data });
+      tinhTuySounds.playSFX('buildHouse');
     };
 
     const handleIslandEscaped = (data: any) => {
@@ -513,6 +526,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleChatMessage = (data: any) => {
       dispatch({ type: 'CHAT_MESSAGE', payload: data });
+      tinhTuySounds.playSFX('chat');
     };
 
     // Auto-refresh lobby
@@ -814,11 +828,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthLoading, isConnected, joinRoom]);
 
-  // Movement animation driver — step every 180ms
+  // Movement animation driver — step every 180ms + move SFX per step
   useEffect(() => {
     if (!state.animatingToken) return;
     const timer = setInterval(() => {
       dispatch({ type: 'ANIMATION_STEP' });
+      tinhTuySounds.playSFX('move');
     }, 180);
     return () => clearInterval(timer);
   }, [state.animatingToken?.slot, state.animatingToken?.path.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -829,6 +844,33 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const timer = setTimeout(() => dispatch({ type: 'HIDE_GO_POPUP' }), 1500);
     return () => clearTimeout(timer);
   }, [state.showGoPopup]);
+
+  // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
+  useEffect(() => {
+    const handleInit = () => tinhTuySounds.init();
+    document.addEventListener('click', handleInit, { once: true });
+    document.addEventListener('touchstart', handleInit, { once: true });
+    document.addEventListener('visibilitychange', tinhTuySounds.handleVisibilityChange);
+    return () => {
+      document.removeEventListener('click', handleInit);
+      document.removeEventListener('touchstart', handleInit);
+      document.removeEventListener('visibilitychange', tinhTuySounds.handleVisibilityChange);
+    };
+  }, []);
+
+  // Sound: BGM track switching based on view (playBGM stops previous track internally)
+  useEffect(() => {
+    if (state.view === 'playing') {
+      tinhTuySounds.playBGM('game');
+    } else if (state.view === 'lobby' || state.view === 'waiting') {
+      tinhTuySounds.playBGM('lobby');
+    } else {
+      tinhTuySounds.stopBGM();
+    }
+  }, [state.view]);
+
+  // Sound: stop BGM on unmount only
+  useEffect(() => () => tinhTuySounds.stopBGM(), []);
 
   return (
     <TinhTuyContext.Provider value={{
