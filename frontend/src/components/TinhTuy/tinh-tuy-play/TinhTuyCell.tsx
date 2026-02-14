@@ -82,7 +82,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
             sx={{
               position: 'absolute',
               top: 0, left: 0, right: 0,
-              height: 3,
+              height: 4,
               bgcolor: groupColor,
             }}
           />
@@ -94,7 +94,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
             sx={{
               position: 'absolute',
               top: 1, right: 1,
-              width: 6, height: 6,
+              width: 8, height: 8,
               borderRadius: '50%',
               bgcolor: PLAYER_COLORS[ownerSlot] || '#999',
             }}
@@ -131,15 +131,15 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
               src={`/location/${cell.icon}`}
               alt=""
               sx={{
-                width: isCorner ? '90%' : '88%',
-                maxHeight: isCorner ? 48 : 40,
+                width: '95%',
+                height: '95%',
                 objectFit: 'contain',
               }}
             />
           ) : (
             <Typography
               sx={{
-                fontSize: isCorner ? '0.7rem' : '0.5rem',
+                fontSize: isCorner ? '1rem' : '0.65rem',
                 fontWeight: 600,
                 lineHeight: 1.1,
                 textAlign: 'center',
@@ -150,9 +150,9 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           )}
         </Box>
 
-        {/* Price (small) */}
+        {/* Price */}
         {cell.price && (
-          <Typography sx={{ fontSize: '0.4rem', color: 'text.secondary', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: '0.5rem', color: 'text.secondary', lineHeight: 1, fontWeight: 600 }}>
             {cell.price}
           </Typography>
         )}
@@ -161,7 +161,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
         {playersOnCell.length > 0 && (
           <Box sx={{ display: 'flex', gap: '1px', mt: '1px', flexWrap: 'wrap', justifyContent: 'center' }}>
             {playersOnCell.map(slot => (
-              <TinhTuyPlayerToken key={slot} slot={slot} size={8} isAnimating={isAnimating} />
+              <TinhTuyPlayerToken key={slot} slot={slot} size={10} isAnimating={isAnimating} />
             ))}
           </Box>
         )}

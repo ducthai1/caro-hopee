@@ -196,17 +196,17 @@
 /* ─── House/Hotel Indicators ─────────────────────────────── */
 
 .tt-house {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
   background: #2ecc71;
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .tt-hotel {
-  width: 14px;
-  height: 6px;
-  border-radius: 1px;
+  width: 16px;
+  height: 8px;
+  border-radius: 2px;
   background: #e74c3c;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
