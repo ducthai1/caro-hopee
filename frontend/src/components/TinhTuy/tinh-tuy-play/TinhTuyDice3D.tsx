@@ -6,6 +6,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import CasinoIcon from '@mui/icons-material/Casino';
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
+import CelebrationIcon from '@mui/icons-material/Celebration';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import './tinh-tuy-board.css';
@@ -48,15 +49,14 @@ const DiceDots: React.FC<{ count: number }> = ({ count }) => {
 };
 
 // ─── Face transforms: position each face of the cube ────
-const FACE_SIZE = 22; // half of 44px
-
+// Uses CSS var(--tt-dice-half) so faces adapt to mobile size (see tinh-tuy-board.css)
 const FACE_TRANSFORMS: Record<number, string> = {
-  1: `rotateY(0deg)   translateZ(${FACE_SIZE}px)`,
-  6: `rotateY(180deg) translateZ(${FACE_SIZE}px)`,
-  2: `rotateY(90deg)  translateZ(${FACE_SIZE}px)`,
-  5: `rotateY(-90deg) translateZ(${FACE_SIZE}px)`,
-  3: `rotateX(-90deg) translateZ(${FACE_SIZE}px)`,
-  4: `rotateX(90deg)  translateZ(${FACE_SIZE}px)`,
+  1: 'rotateY(0deg)   translateZ(var(--tt-dice-half))',
+  6: 'rotateY(180deg) translateZ(var(--tt-dice-half))',
+  2: 'rotateY(90deg)  translateZ(var(--tt-dice-half))',
+  5: 'rotateY(-90deg) translateZ(var(--tt-dice-half))',
+  3: 'rotateX(-90deg) translateZ(var(--tt-dice-half))',
+  4: 'rotateX(90deg)  translateZ(var(--tt-dice-half))',
 };
 
 // To show face N facing viewer — with slight 3D tilt so edges are visible
@@ -195,8 +195,24 @@ export const TinhTuyDice3D: React.FC = () => {
         </Box>
       )}
 
+      {/* Festival prompt */}
+      {state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            bgcolor: 'rgba(243,156,18,0.12)', borderRadius: 2, px: 2, py: 1,
+            border: '1px solid rgba(243,156,18,0.3)',
+          }}>
+            <CelebrationIcon sx={{ color: '#f39c12', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#e67e22', fontWeight: 700, fontSize: '0.85rem' }}>
+              {t('tinhTuy.game.festivalPrompt' as any)}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* Status text */}
-      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && (
+      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && !(state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn) && (
         <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
           {isMyTurn
             ? state.turnPhase === 'AWAITING_ACTION'

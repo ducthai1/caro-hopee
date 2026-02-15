@@ -57,6 +57,7 @@ async function checkBankruptcy(
   player.properties = [];
   player.houses = {} as Record<string, number>;
   player.hotels = {} as Record<string, boolean>;
+  player.festivals = {} as Record<string, boolean>;
   game.markModified('players');
   io.to(game.roomId).emit('tinh-tuy:player-bankrupt', { slot: player.slot });
 
@@ -292,10 +293,15 @@ async function handleCardDraw(
         } catch (err) { console.error('[tinh-tuy] Card action timeout:', err); }
       });
       return; // Don't auto-advance — waiting for player
-    } else if (landingAction.action === 'tax' && landingAction.amount) {
-      player.points -= landingAction.amount;
+    } else if (landingAction.action === 'tax') {
+      const taxAmt = landingAction.amount || 0;
+      if (taxAmt > 0) player.points -= taxAmt;
       io.to(game.roomId).emit('tinh-tuy:tax-paid', {
-        slot: player.slot, amount: landingAction.amount, cellIndex: effect.playerMoved.to,
+        slot: player.slot, amount: taxAmt, cellIndex: effect.playerMoved.to,
+        houseCount: landingAction.houseCount || 0,
+        hotelCount: landingAction.hotelCount || 0,
+        perHouse: landingAction.perHouse || 500,
+        perHotel: landingAction.perHotel || 1000,
       });
       const gameEnded = await checkBankruptcy(io, game, player);
       if (gameEnded) return;
@@ -591,6 +597,51 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     }
   });
 
+  // ── Apply Festival (choose property to host festival) ────────
+  socket.on('tinh-tuy:apply-festival', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const { cellIndex } = data || {};
+      if (typeof cellIndex !== 'number' || cellIndex < 0 || cellIndex > 35) {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_FESTIVAL') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      // Must own the property
+      if (!player.properties.includes(cellIndex)) {
+        return callback({ success: false, error: 'notOwned' });
+      }
+
+      clearTurnTimer(roomId);
+      player.festivals[String(cellIndex)] = true;
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:festival-applied', { slot: player.slot, cellIndex });
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:apply-festival]', err.message);
+      callback({ success: false, error: 'festivalFailed' });
+    }
+  });
+
   // ── Build House ──────────────────────────────────────────────
   socket.on('tinh-tuy:build-house', async (data: any, callback: TinhTuyCallback) => {
     try {
@@ -750,6 +801,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       player.properties = [];
       player.houses = {} as Record<string, number>;
       player.hotels = {} as Record<string, boolean>;
+      player.festivals = {} as Record<string, boolean>;
       game.markModified('players');
       await game.save();
 
@@ -902,19 +954,28 @@ async function resolveAndAdvance(
       return;
     }
     case 'festival': {
-      const festivalAmount = cellAction.amount || 500;
-      const amounts: Record<number, number> = {};
-      for (const p of game.players.filter(pp => !pp.isBankrupt)) {
-        p.points -= festivalAmount;
-        amounts[p.slot] = -festivalAmount;
+      // If player has no properties, skip festival (no effect)
+      if (player.properties.length === 0) {
+        break; // falls to advanceTurn
       }
-      io.to(roomId).emit('tinh-tuy:festival-paid', { amounts });
-      // Check bankruptcy for all
-      for (const p of game.players.filter(pp => !pp.isBankrupt && pp.points < 0)) {
-        const gameEnded = await checkBankruptcy(io, game, p);
-        if (gameEnded) return;
-      }
-      break;
+      game.turnPhase = 'AWAITING_FESTIVAL';
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:festival-prompt', { slot: player.slot });
+      startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || g.turnPhase !== 'AWAITING_FESTIVAL') return;
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          const autoCell = p.properties[0];
+          p.festivals[String(autoCell)] = true;
+          g.turnPhase = 'END_TURN';
+          g.markModified('players');
+          await g.save();
+          io.to(roomId).emit('tinh-tuy:festival-applied', { slot: p.slot, cellIndex: autoCell });
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Festival timeout:', err); }
+      });
+      return;
     }
     case 'card': {
       const cell = getCell(cellIndex);

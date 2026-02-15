@@ -40,6 +40,7 @@ function mapPlayers(players: any[]): TinhTuyPlayer[] {
     properties: p.properties || [],
     houses: p.houses || {},
     hotels: p.hotels || {},
+    festivals: p.festivals || {},
     cards: p.cards || [],
     displayName: resolveDisplayName(p),
     userId: p.userId?.toString?.() || p.userId,
@@ -75,12 +76,17 @@ const initialState: TinhTuyState = {
   showGoPopup: false,
   islandAlertSlot: null,
   taxAlert: null,
+  rentAlert: null,
   pointNotifs: [],
   pendingNotifs: [],
   displayPoints: {},
   queuedTurnChange: null,
   queuedTravelPrompt: false,
+  queuedFestivalPrompt: false,
   queuedAction: null,
+  queuedRentAlert: null,
+  queuedTaxAlert: null,
+  queuedIslandAlert: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -301,7 +307,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     }
 
     case 'RENT_PAID': {
-      const { fromSlot, toSlot, amount } = action.payload;
+      const { fromSlot, toSlot, amount, cellIndex } = action.payload;
       const dpRent = freezePoints(state);
       const updated = state.players.map(p => {
         if (p.slot === fromSlot) return { ...p, points: p.points - amount };
@@ -310,9 +316,13 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       });
       return {
         ...state, players: updated, pendingAction: null, displayPoints: dpRent,
+        queuedRentAlert: { fromSlot, toSlot, amount, cellIndex },
         pendingNotifs: queueNotifs(state.pendingNotifs, [{ slot: fromSlot, amount: -amount }, { slot: toSlot, amount }]),
       };
     }
+
+    case 'CLEAR_RENT_ALERT':
+      return { ...state, rentAlert: null };
 
     case 'TAX_PAID': {
       const { slot, amount, houseCount, hotelCount, perHouse, perHotel } = action.payload;
@@ -323,7 +333,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return {
         ...state,
         players: updated, displayPoints: dpTax,
-        taxAlert: { slot, amount, houseCount, hotelCount, perHouse, perHotel },
+        queuedTaxAlert: { slot, amount, houseCount, hotelCount, perHouse, perHotel },
         pendingNotifs: amount > 0 ? queueNotifs(state.pendingNotifs, [{ slot, amount: -amount }]) : state.pendingNotifs,
       };
     }
@@ -367,20 +377,21 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         pendingAction: null,
         islandAlertSlot: null,
         taxAlert: null,
+        rentAlert: null,
         queuedTurnChange: null,
       };
     }
 
     case 'PLAYER_BANKRUPT': {
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [] } : p
+        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {}, festivals: {} } : p
       );
       return { ...state, players: updated };
     }
 
     case 'PLAYER_SURRENDERED': {
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [] } : p
+        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {}, festivals: {} } : p
       );
       return { ...state, players: updated };
     }
@@ -389,7 +400,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       const updated = state.players.map(p =>
         p.slot === action.payload.slot ? { ...p, islandTurns: action.payload.turnsRemaining, position: 27 } : p
       );
-      return { ...state, players: updated, islandAlertSlot: action.payload.slot };
+      return { ...state, players: updated, queuedIslandAlert: action.payload.slot };
     }
 
     case 'CLEAR_ISLAND_ALERT':
@@ -581,19 +592,31 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       };
     }
 
-    case 'FESTIVAL_PAID': {
-      const festNotifs: Array<{ slot: number; amount: number }> = [];
-      const updated = state.players.map(p => {
-        const delta = action.payload.amounts[p.slot];
-        if (delta !== undefined && delta !== 0) festNotifs.push({ slot: p.slot, amount: delta });
-        return delta !== undefined ? { ...p, points: p.points + delta } : p;
-      });
-      const dpFest = festNotifs.length > 0 ? freezePoints(state) : state.displayPoints;
-      return {
-        ...state, players: updated, displayPoints: dpFest,
-        pendingNotifs: festNotifs.length > 0 ? queueNotifs(state.pendingNotifs, festNotifs) : state.pendingNotifs,
-      };
+    case 'FESTIVAL_PROMPT':
+      // Queue — applied after movement animation finishes
+      return { ...state, queuedFestivalPrompt: true };
+
+    case 'FESTIVAL_APPLIED': {
+      const { slot: fSlot, cellIndex: fCell } = action.payload;
+      const updated = state.players.map(p =>
+        p.slot === fSlot
+          ? { ...p, festivals: { ...p.festivals, [String(fCell)]: true } }
+          : p
+      );
+      return { ...state, players: updated };
     }
+
+    case 'APPLY_QUEUED_FESTIVAL':
+      return { ...state, turnPhase: 'AWAITING_FESTIVAL', queuedFestivalPrompt: false };
+
+    case 'APPLY_QUEUED_RENT_ALERT':
+      return { ...state, rentAlert: state.queuedRentAlert, queuedRentAlert: null };
+
+    case 'APPLY_QUEUED_TAX_ALERT':
+      return { ...state, taxAlert: state.queuedTaxAlert, queuedTaxAlert: null };
+
+    case 'APPLY_QUEUED_ISLAND_ALERT':
+      return { ...state, islandAlertSlot: state.queuedIslandAlert, queuedIslandAlert: null };
 
     case 'PLAYER_NAME_UPDATED': {
       const updated = state.players.map(p =>
@@ -636,6 +659,7 @@ interface TinhTuyContextValue {
   updateGuestName: (guestName: string) => void;
   clearCard: () => void;
   travelTo: (cellIndex: number) => void;
+  applyFestival: (cellIndex: number) => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -748,8 +772,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'ISLAND_ESCAPED', payload: data });
     };
 
-    const handleFestivalPaid = (data: any) => {
-      dispatch({ type: 'FESTIVAL_PAID', payload: data });
+    const handleFestivalPrompt = (data: any) => {
+      dispatch({ type: 'FESTIVAL_PROMPT', payload: data });
+    };
+
+    const handleFestivalApplied = (data: any) => {
+      dispatch({ type: 'FESTIVAL_APPLIED', payload: data });
     };
 
     const handleTravelPrompt = (data: any) => {
@@ -799,7 +827,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:house-built' as any, handleHouseBuilt);
     socket.on('tinh-tuy:hotel-built' as any, handleHotelBuilt);
     socket.on('tinh-tuy:island-escaped' as any, handleIslandEscaped);
-    socket.on('tinh-tuy:festival-paid' as any, handleFestivalPaid);
+    socket.on('tinh-tuy:festival-prompt' as any, handleFestivalPrompt);
+    socket.on('tinh-tuy:festival-applied' as any, handleFestivalApplied);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -826,7 +855,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:house-built' as any, handleHouseBuilt);
       socket.off('tinh-tuy:hotel-built' as any, handleHotelBuilt);
       socket.off('tinh-tuy:island-escaped' as any, handleIslandEscaped);
-      socket.off('tinh-tuy:festival-paid' as any, handleFestivalPaid);
+      socket.off('tinh-tuy:festival-prompt' as any, handleFestivalPrompt);
+      socket.off('tinh-tuy:festival-applied' as any, handleFestivalApplied);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1081,6 +1111,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const applyFestival = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:apply-festival' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   // Auto-refresh rooms on lobby view
   useEffect(() => {
     if (state.view === 'lobby') refreshRooms();
@@ -1133,19 +1171,26 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.taxAlert]);
 
+  // Rent alert auto-dismiss after 4s
+  useEffect(() => {
+    if (!state.rentAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_RENT_ALERT' }), 4000);
+    return () => clearTimeout(timer);
+  }, [state.rentAlert]);
+
   // Flush pending notifs → visible pointNotifs when animation + modals are all done
   useEffect(() => {
     if (state.pendingNotifs.length === 0) return;
     // Wait for movement to finish
     if (state.pendingMove || state.animatingToken) return;
     // Wait for modals to close
-    if (state.drawnCard || state.pendingAction || state.taxAlert || state.islandAlertSlot != null) return;
+    if (state.drawnCard || state.pendingAction || state.taxAlert || state.rentAlert || state.islandAlertSlot != null) return;
     // Small delay so the dismiss feels settled before showing
     const timer = setTimeout(() => dispatch({ type: 'FLUSH_NOTIFS' }), 400);
     return () => clearTimeout(timer);
   }, [
     state.pendingNotifs.length, state.pendingMove, state.animatingToken,
-    state.drawnCard, state.pendingAction, state.taxAlert, state.islandAlertSlot,
+    state.drawnCard, state.pendingAction, state.taxAlert, state.rentAlert, state.islandAlertSlot,
   ]);
 
   // Point notifs auto-cleanup after 2.5s
@@ -1163,6 +1208,34 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (state.pendingMove || state.animatingToken) return;
     dispatch({ type: 'APPLY_QUEUED_TRAVEL' });
   }, [state.queuedTravelPrompt, state.pendingMove, state.animatingToken]);
+
+  // Apply queued festival prompt after movement animation finishes
+  useEffect(() => {
+    if (!state.queuedFestivalPrompt) return;
+    if (state.pendingMove || state.animatingToken) return;
+    dispatch({ type: 'APPLY_QUEUED_FESTIVAL' });
+  }, [state.queuedFestivalPrompt, state.pendingMove, state.animatingToken]);
+
+  // Apply queued rent alert after movement animation finishes
+  useEffect(() => {
+    if (!state.queuedRentAlert) return;
+    if (state.pendingMove || state.animatingToken) return;
+    dispatch({ type: 'APPLY_QUEUED_RENT_ALERT' });
+  }, [state.queuedRentAlert, state.pendingMove, state.animatingToken]);
+
+  // Apply queued tax alert after movement animation finishes
+  useEffect(() => {
+    if (!state.queuedTaxAlert) return;
+    if (state.pendingMove || state.animatingToken) return;
+    dispatch({ type: 'APPLY_QUEUED_TAX_ALERT' });
+  }, [state.queuedTaxAlert, state.pendingMove, state.animatingToken]);
+
+  // Apply queued island alert after movement animation finishes
+  useEffect(() => {
+    if (state.queuedIslandAlert == null) return;
+    if (state.pendingMove || state.animatingToken) return;
+    dispatch({ type: 'APPLY_QUEUED_ISLAND_ALERT' });
+  }, [state.queuedIslandAlert, state.pendingMove, state.animatingToken]);
 
   // Apply queued action (buy/skip modal) after movement animation finishes
   useEffect(() => {
@@ -1218,7 +1291,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       state, createRoom, joinRoom, leaveRoom, startGame,
       rollDice, buyProperty, skipBuy, surrender,
       refreshRooms, setView, updateRoom,
-      buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName, clearCard, travelTo,
+      buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName, clearCard, travelTo, applyFestival,
     }}>
       {children}
     </TinhTuyContext.Provider>

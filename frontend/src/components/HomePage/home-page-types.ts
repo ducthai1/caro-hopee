@@ -71,6 +71,7 @@ export const GAMES: GameItem[] = [
     id: 'tinh-tuy',
     name: 'games.tinhTuy',
     icon: '🔮',
+    logo: '/logo/tinh-tuy.png',
     description: 'home.tinhTuyDescription',
     available: true,
     color: '#9b59b6',

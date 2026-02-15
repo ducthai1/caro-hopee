@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -49,6 +49,7 @@ export interface ITinhTuyPlayer {
   properties: number[];         // cell indices owned
   houses: Record<string, number>;   // cellIndex → 0-4
   hotels: Record<string, boolean>;  // cellIndex → true/false
+  festivals: Record<string, boolean>; // cellIndex → true (festival hosted)
   islandTurns: number;          // turns remaining on island (0 = free)
   cards: string[];              // held card IDs (e.g., 'escape-island')
   isBankrupt: boolean;

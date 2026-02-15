@@ -7,21 +7,34 @@ import { Box } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, getCellPosition } from '../tinh-tuy-types';
 import { TinhTuyCell } from './TinhTuyCell';
+import { TinhTuyPlayerToken } from './TinhTuyPlayerToken';
 import { TinhTuyPropertyDetail } from './TinhTuyPropertyDetail';
 import './tinh-tuy-board.css';
-
-const EMPTY_SLOTS: number[] = [];
 
 // Invalid travel destinations
 const TRAVEL_INVALID_TYPES = new Set(['GO_TO_ISLAND', 'ISLAND', 'TRAVEL']);
 
+/** Compute translate offset (%) for stacking multiple tokens on one cell */
+function getTokenOffset(index: number, total: number): { x: number; y: number } {
+  if (total <= 1) return { x: 0, y: 0 };
+  // 2 players: side by side
+  if (total === 2) return [{ x: -18, y: 0 }, { x: 18, y: 0 }][index];
+  // 3 players: triangle
+  if (total === 3) return [{ x: 0, y: -15 }, { x: -18, y: 12 }, { x: 18, y: 12 }][index];
+  // 4 players: 2×2 grid
+  return [{ x: -15, y: -12 }, { x: 15, y: -12 }, { x: -15, y: 12 }, { x: 15, y: 12 }][index];
+}
+
 export const TinhTuyBoard: React.FC = () => {
-  const { state, travelTo } = useTinhTuy();
+  const { state, travelTo, applyFestival } = useTinhTuy();
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const isTravelPhase = state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn;
-  const myPos = state.players.find(p => p.slot === state.mySlot)?.position ?? -1;
+  const isFestivalPhase = state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn;
+  const myPlayer = state.players.find(p => p.slot === state.mySlot);
+  const myPos = myPlayer?.position ?? -1;
+  const myProperties = myPlayer?.properties ?? [];
 
   // Build ownership map: cellIndex → ownerSlot
   const ownershipMap = new Map<number, number>();
@@ -31,17 +44,33 @@ export const TinhTuyBoard: React.FC = () => {
     }
   }
 
-  // Build player positions: cellIndex → slot[]
-  const playerPositions = new Map<number, number[]>();
+  // Build active player display positions (slot → cellIndex)
+  const playerDisplayPos = new Map<number, number>();
   for (const player of state.players) {
     if (player.isBankrupt) continue;
     let displayPos = player.position;
     if (state.animatingToken && state.animatingToken.slot === player.slot) {
       displayPos = state.animatingToken.path[state.animatingToken.currentStep];
     }
-    const slots = playerPositions.get(displayPos) || [];
-    slots.push(player.slot);
-    playerPositions.set(displayPos, slots);
+    playerDisplayPos.set(player.slot, displayPos);
+  }
+
+  // Group players by cell for offset calculation
+  const playersPerCell = new Map<number, number[]>();
+  playerDisplayPos.forEach((cellIdx, slot) => {
+    const arr = playersPerCell.get(cellIdx) || [];
+    arr.push(slot);
+    playersPerCell.set(cellIdx, arr);
+  });
+
+  // Build festivals map: cellIndex → true
+  const festivalsMap = new Set<number>();
+  for (const player of state.players) {
+    if (player.festivals) {
+      for (const key of Object.keys(player.festivals)) {
+        if (player.festivals[key]) festivalsMap.add(Number(key));
+      }
+    }
   }
 
   // Build houses/hotels map
@@ -70,15 +99,18 @@ export const TinhTuyBoard: React.FC = () => {
             width: '100%',
             maxWidth: 'min(88vw, 88vh, 780px)',
             mx: 'auto',
+            overflow: 'visible',
           }}
         >
           {BOARD_CELLS.map((cell) => {
             const pos = getCellPosition(cell.index);
             const building = housesMap.get(cell.index);
             const isValidTravel = isTravelPhase && cell.index !== myPos && !TRAVEL_INVALID_TYPES.has(cell.type);
+            const isValidFestival = isFestivalPhase && myProperties.includes(cell.index);
+            const isSelectionMode = isTravelPhase || isFestivalPhase;
             // Selection state: valid (bright + clickable), invalid (dimmed), null (normal)
-            const selectionState = isTravelPhase
-              ? (isValidTravel ? 'valid' as const : 'invalid' as const)
+            const selectionState = isSelectionMode
+              ? ((isValidTravel || isValidFestival) ? 'valid' as const : 'invalid' as const)
               : null;
             return (
               <TinhTuyCell
@@ -87,16 +119,47 @@ export const TinhTuyBoard: React.FC = () => {
                 col={pos.col}
                 row={pos.row}
                 ownerSlot={ownershipMap.get(cell.index)}
-                playersOnCell={playerPositions.get(cell.index) || EMPTY_SLOTS}
                 isCurrentCell={
                   state.players.find(p => p.slot === state.currentPlayerSlot)?.position === cell.index
                 }
                 houseCount={building?.houses || 0}
                 hasHotel={building?.hotel || false}
-                isAnimating={state.animatingToken?.path[state.animatingToken.currentStep] === cell.index}
+                hasFestival={festivalsMap.has(cell.index)}
                 selectionState={selectionState}
-                onClick={() => isValidTravel ? travelTo(cell.index) : setSelectedCell(cell.index)}
+                onClick={() =>
+                  isValidFestival ? applyFestival(cell.index)
+                  : isValidTravel ? travelTo(cell.index)
+                  : setSelectedCell(cell.index)
+                }
               />
+            );
+          })}
+
+          {/* Player actor tokens — overlaid on same grid positions, overflow upward */}
+          {Array.from(playerDisplayPos.entries()).map(([slot, cellIdx]) => {
+            const cellPos = getCellPosition(cellIdx);
+            const cellGroup = playersPerCell.get(cellIdx) || [slot];
+            const indexInGroup = cellGroup.indexOf(slot);
+            const isAnim = state.animatingToken?.slot === slot;
+            const offsets = getTokenOffset(indexInGroup, cellGroup.length);
+            return (
+              <Box
+                key={`token-${slot}`}
+                sx={{
+                  gridColumn: cellPos.col,
+                  gridRow: cellPos.row,
+                  pointerEvents: 'none',
+                  zIndex: 10 + slot,
+                  position: 'relative',
+                  overflow: 'visible',
+                  /* translateZ(10px) lifts token above 3D cells (which use 2-6px) */
+                  transform: `translateZ(10px) translate(${offsets.x}%, ${offsets.y}%)`,
+                  transformStyle: 'preserve-3d',
+                  transition: isAnim ? 'none' : 'transform 0.15s ease',
+                }}
+              >
+                <TinhTuyPlayerToken slot={slot} isAnimating={isAnim} />
+              </Box>
             );
           })}
 

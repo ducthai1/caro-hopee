@@ -115,7 +115,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
           // Mobile device: 95vh to avoid phone navigation bar, desktop always 100vh
           height: '100vh',
           paddingBottom: isMobileDevice ? '5vh' : 0,
-          overflowY: 'auto',
+          overflowY: 'hidden',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -176,7 +176,7 @@ const HomeSidebar: React.FC<HomeSidebarProps> = ({
       />
 
       {/* Auth Section */}
-      <Divider sx={{ borderColor: 'rgba(126, 200, 227, 0.12)', mx: 0, mt: 'auto' }} />
+      <Divider sx={{ borderColor: 'rgba(126, 200, 227, 0.12)', mx: 0 }} />
       <AuthSection
         isAuthenticated={isAuthenticated}
         user={user}
@@ -271,34 +271,17 @@ const GameList: React.FC<GameListProps> = React.memo(({ games, selectedGame, set
   <List sx={{
     px: 2,
     py: 2,
-    ...(guestName && {
-      maxHeight: '57vh',
-      overflowY: 'auto',
-      '&::-webkit-scrollbar': { width: '4px' },
-      '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
-      '&::-webkit-scrollbar-thumb': {
-        background: 'rgba(126, 200, 227, 0.2)',
-        borderRadius: '2px',
-        '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
-      },
-    }),
-    // When authenticated: limit height to show ~3 games, enable scroll for rest
-    ...(isAuthenticated && {
-      // Collapsed sidebar on desktop: 442px, otherwise 310px
-      maxHeight: (sidebarCollapsed && !isMobile) ? 442 : 310,
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      // Inner shadow to indicate scrollable content
-      boxShadow: 'inset 0 8px 8px -8px rgba(126, 200, 227, 0.15), inset 0 -8px 8px -8px rgba(126, 200, 227, 0.15)',
-      transition: 'max-height 0.3s ease',
-      '&::-webkit-scrollbar': { width: '4px' },
-      '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
-      '&::-webkit-scrollbar-thumb': {
-        background: 'rgba(126, 200, 227, 0.2)',
-        borderRadius: '2px',
-        '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
-      },
-    }),
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    '&::-webkit-scrollbar': { width: '4px' },
+    '&::-webkit-scrollbar-track': { background: 'rgba(126, 200, 227, 0.05)', borderRadius: '2px' },
+    '&::-webkit-scrollbar-thumb': {
+      background: 'rgba(126, 200, 227, 0.2)',
+      borderRadius: '2px',
+      '&:hover': { background: 'rgba(126, 200, 227, 0.3)' },
+    },
   }}>
     {games.map((game) => (
       <ListItem key={game.id} disablePadding sx={{ mb: 1 }}>
@@ -540,7 +523,7 @@ const UserNameDisplay: React.FC<UserNameDisplayProps> = React.memo(({
   if (!shouldShow) return null;
 
   return (
-    <Box sx={{ px: 2, mb: 2, mt: 'auto' }}>
+    <Box sx={{ px: 2, mb: 2 }}>
       <Box
         sx={{
           p: 2,

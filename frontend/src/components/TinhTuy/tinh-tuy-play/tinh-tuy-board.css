@@ -4,12 +4,14 @@
 .tt-board-perspective {
   perspective: 900px;
   perspective-origin: 50% 45%;
+  overflow: visible;
 }
 
 .tt-board-grid {
   transform: rotateX(18deg);
   transform-style: preserve-3d;
   transition: transform 0.3s ease;
+  overflow: visible;
   border-radius: 8px;
   box-shadow:
     0 8px 32px rgba(0,0,0,0.18),
@@ -71,6 +73,7 @@
 /* ─── 3D Dice ────────────────────────────────────────────── */
 
 .tt-dice-cube {
+  --tt-dice-half: 22px;
   width: 44px;
   height: 44px;
   position: relative;
@@ -190,13 +193,13 @@
 /* ─── Movement Bounce ────────────────────────────────────── */
 
 @keyframes tt-token-bounce {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.4); }
-  100% { transform: scale(1); }
+  0%   { transform: translateX(-50%) translateY(0) scale(1); }
+  40%  { transform: translateX(-50%) translateY(-20%) scale(1.08); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
 }
 
 .tt-token-moving {
-  animation: tt-token-bounce 0.2s ease-out;
+  animation: tt-token-bounce 0.28s ease-out;
 }
 
 /* ─── House/Hotel Indicators ─────────────────────────────── */
@@ -253,6 +256,7 @@
     transform: none;
   }
   .tt-dice-cube {
+    --tt-dice-half: 18px;
     width: 36px;
     height: 36px;
   }

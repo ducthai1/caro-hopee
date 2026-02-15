@@ -23,6 +23,7 @@ import { TinhTuyCardModal } from './TinhTuyCardModal';
 import { TinhTuyBuildModal } from './TinhTuyBuildModal';
 import { TinhTuyIslandModal, TinhTuyIslandAlert } from './TinhTuyIslandModal';
 import { TinhTuyTaxAlert } from './TinhTuyTaxAlert';
+import { TinhTuyRentAlert } from './TinhTuyRentAlert';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
@@ -325,6 +326,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyIslandModal />
       <TinhTuyIslandAlert />
       <TinhTuyTaxAlert />
+      <TinhTuyRentAlert />
       <TinhTuyBuildModal open={buildOpen} onClose={() => setBuildOpen(false)} />
       <TinhTuyGoPopup />
 

@@ -17,6 +17,7 @@ const TinhTuyPlayerSchema = new Schema({
   properties: { type: [Number], default: [] },
   houses: { type: Schema.Types.Mixed, default: {} },
   hotels: { type: Schema.Types.Mixed, default: {} },
+  festivals: { type: Schema.Types.Mixed, default: {} },
   islandTurns: { type: Number, default: 0 },
   cards: { type: [String], default: [] },
   isBankrupt: { type: Boolean, default: false },
@@ -64,7 +65,7 @@ const TinhTuyGameSchema = new Schema({
   currentPlayerSlot: { type: Number, default: 1 },
   turnPhase: {
     type: String,
-    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'ISLAND_TURN', 'END_TURN'],
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'ISLAND_TURN', 'END_TURN'],
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },

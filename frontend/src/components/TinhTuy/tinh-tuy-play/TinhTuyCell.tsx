@@ -5,7 +5,6 @@ import React from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { BoardCellClient, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../tinh-tuy-types';
-import { TinhTuyPlayerToken } from './TinhTuyPlayerToken';
 import './tinh-tuy-board.css';
 
 /** Selection state during travel/festival phases: 'valid' = selectable, 'invalid' = dimmed */
@@ -16,11 +15,10 @@ interface Props {
   col: number;
   row: number;
   ownerSlot?: number;
-  playersOnCell: number[];
   isCurrentCell?: boolean;
   houseCount?: number;
   hasHotel?: boolean;
-  isAnimating?: boolean;
+  hasFestival?: boolean;
   selectionState?: SelectionState;
   onClick?: () => void;
 }
@@ -40,8 +38,8 @@ const CELL_ICONS: Record<string, string> = {
 };
 
 export const TinhTuyCell: React.FC<Props> = React.memo(({
-  cell, col, row, ownerSlot, playersOnCell, isCurrentCell,
-  houseCount = 0, hasHotel = false, isAnimating, selectionState, onClick,
+  cell, col, row, ownerSlot, isCurrentCell,
+  houseCount = 0, hasHotel = false, hasFestival = false, selectionState, onClick,
 }) => {
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
@@ -127,6 +125,24 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           </Box>
         )}
 
+        {/* Festival frame overlay */}
+        {hasFestival && (
+          <Box
+            component="img"
+            src="/location/le-hoi-frame.png"
+            alt=""
+            sx={{
+              position: 'absolute',
+              top: 0, left: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover',
+              zIndex: 3,
+              pointerEvents: 'none',
+              opacity: 0.85,
+            }}
+          />
+        )}
+
         {/* Cell icon / image */}
         <Box
           sx={{
@@ -170,14 +186,6 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           </Typography>
         )}
 
-        {/* Player tokens */}
-        {playersOnCell.length > 0 && (
-          <Box sx={{ display: 'flex', gap: '1px', mt: '1px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            {playersOnCell.map(slot => (
-              <TinhTuyPlayerToken key={slot} slot={slot} size={10} isAnimating={isAnimating} />
-            ))}
-          </Box>
-        )}
       </Box>
     </Tooltip>
   );

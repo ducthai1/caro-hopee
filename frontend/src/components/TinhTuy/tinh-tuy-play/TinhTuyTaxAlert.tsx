@@ -30,7 +30,13 @@ export const TinhTuyTaxAlert: React.FC = () => {
       PaperProps={{ sx: { borderRadius: 3, borderTop: '4px solid #e74c3c' } }}
     >
       <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pb: 0.5 }}>
-        💰 {t('tinhTuy.game.taxTitle' as any)}
+        <Box
+          component="img"
+          src="/location/thue.png"
+          alt=""
+          sx={{ width: 48, height: 48, objectFit: 'contain', display: 'block', mx: 'auto', mb: 1, borderRadius: 1 }}
+        />
+        {t('tinhTuy.game.taxTitle' as any)}
       </DialogTitle>
       <DialogContent sx={{ textAlign: 'center', pt: 1 }}>
         {/* Player badge */}

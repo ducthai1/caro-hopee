@@ -72,6 +72,11 @@ export function calculateRent(
     }
   }
 
+  // Festival multiplier (1.5x)
+  if (owner.festivals[String(cellIndex)]) {
+    rent = Math.floor(rent * 1.5);
+  }
+
   // Owner has double rent buff
   if (owner.doubleRentTurns && owner.doubleRentTurns > 0) {
     rent *= 2;
@@ -349,7 +354,7 @@ export function resolveCellAction(
     case 'CO_HOI':
       return { action: 'card' };
     case 'FESTIVAL':
-      return { action: 'festival', amount: 500 };
+      return { action: 'festival' };
     case 'TRAVEL':
       return { action: 'travel' };
     default:

@@ -9,7 +9,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -49,6 +49,7 @@ export interface TinhTuyPlayer {
   properties: number[];
   houses: Record<string, number>;
   hotels: Record<string, boolean>;
+  festivals: Record<string, boolean>;
   islandTurns: number;
   cards: string[];
   isBankrupt: boolean;
@@ -134,6 +135,7 @@ export interface TinhTuyState {
   showGoPopup: boolean;
   islandAlertSlot: number | null;
   taxAlert: { slot: number; amount: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } | null;
+  rentAlert: { fromSlot: number; toSlot: number; amount: number; cellIndex: number } | null;
   /** Floating point-change notifications per player (visible) */
   pointNotifs: Array<{ id: number; slot: number; amount: number }>;
   /** Queued notifs — flushed to pointNotifs after animation completes */
@@ -144,8 +146,16 @@ export interface TinhTuyState {
   queuedTurnChange: { currentSlot: number; turnPhase: TurnPhase; round?: number } | null;
   /** Queued travel prompt — applied after movement animation finishes */
   queuedTravelPrompt: boolean;
+  /** Queued festival prompt — applied after movement animation finishes */
+  queuedFestivalPrompt: boolean;
   /** Queued awaiting action — applied after movement animation finishes */
   queuedAction: { cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } | null;
+  /** Queued rent alert — shown after movement animation finishes */
+  queuedRentAlert: TinhTuyState['rentAlert'];
+  /** Queued tax alert — shown after movement animation finishes */
+  queuedTaxAlert: TinhTuyState['taxAlert'];
+  /** Queued island alert — shown after movement animation finishes */
+  queuedIslandAlert: number | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -179,7 +189,9 @@ export type TinhTuyAction =
   | { type: 'HOUSE_BUILT'; payload: { slot: number; cellIndex: number; houseCount: number; remainingPoints?: number } }
   | { type: 'HOTEL_BUILT'; payload: { slot: number; cellIndex: number; remainingPoints?: number } }
   | { type: 'ISLAND_ESCAPED'; payload: { slot: number; method: string; costPaid?: number } }
-  | { type: 'FESTIVAL_PAID'; payload: { amounts: Record<number, number> } }
+  | { type: 'FESTIVAL_PROMPT'; payload: { slot: number } }
+  | { type: 'FESTIVAL_APPLIED'; payload: { slot: number; cellIndex: number } }
+  | { type: 'APPLY_QUEUED_FESTIVAL' }
   | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
   | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
   | { type: 'TRAVEL_PROMPT'; payload: { slot: number } }
@@ -189,11 +201,15 @@ export type TinhTuyAction =
   | { type: 'HIDE_GO_POPUP' }
   | { type: 'CLEAR_ISLAND_ALERT' }
   | { type: 'CLEAR_TAX_ALERT' }
+  | { type: 'CLEAR_RENT_ALERT' }
   | { type: 'CLEAR_POINT_NOTIFS' }
   | { type: 'FLUSH_NOTIFS' }
   | { type: 'APPLY_QUEUED_TURN_CHANGE' }
   | { type: 'APPLY_QUEUED_TRAVEL' }
-  | { type: 'APPLY_QUEUED_ACTION' };
+  | { type: 'APPLY_QUEUED_ACTION' }
+  | { type: 'APPLY_QUEUED_RENT_ALERT' }
+  | { type: 'APPLY_QUEUED_TAX_ALERT' }
+  | { type: 'APPLY_QUEUED_ISLAND_ALERT' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {
@@ -215,6 +231,14 @@ export const PLAYER_COLORS: Record<number, string> = {
   2: '#3498db',
   3: '#2ecc71',
   4: '#f39c12',
+};
+
+// ─── Player 3D Actor Images ──────────────────────────
+export const PLAYER_ACTORS: Record<number, string> = {
+  1: '/tinh-tuy-actor/shiba.png',
+  2: '/tinh-tuy-actor/kungfu.png',
+  3: '/tinh-tuy-actor/fox.png',
+  4: '/tinh-tuy-actor/elephant.png',
 };
 
 // ─── Property Group Colors ────────────────────────────

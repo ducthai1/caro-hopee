@@ -27,17 +27,16 @@ export const TinhTuyCardModal: React.FC = () => {
     }
   }, []);
 
-  // Reset flip state when new card appears, flip after 300ms
+  // Flip card 300ms after it becomes VISIBLE (canShow=true, i.e. after movement animation finishes)
   useEffect(() => {
-    if (!card) {
+    if (!canShow) {
       setFlipped(false);
-      clearDismissTimer();
       return;
     }
     setFlipped(false);
     const timer = setTimeout(() => setFlipped(true), 300);
     return () => clearTimeout(timer);
-  }, [card?.id, clearDismissTimer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canShow]);
 
   // Auto-dismiss: start timer only when card becomes visible
   useEffect(() => {
@@ -61,6 +60,8 @@ export const TinhTuyCardModal: React.FC = () => {
     ? 'linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%)'
     : 'linear-gradient(135deg, #e67e22 0%, #f39c12 100%)';
 
+  const iconSrc = isKhiVan ? '/location/khi-van.png' : '/location/co-hoi.png';
+
   return (
     <Dialog
       open={true}
@@ -68,25 +69,33 @@ export const TinhTuyCardModal: React.FC = () => {
       fullWidth
       TransitionProps={{ timeout: 400 }}
       PaperProps={{
-        sx: { borderRadius: 3, overflow: 'visible', bgcolor: 'transparent', boxShadow: 'none' },
+        sx: { borderRadius: 3, overflow: 'visible', background: 'none', boxShadow: 'none', border: 0, outline: 'none' },
       }}
+      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(0,0,0,0.5)' } } }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
         <div className="tt-card-flip-container">
           <div className={`tt-card-inner ${flipped ? 'flipped' : ''}`}>
             {/* Back face */}
             <div className="tt-card-face tt-card-back" style={{ background: gradient }}>
-              <Typography sx={{ fontSize: '3rem' }}>
-                {isKhiVan ? '🎲' : '💎'}
-              </Typography>
+              <Box
+                component="img"
+                src={iconSrc}
+                alt=""
+                sx={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 2, opacity: 0.9 }}
+              />
             </div>
             {/* Front face */}
             <div className="tt-card-face tt-card-front">
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" sx={{ color: isKhiVan ? '#8e44ad' : '#e67e22', fontWeight: 700, letterSpacing: 1 }}>
-                  {isKhiVan ? t('tinhTuy.cards.khiVanTitle' as any) : t('tinhTuy.cards.coHoiTitle' as any)}
-                </Typography>
-              </Box>
+              <Box
+                component="img"
+                src={iconSrc}
+                alt=""
+                sx={{ width: 56, height: 56, objectFit: 'contain', mb: 1.5, borderRadius: 1 }}
+              />
+              <Typography variant="caption" sx={{ color: isKhiVan ? '#8e44ad' : '#e67e22', fontWeight: 700, letterSpacing: 1, mb: 0.5 }}>
+                {isKhiVan ? t('tinhTuy.cards.khiVanTitle' as any) : t('tinhTuy.cards.coHoiTitle' as any)}
+              </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, lineHeight: 1.3 }}>
                 {t(card.nameKey as any)}
               </Typography>
