@@ -440,10 +440,18 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'PLAYER_ISLAND': {
       // Only set islandTurns — position is handled by movement animation (dice),
       // teleport flag (triple doubles), or CARD_DRAWN handler (card-based island)
+      const wasAlreadyOnIsland = state.players.some(
+        p => p.slot === action.payload.slot && p.islandTurns > 0,
+      );
       const updated = state.players.map(p =>
         p.slot === action.payload.slot ? { ...p, islandTurns: action.payload.turnsRemaining } : p
       );
-      return { ...state, players: updated, queuedIslandAlert: action.payload.slot };
+      // Only show "sent to island" alert for newly trapped players, not failed escape rolls
+      return {
+        ...state,
+        players: updated,
+        queuedIslandAlert: wasAlreadyOnIsland ? state.queuedIslandAlert : action.payload.slot,
+      };
     }
 
     case 'CLEAR_ISLAND_ALERT':

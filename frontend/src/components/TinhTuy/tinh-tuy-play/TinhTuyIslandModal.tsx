@@ -91,8 +91,8 @@ export const TinhTuyIslandModal: React.FC = () => {
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const isOnIsland = state.turnPhase === 'ISLAND_TURN' && isMyTurn && myPlayer && myPlayer.islandTurns > 0;
 
-  // Hide during dice roll animation + movement animation
-  if (!isOnIsland || !myPlayer || state.diceAnimating || state.pendingMove || state.animatingToken) return null;
+  // Hide during dice animation, movement animation, or when turn is about to change
+  if (!isOnIsland || !myPlayer || state.diceAnimating || state.pendingMove || state.animatingToken || state.queuedTurnChange) return null;
 
   const canAfford = myPlayer.points >= ESCAPE_COST;
   const hasEscapeCard = myPlayer.cards.includes('escape-island');
