@@ -1500,12 +1500,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
   }, []);
 
-  // Sound: BGM track switching based on view (playBGM stops previous track internally)
+  // Sound: BGM only plays during gameplay
   useEffect(() => {
     if (state.view === 'playing') {
       tinhTuySounds.playBGM('game');
-    } else if (state.view === 'lobby' || state.view === 'waiting') {
-      tinhTuySounds.playBGM('lobby');
     } else {
       tinhTuySounds.stopBGM();
     }
