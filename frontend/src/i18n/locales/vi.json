@@ -1052,7 +1052,13 @@
       "totalPoints": "Tổng Tinh Túy",
       "properties": "Bất Động Sản",
       "backToLobby": "Về Sảnh",
-      "playAgain": "Chơi Lại"
+      "playAgain": "Chơi Lại",
+      "gameOver": "Kết Thúc Trận Đấu",
+      "reasonLastStanding": "Chỉ còn 1 người chơi trụ vững",
+      "reasonRoundsComplete": "Đã hoàn thành đủ số vòng",
+      "reasonBankrupt": "phá sản",
+      "reasonSurrender": "đầu hàng",
+      "netWorth": "Tài sản ròng"
     }
   }
 }

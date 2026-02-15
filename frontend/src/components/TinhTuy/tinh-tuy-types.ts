@@ -136,6 +136,8 @@ export interface TinhTuyState {
   /** Global festival — only 1 on the board at a time */
   festival: { slot: number; cellIndex: number; multiplier: number } | null;
   winner: TinhTuyWinner | null;
+  /** Reason the game ended (e.g. 'lastStanding', 'roundsComplete') */
+  gameEndReason: string | null;
   error: string | null;
   drawnCard: CardInfo | null;
   /** Cell index of house removed by card effect (for notification) */

@@ -72,6 +72,7 @@ const initialState: TinhTuyState = {
   pendingAction: null,
   festival: null,
   winner: null,
+  gameEndReason: null,
   error: null,
   drawnCard: null,
   houseRemovedCell: null,
@@ -461,7 +462,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'GAME_FINISHED':
       clearRoomSession();
-      return { ...state, view: 'result', gameStatus: 'finished', winner: action.payload.winner };
+      // Stay on game board — show result overlay instead of switching view
+      return {
+        ...state, gameStatus: 'finished',
+        winner: action.payload.winner,
+        gameEndReason: action.payload.reason || 'lastStanding',
+      };
 
     case 'PLAYER_DISCONNECTED': {
       const updated = state.players.map(p =>

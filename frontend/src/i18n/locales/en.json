@@ -1052,7 +1052,13 @@
       "totalPoints": "Total Tinh Tuy",
       "properties": "Properties",
       "backToLobby": "Back to Lobby",
-      "playAgain": "Play Again"
+      "playAgain": "Play Again",
+      "gameOver": "Game Over",
+      "reasonLastStanding": "Only 1 player remaining",
+      "reasonRoundsComplete": "All rounds completed",
+      "reasonBankrupt": "bankrupt",
+      "reasonSurrender": "surrendered",
+      "netWorth": "Net worth"
     }
   }
 }
