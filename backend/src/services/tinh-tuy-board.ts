@@ -20,7 +20,7 @@ export const PROPERTY_GROUPS: Record<PropertyGroup, number[]> = {
   red: [17, 19],
   yellow: [21, 23],
   green: [25, 26, 29],
-  dark_blue: [31, 33, 34],
+  dark_blue: [31, 33, 35],
 };
 
 // ─── 36-Cell Board ────────────────────────────────────────────
@@ -96,19 +96,19 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'green',
     price: 3200, rentBase: 280, rentGroup: 560, rentHouse: [1500, 4500, 10000, 12000], rentHotel: 14000,
     houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
-  { index: 30, type: 'STATION', name: 'tinhTuy.cells.ninhBinh',
-    price: 2000, rentBase: 250, icon: 'ninh-binh.png' },
-  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue',
+  { index: 30, type: 'STATION', name: 'tinhTuy.cells.bienHo',
+    price: 2000, rentBase: 250, icon: 'pleiku.png' },
+  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.trangAn', group: 'dark_blue',
+    price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000,
+    houseCost: 2000, hotelCost: 2000, icon: 'ninh-binh.png' },
+  { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
+  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue',
     price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000,
     houseCost: 2000, hotelCost: 2000, icon: 'quang-tri.png' },
-  { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
-  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.pleiku', group: 'dark_blue',
-    price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000,
-    houseCost: 2000, hotelCost: 2000, icon: 'pleiku.png' },
-  { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue',
+  { index: 34, type: 'TAX', name: 'tinhTuy.cells.thue', taxPerHouse: 500, taxPerHotel: 1000 },
+  { index: 35, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue',
     price: 4000, rentBase: 500, rentGroup: 1000, rentHouse: [2000, 6000, 14000, 17000], rentHotel: 20000,
     houseCost: 2000, hotelCost: 2000, icon: 'landmark-81.png' },
-  { index: 35, type: 'TAX', name: 'tinhTuy.cells.thue', taxPerHouse: 500, taxPerHotel: 1000 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────

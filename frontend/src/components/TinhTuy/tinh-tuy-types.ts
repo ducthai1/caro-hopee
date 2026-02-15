@@ -265,12 +265,12 @@ export const BOARD_CELLS: BoardCellClient[] = [
   { index: 27, type: 'ISLAND', name: 'tinhTuy.cells.island', icon: 'ra-dao.png' },
   { index: 28, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
   { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'green', price: 3200, rentBase: 280, houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
-  { index: 30, type: 'STATION', name: 'tinhTuy.cells.ninhBinh', price: 2000, rentBase: 250, icon: 'ninh-binh.png' },
-  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'quang-tri.png' },
+  { index: 30, type: 'STATION', name: 'tinhTuy.cells.bienHo', price: 2000, rentBase: 250, icon: 'pleiku.png' },
+  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.trangAn', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'ninh-binh.png' },
   { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
-  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.pleiku', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'pleiku.png' },
-  { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
-  { index: 35, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png' },
+  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'quang-tri.png' },
+  { index: 34, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png' },
+  { index: 35, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
 ];
 
 /** Get cell position on 10x10 CSS grid (36 cells on perimeter) */

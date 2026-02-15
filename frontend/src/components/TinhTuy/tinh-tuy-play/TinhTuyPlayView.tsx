@@ -178,10 +178,13 @@ export const TinhTuyPlayView: React.FC = () => {
           overflowY: 'auto',
         }}
       >
-        {/* Round */}
-        <Typography variant="body2" sx={{ fontWeight: 700, color: '#9b59b6' }}>
-          {t('tinhTuy.game.round')} {state.round}
-        </Typography>
+        {/* Round + Volume */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#9b59b6', flex: 1 }}>
+            {t('tinhTuy.game.round')} {state.round}
+          </Typography>
+          <TinhTuyVolumeControl />
+        </Box>
 
         {/* Turn Timer */}
         <TinhTuyTurnTimer />
@@ -244,8 +247,6 @@ export const TinhTuyPlayView: React.FC = () => {
           </Button>
         </Box>
 
-        {/* Volume */}
-        <TinhTuyVolumeControl />
       </Box>
 
       {/* ─── CENTER: Board with dice overlay ─────────── */}
