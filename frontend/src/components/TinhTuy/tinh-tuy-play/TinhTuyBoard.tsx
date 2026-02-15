@@ -12,9 +12,16 @@ import './tinh-tuy-board.css';
 
 const EMPTY_SLOTS: number[] = [];
 
+// Invalid travel destinations
+const TRAVEL_INVALID_TYPES = new Set(['GO_TO_ISLAND', 'ISLAND', 'TRAVEL']);
+
 export const TinhTuyBoard: React.FC = () => {
-  const { state } = useTinhTuy();
+  const { state, travelTo } = useTinhTuy();
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
+
+  const isMyTurn = state.currentPlayerSlot === state.mySlot;
+  const isTravelPhase = state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn;
+  const myPos = state.players.find(p => p.slot === state.mySlot)?.position ?? -1;
 
   // Build ownership map: cellIndex → ownerSlot
   const ownershipMap = new Map<number, number>();
@@ -68,6 +75,11 @@ export const TinhTuyBoard: React.FC = () => {
           {BOARD_CELLS.map((cell) => {
             const pos = getCellPosition(cell.index);
             const building = housesMap.get(cell.index);
+            const isValidTravel = isTravelPhase && cell.index !== myPos && !TRAVEL_INVALID_TYPES.has(cell.type);
+            // Selection state: valid (bright + clickable), invalid (dimmed), null (normal)
+            const selectionState = isTravelPhase
+              ? (isValidTravel ? 'valid' as const : 'invalid' as const)
+              : null;
             return (
               <TinhTuyCell
                 key={cell.index}
@@ -82,7 +94,8 @@ export const TinhTuyBoard: React.FC = () => {
                 houseCount={building?.houses || 0}
                 hasHotel={building?.hotel || false}
                 isAnimating={state.animatingToken?.path[state.animatingToken.currentStep] === cell.index}
-                onClick={() => setSelectedCell(cell.index)}
+                selectionState={selectionState}
+                onClick={() => isValidTravel ? travelTo(cell.index) : setSelectedCell(cell.index)}
               />
             );
           })}

@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import CasinoIcon from '@mui/icons-material/Casino';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import './tinh-tuy-board.css';
@@ -58,23 +59,28 @@ const FACE_TRANSFORMS: Record<number, string> = {
   4: `rotateX(90deg)  translateZ(${FACE_SIZE}px)`,
 };
 
-// To show face N facing viewer, rotate cube this way
+// To show face N facing viewer — with slight 3D tilt so edges are visible
+const TILT_X = -12;
+const TILT_Y = 15;
 const VALUE_ROTATIONS: Record<number, string> = {
-  1: 'rotateX(0deg)   rotateY(0deg)',
-  2: 'rotateX(0deg)   rotateY(-90deg)',
-  3: 'rotateX(90deg)  rotateY(0deg)',
-  4: 'rotateX(-90deg) rotateY(0deg)',
-  5: 'rotateX(0deg)   rotateY(90deg)',
-  6: 'rotateX(0deg)   rotateY(180deg)',
+  1: `rotateX(${TILT_X}deg)        rotateY(${TILT_Y}deg)`,
+  2: `rotateX(${TILT_X}deg)        rotateY(${-90 + TILT_Y}deg)`,
+  3: `rotateX(${90 + TILT_X}deg)   rotateY(${TILT_Y}deg)`,
+  4: `rotateX(${-90 + TILT_X}deg)  rotateY(${TILT_Y}deg)`,
+  5: `rotateX(${TILT_X}deg)        rotateY(${90 + TILT_Y}deg)`,
+  6: `rotateX(${TILT_X}deg)        rotateY(${180 + TILT_Y}deg)`,
 };
 
+// Idle tilt — slightly more angled than result for a "resting on table" feel
+const IDLE_ROTATION = 'rotateX(-20deg) rotateY(28deg)';
+
 // ─── Single Dice Cube ───────────────────────────────────
-const DiceCube: React.FC<{ value: number; isRolling: boolean }> = ({ value, isRolling }) => {
+const DiceCube: React.FC<{ value: number; isRolling: boolean; isIdle: boolean }> = ({ value, isRolling, isIdle }) => {
   return (
     <Box
       className={`tt-dice-cube ${isRolling ? 'rolling' : ''}`}
       sx={{
-        transform: isRolling ? undefined : VALUE_ROTATIONS[value] || VALUE_ROTATIONS[1],
+        transform: isRolling ? undefined : isIdle ? IDLE_ROTATION : VALUE_ROTATIONS[value] || VALUE_ROTATIONS[1],
       }}
     >
       {[1, 2, 3, 4, 5, 6].map((face) => (
@@ -104,12 +110,12 @@ export const TinhTuyDice3D: React.FC = () => {
     if (isRolling) return;
     setIsRolling(true);
     rollDice();
-    // End animation after roll completes — clear any previous timer first
+    // End rolling after CSS animation (1.5s) — then 0.8s CSS transition settles to result
     if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
     rollTimerRef.current = window.setTimeout(() => {
       setIsRolling(false);
       rollTimerRef.current = null;
-    }, 850);
+    }, 1550);
   }, [rollDice, isRolling]);
 
   // Cleanup timer on unmount
@@ -128,14 +134,15 @@ export const TinhTuyDice3D: React.FC = () => {
 
   const dice1 = state.lastDiceResult?.dice1 || 1;
   const dice2 = state.lastDiceResult?.dice2 || 1;
+  const isIdle = !state.lastDiceResult && !isRolling;
   const isDouble = state.lastDiceResult && state.lastDiceResult.dice1 === state.lastDiceResult.dice2;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-      {/* 3D Dice */}
-      <Box sx={{ display: 'flex', gap: 3, perspective: 600, py: 1 }}>
-        <DiceCube value={dice1} isRolling={isRolling} />
-        <DiceCube value={dice2} isRolling={isRolling} />
+      {/* 3D Dice — shifted up to match board position */}
+      <Box sx={{ display: 'flex', gap: 3, perspective: 600, py: 1, mt: { md: -4 } }}>
+        <DiceCube value={dice1} isRolling={isRolling} isIdle={isIdle} />
+        <DiceCube value={dice2} isRolling={isRolling} isIdle={isIdle} />
       </Box>
 
       {/* Doubles indicator */}
@@ -169,8 +176,27 @@ export const TinhTuyDice3D: React.FC = () => {
         </Button>
       )}
 
+      {/* Travel prompt */}
+      {state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            bgcolor: 'rgba(46,204,113,0.12)', borderRadius: 2, px: 2, py: 1,
+            border: '1px solid rgba(46,204,113,0.3)',
+          }}>
+            <FlightTakeoffIcon sx={{ color: '#2ecc71', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 700, fontSize: '0.85rem' }}>
+              {t('tinhTuy.game.travelChoose' as any)}
+            </Typography>
+          </Box>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+            {t('tinhTuy.game.travelHint' as any)}
+          </Typography>
+        </Box>
+      )}
+
       {/* Status text */}
-      {!canRoll && !isRolling && (
+      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && (
         <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
           {isMyTurn
             ? state.turnPhase === 'AWAITING_ACTION'

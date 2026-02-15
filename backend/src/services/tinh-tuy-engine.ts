@@ -298,9 +298,13 @@ export function resolveCellAction(
   cellIndex: number,
   diceTotal: number
 ): {
-  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card' | 'festival';
+  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card' | 'festival' | 'travel';
   amount?: number;
   ownerSlot?: number;
+  houseCount?: number;
+  hotelCount?: number;
+  perHouse?: number;
+  perHotel?: number;
 } {
   const cell = getCell(cellIndex);
   if (!cell) return { action: 'none' };
@@ -324,8 +328,21 @@ export function resolveCellAction(
       const rent = calculateRent(game, cellIndex, diceTotal);
       return { action: 'rent', amount: rent, ownerSlot: owner.slot };
     }
-    case 'TAX':
-      return { action: 'tax', amount: cell.taxAmount || 0 };
+    case 'TAX': {
+      // Per-building tax: count houses & hotels owned by the player
+      const perHouse = cell.taxPerHouse || 500;
+      const perHotel = cell.taxPerHotel || 1000;
+      let houseCount = 0;
+      let hotelCount = 0;
+      for (const propIdx of player.properties) {
+        const h = player.houses?.[String(propIdx)] || 0;
+        const hasHotel = !!player.hotels?.[String(propIdx)];
+        if (hasHotel) hotelCount++;
+        else houseCount += h;
+      }
+      const totalTax = (houseCount * perHouse) + (hotelCount * perHotel);
+      return { action: 'tax', amount: totalTax, houseCount, hotelCount, perHouse, perHotel };
+    }
     case 'GO_TO_ISLAND':
       return { action: 'go_to_island' };
     case 'KHI_VAN':
@@ -333,7 +350,9 @@ export function resolveCellAction(
       return { action: 'card' };
     case 'FESTIVAL':
       return { action: 'festival', amount: 500 };
+    case 'TRAVEL':
+      return { action: 'travel' };
     default:
-      return { action: 'none' }; // GO, TRAVEL, ISLAND
+      return { action: 'none' }; // GO, ISLAND
   }
 }

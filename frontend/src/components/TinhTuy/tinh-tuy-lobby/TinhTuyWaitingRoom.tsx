@@ -15,8 +15,11 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import EditIcon from '@mui/icons-material/Edit';
 import { useLanguage } from '../../../i18n';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useTinhTuy } from '../TinhTuyContext';
+import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useToast } from '../../../contexts/ToastContext';
 import { TinhTuySettingsForm } from './TinhTuySettingsForm';
 import { TinhTuyGameMode, PLAYER_COLORS } from '../tinh-tuy-types';
@@ -30,10 +33,12 @@ import {
 export const TinhTuyWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
   const toast = useToast();
-  const { state, startGame, leaveRoom, updateRoom, sendChat } = useTinhTuy();
+  const { isAuthenticated } = useAuth();
+  const { state, startGame, leaveRoom, updateRoom, sendChat, updateGuestName } = useTinhTuy();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
 
   // Edit settings
   const [editMaxPlayers, setEditMaxPlayers] = useState(state.settings?.maxPlayers || 4);
@@ -91,6 +96,17 @@ export const TinhTuyWaitingRoom: React.FC = () => {
     });
     setIsSaving(false);
     if (success) setShowSettings(false);
+  };
+
+  const isGuest = !isAuthenticated;
+  const myPlayer = state.players.find(p => p.slot === state.mySlot);
+
+  const handleGuestNameUpdated = (newName: string) => {
+    const currentName = myPlayer?.guestName;
+    if (newName && newName !== currentName) {
+      updateGuestName(newName);
+    }
+    setShowNameDialog(false);
   };
 
   const canStart = state.isHost && state.players.length >= 2 && !isStarting;
@@ -203,9 +219,18 @@ export const TinhTuyWaitingRoom: React.FC = () => {
               <Box sx={{ flex: 1, fontWeight: player.slot === state.mySlot ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <span>{player.displayName}</span>
                 {player.slot === state.mySlot && (
-                  <Typography component="span" variant="caption" sx={{ color: '#9b59b6' }}>
-                    ({t('tinhTuy.lobby.you')})
-                  </Typography>
+                  <>
+                    <Typography component="span" variant="caption" sx={{ color: '#9b59b6' }}>
+                      ({t('tinhTuy.lobby.you')})
+                    </Typography>
+                    {isGuest && (
+                      <Tooltip title={t('game.changeGuestName') || 'Đổi tên'}>
+                        <IconButton size="small" onClick={() => setShowNameDialog(true)} sx={{ p: 0, ml: 0.5 }}>
+                          <EditIcon sx={{ fontSize: 16, color: '#9b59b6' }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </>
                 )}
               </Box>
               {player.isConnected ? (
@@ -301,6 +326,13 @@ export const TinhTuyWaitingRoom: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Guest Name Edit Dialog */}
+      <GuestNameDialog
+        open={showNameDialog}
+        onClose={handleGuestNameUpdated}
+        initialName={myPlayer?.displayName || ''}
+      />
 
       {/* Floating Chat Messages */}
       <TinhTuyChatOverlay>

@@ -1,25 +1,28 @@
 /**
  * TinhTuyPlayView — Full-screen game view.
- * Layout: Left panel | Board (with dice overlay) | Right panel + Chat.
- * Info is split across left & right edges for balanced layout.
+ * Layout: Left panel (players + actions) | Board (with dice overlay) | Right panel (chat).
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Button, Typography, Paper, Chip } from '@mui/material';
+import { Box, Button, Typography, Paper, Chip, IconButton, Tooltip } from '@mui/material';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import FlagIcon from '@mui/icons-material/Flag';
+import EditIcon from '@mui/icons-material/Edit';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
+import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useLanguage } from '../../../i18n';
 import { useMainLayout } from '../../MainLayout/MainLayoutContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useTinhTuy } from '../TinhTuyContext';
-import { PLAYER_COLORS } from '../tinh-tuy-types';
+import { PLAYER_COLORS, TinhTuyState } from '../tinh-tuy-types';
 import { TinhTuyBoard } from './TinhTuyBoard';
 import { TinhTuyDice3D } from './TinhTuyDice3D';
 import { TinhTuyTurnTimer } from './TinhTuyTurnTimer';
 import { TinhTuyActionModal } from './TinhTuyActionModal';
 import { TinhTuyCardModal } from './TinhTuyCardModal';
 import { TinhTuyBuildModal } from './TinhTuyBuildModal';
-import { TinhTuyIslandModal } from './TinhTuyIslandModal';
+import { TinhTuyIslandModal, TinhTuyIslandAlert } from './TinhTuyIslandModal';
+import { TinhTuyTaxAlert } from './TinhTuyTaxAlert';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
@@ -30,7 +33,13 @@ const PlayerCard: React.FC<{
   isCurrentTurn: boolean;
   isMe: boolean;
   t: (key: string) => string;
-}> = ({ player, isCurrentTurn, isMe, t }) => (
+  onEditName?: () => void;
+  pointNotifs?: TinhTuyState['pointNotifs'];
+  displayPoints?: number;
+}> = ({ player, isCurrentTurn, isMe, t, onEditName, pointNotifs = [], displayPoints }) => {
+  // Show frozen points while notifs are pending, real points after flush
+  const shownPoints = displayPoints ?? player.points;
+  return (
   <Paper
     elevation={isCurrentTurn ? 3 : 1}
     sx={{
@@ -40,8 +49,25 @@ const PlayerCard: React.FC<{
       opacity: player.isBankrupt ? 0.5 : 1,
       bgcolor: isCurrentTurn ? 'rgba(155,89,182,0.06)' : 'background.paper',
       transition: 'all 0.2s ease',
+      position: 'relative',
+      overflow: 'visible',
     }}
   >
+    {/* Floating point change notifications */}
+    {pointNotifs.length > 0 && (
+      <Box sx={{ position: 'absolute', top: -4, right: 8, zIndex: 5 }}>
+        {pointNotifs.map(n => (
+          <div
+            key={n.id}
+            className="tt-point-notif"
+            style={{ color: n.amount > 0 ? '#27ae60' : '#e74c3c' }}
+          >
+            {n.amount > 0 ? '+' : ''}{n.amount.toLocaleString()} TT
+          </div>
+        ))}
+      </Box>
+    )}
+
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
       <Typography
         variant="subtitle2"
@@ -54,9 +80,18 @@ const PlayerCard: React.FC<{
       >
         {player.displayName}
         {isMe && (
-          <Typography component="span" variant="caption" sx={{ color: '#9b59b6', ml: 0.5 }}>
-            ({t('tinhTuy.lobby.you')})
-          </Typography>
+          <>
+            <Typography component="span" variant="caption" sx={{ color: '#9b59b6', ml: 0.5 }}>
+              ({t('tinhTuy.lobby.you')})
+            </Typography>
+            {onEditName && (
+              <Tooltip title={t('game.changeGuestName') || 'Đổi tên'}>
+                <IconButton size="small" onClick={onEditName} sx={{ p: 0, ml: 0.5 }}>
+                  <EditIcon sx={{ fontSize: 14, color: '#9b59b6' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
         )}
       </Typography>
       {isCurrentTurn && !player.isBankrupt && (
@@ -68,7 +103,7 @@ const PlayerCard: React.FC<{
     </Box>
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
       <Typography variant="caption" sx={{ fontWeight: 600, color: '#9b59b6' }}>
-        🔮 {player.points.toLocaleString()}
+        🔮 {shownPoints.toLocaleString()}
       </Typography>
       <Typography variant="caption" sx={{ fontWeight: 600, color: '#27ae60' }}>
         🏠 {player.properties.length}
@@ -85,13 +120,15 @@ const PlayerCard: React.FC<{
       )}
     </Box>
   </Paper>
-);
+  );
+};
 
 /* ─── Main Play View ───────────────────────────────────── */
 export const TinhTuyPlayView: React.FC = () => {
   const { t } = useLanguage();
   const { setFullscreen } = useMainLayout();
-  const { state, leaveRoom, surrender } = useTinhTuy();
+  const { isAuthenticated } = useAuth();
+  const { state, leaveRoom, surrender, updateGuestName } = useTinhTuy();
 
   useEffect(() => {
     setFullscreen(true);
@@ -100,16 +137,23 @@ export const TinhTuyPlayView: React.FC = () => {
 
   const [buildOpen, setBuildOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const hasProperties = myPlayer && myPlayer.properties.length > 0;
   const isBankrupt = myPlayer?.isBankrupt;
 
-  // Split players into left/right halves
-  const halfIdx = Math.ceil(state.players.length / 2);
-  const leftPlayers = state.players.slice(0, halfIdx);
-  const rightPlayers = state.players.slice(halfIdx);
+  const isGuest = !isAuthenticated;
+
+  const handleGuestNameUpdated = (newName: string) => {
+    const currentName = myPlayer?.guestName;
+    if (newName && newName !== currentName) {
+      updateGuestName(newName);
+    }
+    setShowNameDialog(false);
+  };
 
   return (
     <Box
@@ -124,7 +168,7 @@ export const TinhTuyPlayView: React.FC = () => {
       {/* ─── LEFT PANEL ─────────────────────────────── */}
       <Box
         sx={{
-          width: { xs: '100%', md: 220 },
+          width: { xs: '100%', md: 280 },
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
@@ -142,14 +186,17 @@ export const TinhTuyPlayView: React.FC = () => {
         {/* Turn Timer */}
         <TinhTuyTurnTimer />
 
-        {/* Left player cards */}
-        {leftPlayers.map((player) => (
+        {/* All player cards */}
+        {state.players.map((player) => (
           <PlayerCard
             key={player.slot}
             player={player}
             isCurrentTurn={state.currentPlayerSlot === player.slot}
             isMe={state.mySlot === player.slot}
             t={t as any}
+            onEditName={state.mySlot === player.slot && isGuest ? () => setShowNameDialog(true) : undefined}
+            pointNotifs={state.pointNotifs.filter(n => n.slot === player.slot)}
+            displayPoints={state.displayPoints[player.slot]}
           />
         ))}
 
@@ -174,7 +221,7 @@ export const TinhTuyPlayView: React.FC = () => {
               size="small"
               variant="outlined"
               startIcon={<FlagIcon />}
-              onClick={surrender}
+              onClick={() => setShowSurrenderConfirm(true)}
               sx={{
                 borderColor: 'rgba(231,76,60,0.4)', color: '#e74c3c', fontWeight: 600,
                 '&:hover': { borderColor: '#c0392b', bgcolor: 'rgba(231,76,60,0.08)' },
@@ -206,11 +253,13 @@ export const TinhTuyPlayView: React.FC = () => {
         sx={{
           flex: 1,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
           position: 'relative',
-          py: { xs: 1, md: 0 },
+          pt: { xs: 1, md: 2 },
           minWidth: 0,
+          maxHeight: { md: '100vh' },
+          overflow: 'visible',
         }}
       >
         <TinhTuyBoard />
@@ -230,35 +279,33 @@ export const TinhTuyPlayView: React.FC = () => {
         </Box>
       </Box>
 
-      {/* ─── RIGHT PANEL: Players + Chat ─────────────── */}
+      {/* ─── RIGHT PANEL: Chat only ─────────────────── */}
       <Box
         sx={{
-          width: { xs: '100%', md: 260 },
+          width: { xs: '100%', md: 300 },
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: 1.5,
           p: { xs: 1, md: 2 },
           maxHeight: { md: '100vh' },
           overflowY: 'auto',
         }}
       >
-        {/* Right player cards */}
-        {rightPlayers.map((player) => (
-          <PlayerCard
-            key={player.slot}
-            player={player}
-            isCurrentTurn={state.currentPlayerSlot === player.slot}
-            isMe={state.mySlot === player.slot}
-            t={t as any}
-          />
-        ))}
-
-        {/* Chat — always open */}
         <Box sx={{ flex: 1, minHeight: 200 }}>
           <TinhTuyChat />
         </Box>
       </Box>
+
+      {/* Surrender confirm dialog */}
+      <ConfirmDialog
+        open={showSurrenderConfirm}
+        title={t('tinhTuy.game.surrenderConfirmTitle' as any)}
+        message={t('tinhTuy.game.surrenderConfirm' as any)}
+        confirmText={t('tinhTuy.game.surrender')}
+        variant="warning"
+        onConfirm={() => { setShowSurrenderConfirm(false); surrender(); }}
+        onCancel={() => setShowSurrenderConfirm(false)}
+      />
 
       {/* Leave confirm dialog */}
       <ConfirmDialog
@@ -275,8 +322,17 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyActionModal />
       <TinhTuyCardModal />
       <TinhTuyIslandModal />
+      <TinhTuyIslandAlert />
+      <TinhTuyTaxAlert />
       <TinhTuyBuildModal open={buildOpen} onClose={() => setBuildOpen(false)} />
       <TinhTuyGoPopup />
+
+      {/* Guest Name Edit Dialog */}
+      <GuestNameDialog
+        open={showNameDialog}
+        onClose={handleGuestNameUpdated}
+        initialName={myPlayer?.displayName || ''}
+      />
     </Box>
   );
 };

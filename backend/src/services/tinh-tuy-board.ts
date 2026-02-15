@@ -1,7 +1,7 @@
 /**
  * Tinh Tuy Dai Chien — Board Definition
- * 36 cells: 18 properties (8 groups), 2 stations, 2 utilities, 3 Khi Van, 3 Co Hoi,
- * 3 tax, 1 GO, 1 Travel, 1 Island, 1 Go-To-Island, 1 Festival
+ * 36 cells: 18 properties (8 groups), 2 stations, 2 utilities, 4 Khi Van, 4 Co Hoi,
+ * 1 tax (35), 1 GO, 1 Travel, 1 Island (corner 27), 1 Festival (corner 18)
  */
 import { IBoardCell, PropertyGroup } from '../types/tinh-tuy.types';
 
@@ -55,11 +55,11 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple',
     price: 1400, rentBase: 100, rentGroup: 200, rentHouse: [500, 1500, 4500, 6250], rentHotel: 7500,
     houseCost: 1000, hotelCost: 1000, icon: 'duc-ba.png' },
-  { index: 12, type: 'TAX', name: 'tinhTuy.cells.thue1', taxAmount: 1500 },
+  { index: 12, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi' },
   { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'orange',
     price: 1800, rentBase: 140, rentGroup: 280, rentHouse: [700, 2000, 5500, 7500], rentHotel: 9500,
     houseCost: 1000, hotelCost: 1000, icon: 'van-mieu.png' },
-  { index: 14, type: 'FESTIVAL', name: 'tinhTuy.cells.leHoi' },
+  { index: 14, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan' },
   { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'orange',
     price: 1800, rentBase: 140, rentGroup: 280, rentHouse: [700, 2000, 5500, 7500], rentHotel: 9500,
     houseCost: 1000, hotelCost: 1000, icon: 'ho-guom.png' },
@@ -69,7 +69,7 @@ export const BOARD_CELLS: IBoardCell[] = [
     houseCost: 1500, hotelCost: 1500, icon: 'ha-long.png' },
 
   // === BOTTOM EDGE (cells 18-26) ===
-  { index: 18, type: 'GO_TO_ISLAND', name: 'tinhTuy.cells.diRaDao' },
+  { index: 18, type: 'FESTIVAL', name: 'tinhTuy.cells.leHoi' },
   { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red',
     price: 2200, rentBase: 180, rentGroup: 360, rentHouse: [900, 2500, 7000, 8750], rentHotel: 10500,
     houseCost: 1500, hotelCost: 1500, icon: 'phong-nha.png' },
@@ -82,7 +82,7 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow',
     price: 2600, rentBase: 220, rentGroup: 440, rentHouse: [1100, 3300, 8000, 9750], rentHotel: 11500,
     houseCost: 1500, hotelCost: 1500, icon: 'sapa.png' },
-  { index: 24, type: 'TAX', name: 'tinhTuy.cells.thue2', taxAmount: 2000 },
+  { index: 24, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan' },
   { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'green',
     price: 3000, rentBase: 260, rentGroup: 520, rentHouse: [1300, 3900, 9000, 11000], rentHotel: 12750,
     houseCost: 2000, hotelCost: 2000, icon: 'nha-trang.png' },
@@ -108,7 +108,7 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue',
     price: 4000, rentBase: 500, rentGroup: 1000, rentHouse: [2000, 6000, 14000, 17000], rentHotel: 20000,
     houseCost: 2000, hotelCost: 2000, icon: 'landmark-81.png' },
-  { index: 35, type: 'TAX', name: 'tinhTuy.cells.thue3', taxAmount: 1000 },
+  { index: 35, type: 'TAX', name: 'tinhTuy.cells.thue', taxPerHouse: 500, taxPerHotel: 1000 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────

@@ -18,9 +18,10 @@ export const TinhTuyActionModal: React.FC = () => {
 
   const action = state.pendingAction;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
+  const isMoving = !!state.pendingMove || !!state.animatingToken;
 
-  // Only show for buy action and current player
-  if (!action || action.type !== 'BUY_PROPERTY' || !isMyTurn) return null;
+  // Only show for buy action, current player, and after movement fully completes
+  if (!action || action.type !== 'BUY_PROPERTY' || !isMyTurn || isMoving) return null;
 
   const cell = BOARD_CELLS[action.cellIndex];
   const groupColor = cell?.group ? GROUP_COLORS[cell.group as PropertyGroup] : '#9b59b6';
@@ -30,6 +31,7 @@ export const TinhTuyActionModal: React.FC = () => {
       open={true}
       maxWidth="xs"
       fullWidth
+      TransitionProps={{ timeout: 400 }}
       PaperProps={{ sx: { borderRadius: 3, borderTop: `4px solid ${groupColor}` } }}
     >
       <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pb: 1 }}>

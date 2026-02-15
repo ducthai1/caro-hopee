@@ -9,7 +9,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -128,8 +128,24 @@ export interface TinhTuyState {
   error: string | null;
   drawnCard: CardInfo | null;
   chatMessages: ChatMessage[];
+  pendingMove: { slot: number; path: number[]; goBonus?: number; passedGo?: boolean; fromCard?: boolean } | null;
   animatingToken: { slot: number; path: number[]; currentStep: number } | null;
+  pendingCardMove: { slot: number; to: number; passedGo: boolean } | null;
   showGoPopup: boolean;
+  islandAlertSlot: number | null;
+  taxAlert: { slot: number; amount: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } | null;
+  /** Floating point-change notifications per player (visible) */
+  pointNotifs: Array<{ id: number; slot: number; amount: number }>;
+  /** Queued notifs — flushed to pointNotifs after animation completes */
+  pendingNotifs: Array<{ slot: number; amount: number }>;
+  /** Frozen points snapshot — shown instead of real points while notifs are pending */
+  displayPoints: Record<number, number>;
+  /** Queued turn change — applied after animations + modals finish */
+  queuedTurnChange: { currentSlot: number; turnPhase: TurnPhase; round?: number } | null;
+  /** Queued travel prompt — applied after movement animation finishes */
+  queuedTravelPrompt: boolean;
+  /** Queued awaiting action — applied after movement animation finishes */
+  queuedAction: { cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -142,11 +158,11 @@ export type TinhTuyAction =
   | { type: 'ROOM_UPDATED'; payload: { players?: TinhTuyPlayer[]; settings?: TinhTuySettings; gameStatus?: TinhTuyGameStatus; hostPlayerId?: string } }
   | { type: 'GAME_STARTED'; payload: { game: any } }
   | { type: 'DICE_RESULT'; payload: { dice1: number; dice2: number; total: number; isDouble: boolean } }
-  | { type: 'PLAYER_MOVED'; payload: { slot: number; from: number; to: number; passedGo: boolean; goBonus?: number } }
+  | { type: 'PLAYER_MOVED'; payload: { slot: number; from: number; to: number; passedGo: boolean; goBonus?: number; isTravel?: boolean } }
   | { type: 'AWAITING_ACTION'; payload: { slot: number; cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } }
   | { type: 'PROPERTY_BOUGHT'; payload: { slot: number; cellIndex: number; price: number; remainingPoints: number } }
   | { type: 'RENT_PAID'; payload: { fromSlot: number; toSlot: number; amount: number; cellIndex: number } }
-  | { type: 'TAX_PAID'; payload: { slot: number; amount: number; cellIndex: number } }
+  | { type: 'TAX_PAID'; payload: { slot: number; amount: number; cellIndex: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } }
   | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean } }
   | { type: 'PLAYER_BANKRUPT'; payload: { slot: number } }
   | { type: 'PLAYER_SURRENDERED'; payload: { slot: number } }
@@ -165,9 +181,19 @@ export type TinhTuyAction =
   | { type: 'ISLAND_ESCAPED'; payload: { slot: number; method: string; costPaid?: number } }
   | { type: 'FESTIVAL_PAID'; payload: { amounts: Record<number, number> } }
   | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
+  | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
+  | { type: 'TRAVEL_PROMPT'; payload: { slot: number } }
+  | { type: 'START_MOVE' }
   | { type: 'ANIMATION_STEP' }
   | { type: 'SHOW_GO_POPUP' }
-  | { type: 'HIDE_GO_POPUP' };
+  | { type: 'HIDE_GO_POPUP' }
+  | { type: 'CLEAR_ISLAND_ALERT' }
+  | { type: 'CLEAR_TAX_ALERT' }
+  | { type: 'CLEAR_POINT_NOTIFS' }
+  | { type: 'FLUSH_NOTIFS' }
+  | { type: 'APPLY_QUEUED_TURN_CHANGE' }
+  | { type: 'APPLY_QUEUED_TRAVEL' }
+  | { type: 'APPLY_QUEUED_ACTION' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {
@@ -219,20 +245,20 @@ export const BOARD_CELLS: BoardCellClient[] = [
   { index: 9, type: 'TRAVEL', name: 'tinhTuy.cells.travel', icon: 'du-lich.png' },
   { index: 10, type: 'PROPERTY', name: 'tinhTuy.cells.benThanh', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'ben-thanh.png' },
   { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'duc-ba.png' },
-  { index: 12, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png', taxAmount: 1500 },
+  { index: 12, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
   { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'quoc-tu-giam.png' },
-  { index: 14, type: 'FESTIVAL', name: 'tinhTuy.cells.festival', icon: 'le-hoi.png' },
+  { index: 14, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
   { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'ho-guom.png' },
   { index: 16, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
   { index: 17, type: 'PROPERTY', name: 'tinhTuy.cells.haLong', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'ha-long.png' },
   // BOTTOM (18-26)
-  { index: 18, type: 'GO_TO_ISLAND', name: 'tinhTuy.cells.goToIsland', icon: 'ra-dao.png' },
+  { index: 18, type: 'FESTIVAL', name: 'tinhTuy.cells.festival', icon: 'le-hoi.png' },
   { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'phong-nha.png' },
   { index: 20, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
   { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.cauVang', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'cau-vang.png' },
   { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.water', price: 1500 },
   { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'sapa.png' },
-  { index: 24, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png', taxAmount: 2000 },
+  { index: 24, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
   { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'nha-trang.png' },
   { index: 26, type: 'PROPERTY', name: 'tinhTuy.cells.muiNe', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'mui-ne.png' },
   // LEFT (27-35)
@@ -244,7 +270,7 @@ export const BOARD_CELLS: BoardCellClient[] = [
   { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
   { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
   { index: 34, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
-  { index: 35, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png', taxAmount: 1000 },
+  { index: 35, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png' },
 ];
 
 /** Get cell position on 10x10 CSS grid (36 cells on perimeter) */

@@ -537,6 +537,60 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     }
   });
 
+  // ── Travel To (choose destination from Travel cell) ─────────
+  socket.on('tinh-tuy:travel-to', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const { cellIndex } = data || {};
+      if (typeof cellIndex !== 'number' || cellIndex < 0 || cellIndex > 35) {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_TRAVEL') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      // Validate destination: can't stay on same cell, can't go to GO_TO_ISLAND or ISLAND
+      const destCell = getCell(cellIndex);
+      if (!destCell) return callback({ success: false, error: 'invalidCell' });
+      if (cellIndex === player.position) return callback({ success: false, error: 'sameCell' });
+      if (destCell.type === 'GO_TO_ISLAND' || destCell.type === 'ISLAND') {
+        return callback({ success: false, error: 'invalidDestination' });
+      }
+
+      clearTurnTimer(roomId);
+
+      // Move player to destination (no Go bonus for travel)
+      const oldPos = player.position;
+      player.position = cellIndex;
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: cellIndex,
+        passedGo: false, goBonus: 0, isTravel: true,
+      });
+
+      // Resolve destination cell
+      await resolveAndAdvance(io, game, player, cellIndex, { dice1: 0, dice2: 0, total: 0, isDouble: false });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:travel-to]', err.message);
+      callback({ success: false, error: 'travelFailed' });
+    }
+  });
+
   // ── Build House ──────────────────────────────────────────────
   socket.on('tinh-tuy:build-house', async (data: any, callback: TinhTuyCallback) => {
     try {
@@ -824,13 +878,20 @@ async function resolveAndAdvance(
       break;
     }
     case 'tax': {
-      if (!cellAction.amount) break;
-      player.points -= cellAction.amount;
+      // Per-building tax — 0 if no buildings
+      const taxAmount = cellAction.amount || 0;
+      if (taxAmount > 0) player.points -= taxAmount;
       io.to(roomId).emit('tinh-tuy:tax-paid', {
-        slot: player.slot, amount: cellAction.amount, cellIndex,
+        slot: player.slot, amount: taxAmount, cellIndex,
+        houseCount: cellAction.houseCount || 0,
+        hotelCount: cellAction.hotelCount || 0,
+        perHouse: cellAction.perHouse || 500,
+        perHotel: cellAction.perHotel || 1000,
       });
-      const gameEnded = await checkBankruptcy(io, game, player);
-      if (gameEnded) return;
+      if (taxAmount > 0) {
+        const gameEnded = await checkBankruptcy(io, game, player);
+        if (gameEnded) return;
+      }
       break;
     }
     case 'go_to_island': {
@@ -867,6 +928,22 @@ async function resolveAndAdvance(
         return;
       }
       break;
+    }
+    case 'travel': {
+      game.turnPhase = 'AWAITING_TRAVEL';
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:travel-prompt', { slot: player.slot });
+      startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || g.turnPhase !== 'AWAITING_TRAVEL') return;
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Travel timeout:', err); }
+      });
+      return; // Waiting for player to choose destination
     }
     case 'buy': {
       game.turnPhase = 'AWAITING_ACTION';

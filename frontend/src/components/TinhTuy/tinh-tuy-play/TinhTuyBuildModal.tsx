@@ -51,12 +51,12 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
       for (const idx of props) {
         const cell = BOARD_CELLS[idx];
         if (!cell) continue;
-        const houses = myPlayer.houses[String(idx)] || 0;
-        const hasHotel = !!myPlayer.hotels[String(idx)];
+        const houses = (myPlayer.houses || {})[String(idx)] || 0;
+        const hasHotel = !!(myPlayer.hotels || {})[String(idx)];
         const houseCost = cell.houseCost || Math.round((cell.price || 0) * 0.5);
 
         // Even-build: can only build if this is at min level in group
-        const minHouses = Math.min(...props.map(i => myPlayer.houses[String(i)] || 0));
+        const minHouses = Math.min(...props.map(i => (myPlayer.houses || {})[String(i)] || 0));
         const canBuildHouse = !hasHotel && houses < 4 && houses <= minHouses && myPlayer.points >= houseCost;
         const canBuildHotel = !hasHotel && houses === 4 && myPlayer.points >= houseCost;
 

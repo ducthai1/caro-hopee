@@ -1,30 +1,60 @@
 /**
  * TinhTuyCardModal — Card reveal with 3D flip animation + auto-dismiss.
+ * Auto-dismiss timer starts only when the card is actually visible
+ * (after pendingMove + animatingToken clear).
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, Typography, Box } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import './tinh-tuy-board.css';
 
+const CARD_DISPLAY_MS = 3500;
+
 export const TinhTuyCardModal: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, clearCard } = useTinhTuy();
   const card = state.drawnCard;
   const [flipped, setFlipped] = useState(false);
+  const dismissTimerRef = useRef<number | null>(null);
+
+  const canShow = !!card && !state.pendingMove && !state.animatingToken;
+
+  const clearDismissTimer = useCallback(() => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+  }, []);
 
   // Reset flip state when new card appears, flip after 300ms
   useEffect(() => {
     if (!card) {
       setFlipped(false);
+      clearDismissTimer();
       return;
     }
     setFlipped(false);
     const timer = setTimeout(() => setFlipped(true), 300);
     return () => clearTimeout(timer);
-  }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [card?.id, clearDismissTimer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!card) return null;
+  // Auto-dismiss: start timer only when card becomes visible
+  useEffect(() => {
+    if (!canShow) return;
+    clearDismissTimer();
+    dismissTimerRef.current = window.setTimeout(() => {
+      clearCard();
+      dismissTimerRef.current = null;
+    }, CARD_DISPLAY_MS);
+    return clearDismissTimer;
+  }, [canShow, clearDismissTimer, clearCard]);
+
+  // Cleanup on unmount
+  useEffect(() => clearDismissTimer, [clearDismissTimer]);
+
+  // Wait for dice + movement animation to fully finish before showing card
+  if (!canShow) return null;
 
   const isKhiVan = card.type === 'KHI_VAN';
   const gradient = isKhiVan
@@ -36,6 +66,7 @@ export const TinhTuyCardModal: React.FC = () => {
       open={true}
       maxWidth="xs"
       fullWidth
+      TransitionProps={{ timeout: 400 }}
       PaperProps={{
         sx: { borderRadius: 3, overflow: 'visible', bgcolor: 'transparent', boxShadow: 'none' },
       }}

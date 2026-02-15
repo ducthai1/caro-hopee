@@ -379,6 +379,40 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
     }
   });
 
+  // ── Update Guest Name ───────────────────────────────────────
+  socket.on('tinh-tuy:update-guest-name', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      const playerId = socket.data.tinhTuyPlayerId as string;
+      if (!roomId || !playerId) return callback?.({ success: false, error: 'notInRoom' });
+
+      const guestName = sanitizeString(data?.guestName, 20);
+      if (!guestName) return callback?.({ success: false, error: 'invalidName' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game) return callback?.({ success: false, error: 'roomNotFound' });
+
+      const player = game.players.find(p => p.guestId === playerId);
+      if (!player) return callback?.({ success: false, error: 'notGuest' });
+
+      player.guestName = guestName;
+      await game.save();
+
+      // Update name cache
+      cachePlayerName(roomId, player.slot, guestName);
+
+      io.to(roomId).emit('tinh-tuy:player-name-updated', {
+        slot: player.slot,
+        name: guestName,
+      });
+
+      callback?.({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:update-guest-name]', err.message);
+      callback?.({ success: false, error: 'failedToUpdate' });
+    }
+  });
+
   // ── Update Room Settings ─────────────────────────────────────
   socket.on('tinh-tuy:update-room', async (data: any, callback: TinhTuyCallback) => {
     try {

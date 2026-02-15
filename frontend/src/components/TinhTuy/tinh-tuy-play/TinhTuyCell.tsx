@@ -8,6 +8,9 @@ import { BoardCellClient, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../
 import { TinhTuyPlayerToken } from './TinhTuyPlayerToken';
 import './tinh-tuy-board.css';
 
+/** Selection state during travel/festival phases: 'valid' = selectable, 'invalid' = dimmed */
+type SelectionState = 'valid' | 'invalid' | null;
+
 interface Props {
   cell: BoardCellClient;
   col: number;
@@ -18,6 +21,7 @@ interface Props {
   houseCount?: number;
   hasHotel?: boolean;
   isAnimating?: boolean;
+  selectionState?: SelectionState;
   onClick?: () => void;
 }
 
@@ -37,7 +41,7 @@ const CELL_ICONS: Record<string, string> = {
 
 export const TinhTuyCell: React.FC<Props> = React.memo(({
   cell, col, row, ownerSlot, playersOnCell, isCurrentCell,
-  houseCount = 0, hasHotel = false, isAnimating, onClick,
+  houseCount = 0, hasHotel = false, isAnimating, selectionState, onClick,
 }) => {
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
@@ -55,12 +59,14 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
     >
       <Box
         className={cellClass}
-        onClick={onClick}
+        onClick={selectionState === 'invalid' ? undefined : onClick}
         sx={{
           gridColumn: col,
           gridRow: row,
-          border: '1px solid',
-          borderColor: isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.15)',
+          border: selectionState === 'valid' ? '2px solid' : '1px solid',
+          borderColor: selectionState === 'valid' ? '#2ecc71' : isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.15)',
+          boxShadow: selectionState === 'valid' ? '0 0 8px rgba(46,204,113,0.5), inset 0 0 6px rgba(46,204,113,0.15)' : undefined,
+          animation: selectionState === 'valid' ? 'tt-travel-pulse 1.5s ease-in-out infinite' : undefined,
           borderRadius: isCorner ? '6px' : '3px',
           p: '2px',
           fontSize: '0.5rem',
@@ -71,9 +77,16 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           position: 'relative',
           overflow: 'hidden',
           bgcolor: ownerSlot ? `${PLAYER_COLORS[ownerSlot]}15` : '#fffdf8',
-          cursor: 'pointer',
+          cursor: selectionState === 'invalid' ? 'not-allowed' : 'pointer',
           minHeight: 0,
-          '&:hover': { borderColor: '#9b59b6' },
+          // Dim invalid cells during selection phase
+          opacity: selectionState === 'invalid' ? 0.35 : 1,
+          filter: selectionState === 'invalid' ? 'grayscale(0.6)' : undefined,
+          transition: 'opacity 0.3s ease, filter 0.3s ease',
+          pointerEvents: selectionState === 'invalid' ? 'none' : undefined,
+          '&:hover': selectionState === 'valid'
+            ? { borderColor: '#27ae60', transform: 'translateZ(6px)', boxShadow: '0 0 14px rgba(46,204,113,0.7), inset 0 0 8px rgba(46,204,113,0.2)' }
+            : selectionState === 'invalid' ? {} : { borderColor: '#9b59b6' },
         }}
       >
         {/* Group color strip */}

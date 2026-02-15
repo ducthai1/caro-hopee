@@ -42,9 +42,9 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
   ] : [];
   const rentHotel = isProperty ? rentBase * 70 : 0;
 
-  // Houses/hotels on this cell
-  const houses = owner ? (owner.houses[String(cellIndex)] || 0) : 0;
-  const hasHotel = owner ? !!owner.hotels[String(cellIndex)] : false;
+  // Houses/hotels on this cell (houses/hotels may be undefined if none built yet)
+  const houses = owner?.houses ? (owner.houses[String(cellIndex)] || 0) : 0;
+  const hasHotel = owner?.hotels ? !!owner.hotels[String(cellIndex)] : false;
 
   return (
     <Dialog open={true} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>

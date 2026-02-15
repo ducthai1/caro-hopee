@@ -200,12 +200,12 @@ export const TinhTuyChatButton: React.FC<{ onSend: (msg: string) => void }> = ({
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         disableScrollLock
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
         slotProps={{
           paper: {
             sx: {
-              mb: 1, p: 1, borderRadius: 3,
+              mt: 1, p: 1, borderRadius: 3,
               background: 'rgba(255,255,255,0.97)',
               border: '1px solid rgba(155,89,182,0.2)',
               boxShadow: '0 4px 20px rgba(155,89,182,0.15)',

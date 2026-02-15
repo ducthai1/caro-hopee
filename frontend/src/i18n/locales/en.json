@@ -890,11 +890,27 @@
       "islandPay": "Pay {{cost}} TT to escape",
       "islandRoll": "Roll dice (need doubles)",
       "islandUseCard": "Use escape card",
+      "islandSentYou": "You've been sent to the island!",
+      "islandSentOther": "{{name}} was sent to the island!",
+      "islandAlertTurns": "Must stay on the island for 3 turns before escaping.",
+      "islandEscapeTitle": "How to escape:",
+      "islandEscapePay": "Pay 500 TT to escape instantly",
+      "islandEscapeRoll": "Roll doubles on the dice",
+      "islandEscapeCard": "Use an escape card (if you have one)",
       "chat": "Chat",
       "noMessages": "No messages yet",
       "chatPlaceholder": "Type a message...",
       "leave": "Leave",
-      "confirmLeave": "Tap again to leave"
+      "confirmLeave": "Tap again to leave",
+      "taxTitle": "Property Tax",
+      "taxHouses": "house(s)",
+      "taxHotels": "hotel(s)",
+      "taxNoneYou": "You have no buildings — tax free!",
+      "taxNoneOther": "{{name}} has no buildings — tax free!",
+      "travelChoose": "Choose a destination!",
+      "travelHint": "Tap a green-highlighted cell on the board",
+      "surrenderConfirmTitle": "Surrender?",
+      "surrenderConfirm": "Are you sure you want to surrender? All your properties will be lost."
     },
     "property": {
       "owner": "Owner",
@@ -993,7 +1009,8 @@
       "rankings": "Rankings",
       "totalPoints": "Total Tinh Tuy",
       "properties": "Properties",
-      "backToLobby": "Back to Lobby"
+      "backToLobby": "Back to Lobby",
+      "playAgain": "Play Again"
     }
   }
 }

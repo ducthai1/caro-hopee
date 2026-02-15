@@ -890,11 +890,27 @@
       "islandPay": "Trả {{cost}} TT để thoát",
       "islandRoll": "Tung xúc xắc (cần đôi)",
       "islandUseCard": "Dùng thẻ thoát đảo",
+      "islandSentYou": "Bạn bị đưa ra đảo!",
+      "islandSentOther": "{{name}} bị đưa ra đảo!",
+      "islandAlertTurns": "Phải ở đảo 3 lượt trước khi có thể thoát.",
+      "islandEscapeTitle": "Cách thoát đảo:",
+      "islandEscapePay": "Trả 500 TT để thoát ngay",
+      "islandEscapeRoll": "Tung xúc xắc ra đôi",
+      "islandEscapeCard": "Dùng thẻ thoát đảo (nếu có)",
       "chat": "Trò Chuyện",
       "noMessages": "Chưa có tin nhắn",
       "chatPlaceholder": "Nhập tin nhắn...",
       "leave": "Rời bàn",
-      "confirmLeave": "Nhấn lần nữa để rời"
+      "confirmLeave": "Nhấn lần nữa để rời",
+      "taxTitle": "Nộp Thuế Bất Động Sản",
+      "taxHouses": "nhà",
+      "taxHotels": "khách sạn",
+      "taxNoneYou": "Bạn không có công trình nào — miễn thuế!",
+      "taxNoneOther": "{{name}} không có công trình — miễn thuế!",
+      "travelChoose": "Chọn điểm du lịch!",
+      "travelHint": "Nhấn vào ô sáng xanh trên bàn cờ",
+      "surrenderConfirmTitle": "Đầu hàng?",
+      "surrenderConfirm": "Bạn có chắc chắn muốn đầu hàng? Tất cả tài sản sẽ bị mất."
     },
     "property": {
       "owner": "Chủ sở hữu",
@@ -993,7 +1009,8 @@
       "rankings": "Bảng Xếp Hạng",
       "totalPoints": "Tổng Tinh Túy",
       "properties": "Bất Động Sản",
-      "backToLobby": "Về Sảnh"
+      "backToLobby": "Về Sảnh",
+      "playAgain": "Chơi Lại"
     }
   }
 }

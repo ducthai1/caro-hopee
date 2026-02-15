@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -83,7 +83,9 @@ export interface IBoardCell {
   rentHotel?: number;
   houseCost?: number;
   hotelCost?: number;
-  taxAmount?: number;           // for TAX cells
+  taxAmount?: number;           // for TAX cells (legacy flat tax)
+  taxPerHouse?: number;         // per-house tax
+  taxPerHotel?: number;         // per-hotel tax
   icon?: string;                // filename: 'quang-tri.png'
 }
 
