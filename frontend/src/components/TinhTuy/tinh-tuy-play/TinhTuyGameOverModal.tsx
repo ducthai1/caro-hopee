@@ -1,20 +1,19 @@
 /**
- * TinhTuyGameOverModal — Overlay shown on top of the game board when game ends.
- * Shows winner, rankings with net worth, reason for ending.
- * Board remains visible behind the semi-transparent overlay.
+ * TinhTuyGameOverModal — Celebratory overlay when game ends.
+ * Board remains visible behind blurred backdrop.
+ * Animated trophy, winner spotlight, medal-ranked players.
  */
 import React from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, Chip,
+  Dialog, DialogContent, DialogActions,
+  Button, Typography, Box,
 } from '@mui/material';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import HomeIcon from '@mui/icons-material/Home';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS, TinhTuyPlayer } from '../tinh-tuy-types';
 
-/** Calculate net worth (cash + property values + building values) — mirrors backend */
+/** Net worth = cash + property values + building values (mirrors backend) */
 function calcNetWorth(player: TinhTuyPlayer): number {
   let worth = player.points;
   for (const cellIdx of player.properties) {
@@ -23,12 +22,18 @@ function calcNetWorth(player: TinhTuyPlayer): number {
     worth += cell.price || 0;
     const houses = player.houses[String(cellIdx)] || 0;
     worth += houses * (cell.houseCost || 0);
-    if (player.hotels[String(cellIdx)]) {
-      worth += cell.hotelCost || 0;
-    }
+    if (player.hotels[String(cellIdx)]) worth += cell.hotelCost || 0;
   }
   return worth;
 }
+
+const MEDAL = ['🥇', '🥈', '🥉'];
+const MEDAL_BG = [
+  'linear-gradient(135deg, rgba(255,215,0,0.15) 0%, rgba(255,215,0,0.04) 100%)',
+  'linear-gradient(135deg, rgba(192,192,192,0.15) 0%, rgba(192,192,192,0.04) 100%)',
+  'linear-gradient(135deg, rgba(205,127,50,0.12) 0%, rgba(205,127,50,0.03) 100%)',
+];
+const MEDAL_BORDER = ['rgba(255,215,0,0.4)', 'rgba(192,192,192,0.4)', 'rgba(205,127,50,0.3)'];
 
 export const TinhTuyGameOverModal: React.FC = () => {
   const { t } = useLanguage();
@@ -40,7 +45,6 @@ export const TinhTuyGameOverModal: React.FC = () => {
   const winnerPlayer = winner ? state.players.find(p => p.slot === winner.slot) : null;
   const reason = state.gameEndReason;
 
-  // Rankings: active players sorted by net worth desc, then bankrupt at bottom
   const rankings = [...state.players].sort((a, b) => {
     if (a.isBankrupt && !b.isBankrupt) return 1;
     if (!a.isBankrupt && b.isBankrupt) return -1;
@@ -54,98 +58,168 @@ export const TinhTuyGameOverModal: React.FC = () => {
   return (
     <Dialog
       open
-      maxWidth="sm"
+      maxWidth="xs"
       fullWidth
-      TransitionProps={{ timeout: 500 }}
+      TransitionProps={{ timeout: 600 }}
       slotProps={{
-        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)' } },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' } },
       }}
       PaperProps={{
         sx: {
-          borderRadius: 4,
-          borderTop: '4px solid #f1c40f',
-          background: 'linear-gradient(180deg, rgba(241,196,15,0.06) 0%, #fff 30%)',
+          borderRadius: 5, overflow: 'visible', mx: 2,
+          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(155,89,182,0.15)',
         },
       }}
     >
-      {/* Winner section */}
-      <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
-        <EmojiEventsIcon sx={{ fontSize: 56, color: '#f1c40f', mb: 0.5 }} />
-        <Typography variant="h5" sx={{ fontWeight: 800, color: '#2c3e50' }}>
+      {/* ─── Floating trophy ─── */}
+      <Box sx={{
+        position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)',
+        width: 76, height: 76, borderRadius: '50%',
+        background: 'linear-gradient(135deg, #f1c40f 0%, #f39c12 100%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 4px 20px rgba(241,196,15,0.4), 0 0 30px rgba(241,196,15,0.2)',
+        border: '3px solid #1a1a2e',
+        animation: 'tt-trophy-bounce 2s ease-in-out infinite',
+      }}>
+        <Box sx={{ fontSize: 36, lineHeight: 1 }}>🏆</Box>
+      </Box>
+
+      <DialogContent sx={{ pt: 7, pb: 1, px: { xs: 2, sm: 3 } }}>
+        {/* Title + reason */}
+        <Typography variant="h6" sx={{
+          fontWeight: 800, textAlign: 'center', color: '#fff',
+          textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        }}>
           {t('tinhTuy.result.gameOver' as any)}
         </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
+        <Typography variant="caption" sx={{
+          display: 'block', textAlign: 'center', color: 'rgba(255,255,255,0.45)',
+          mb: 2.5, mt: 0.3,
+        }}>
           {reasonText}
         </Typography>
-      </DialogTitle>
 
-      <DialogContent sx={{ pt: 2 }}>
-        {/* Winner card */}
+        {/* ─── Winner spotlight ─── */}
         {winnerPlayer && (
           <Box sx={{
-            textAlign: 'center', mb: 2.5, p: 2, borderRadius: 3,
-            background: 'linear-gradient(135deg, rgba(241,196,15,0.12) 0%, rgba(155,89,182,0.08) 100%)',
-            border: '1px solid rgba(241,196,15,0.3)',
+            textAlign: 'center', mb: 3, py: 2, px: 2, borderRadius: 3,
+            background: 'linear-gradient(135deg, rgba(241,196,15,0.12) 0%, rgba(155,89,182,0.1) 100%)',
+            border: '1px solid rgba(241,196,15,0.2)',
+            position: 'relative',
           }}>
-            <Typography variant="overline" sx={{ color: '#f1c40f', fontWeight: 800, letterSpacing: 2 }}>
-              {t('tinhTuy.result.winner' as any)}
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: PLAYER_COLORS[winnerPlayer.slot] || '#9b59b6' }}>
+            {/* Glow ring behind name */}
+            <Box sx={{
+              width: 56, height: 56, borderRadius: '50%', mx: 'auto', mb: 1,
+              background: `linear-gradient(135deg, ${PLAYER_COLORS[winnerPlayer.slot]}40, ${PLAYER_COLORS[winnerPlayer.slot]}10)`,
+              border: `2px solid ${PLAYER_COLORS[winnerPlayer.slot]}60`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 20px ${PLAYER_COLORS[winnerPlayer.slot]}30`,
+            }}>
+              <Typography sx={{ fontSize: 28, lineHeight: 1 }}>👑</Typography>
+            </Box>
+            <Typography variant="h6" sx={{
+              fontWeight: 700, color: PLAYER_COLORS[winnerPlayer.slot] || '#e2b0ff',
+              textShadow: `0 0 12px ${PLAYER_COLORS[winnerPlayer.slot]}40`,
+            }}>
               {winnerPlayer.displayName}
             </Typography>
-            <Typography variant="body1" sx={{ color: '#9b59b6', fontWeight: 600, mt: 0.5 }}>
-              🔮 {(winner?.finalPoints || winnerPlayer.points || 0).toLocaleString()} TT
-            </Typography>
+            <Box sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.5,
+              mt: 0.5, px: 1.5, py: 0.3, borderRadius: 2,
+              bgcolor: 'rgba(155,89,182,0.15)',
+            }}>
+              <Typography sx={{ fontSize: 14 }}>🔮</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#d4a5ff' }}>
+                {(winner?.finalPoints || winnerPlayer.points || 0).toLocaleString()} TT
+              </Typography>
+            </Box>
           </Box>
         )}
 
-        {/* Rankings */}
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-          {t('tinhTuy.result.rankings' as any)}
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        {/* ─── Rankings ─── */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {rankings.map((player, idx) => {
             const netWorth = calcNetWorth(player);
+            const hasMedal = idx < 3 && !player.isBankrupt;
+            const isMe = player.slot === state.mySlot;
+
             return (
               <Box
                 key={player.slot}
                 sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5,
-                  p: 1.5, borderRadius: 2,
-                  borderLeft: `4px solid ${PLAYER_COLORS[player.slot] || '#999'}`,
-                  bgcolor: idx === 0 && !player.isBankrupt ? 'rgba(241,196,15,0.06)' : 'rgba(0,0,0,0.02)',
+                  display: 'flex', alignItems: 'center', gap: 1.2,
+                  p: 1.2, borderRadius: 2.5,
+                  background: player.isBankrupt
+                    ? 'rgba(231,76,60,0.06)'
+                    : hasMedal ? MEDAL_BG[idx] : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${player.isBankrupt ? 'rgba(231,76,60,0.15)' : hasMedal ? MEDAL_BORDER[idx] : 'rgba(255,255,255,0.06)'}`,
+                  transition: 'all 0.2s',
                 }}
               >
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: 'text.secondary', width: 28, textAlign: 'center' }}>
-                  #{idx + 1}
-                </Typography>
+                {/* Rank / Medal */}
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  bgcolor: hasMedal ? 'transparent' : 'rgba(255,255,255,0.06)',
+                }}>
+                  {hasMedal ? (
+                    <Typography sx={{ fontSize: 22, lineHeight: 1 }}>{MEDAL[idx]}</Typography>
+                  ) : (
+                    <Typography sx={{ fontWeight: 800, fontSize: '0.85rem', color: 'rgba(255,255,255,0.3)' }}>
+                      #{idx + 1}
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Player info */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {player.displayName}
-                    {player.slot === state.mySlot && (
-                      <Typography component="span" variant="caption" sx={{ color: '#9b59b6', ml: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {/* Color dot */}
+                    <Box sx={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      bgcolor: PLAYER_COLORS[player.slot] || '#999',
+                      boxShadow: `0 0 6px ${PLAYER_COLORS[player.slot]}50`,
+                    }} />
+                    <Typography variant="body2" sx={{
+                      fontWeight: 600, color: player.isBankrupt ? 'rgba(255,255,255,0.35)' : '#fff',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      textDecoration: player.isBankrupt ? 'line-through' : 'none',
+                    }}>
+                      {player.displayName}
+                    </Typography>
+                    {isMe && (
+                      <Typography variant="caption" sx={{ color: '#9b59b6', fontWeight: 600, flexShrink: 0 }}>
                         ({t('tinhTuy.lobby.you')})
                       </Typography>
                     )}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: '#9b59b6', fontWeight: 600 }}>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1.2, mt: 0.2 }}>
+                    <Typography variant="caption" sx={{ color: '#d4a5ff', fontWeight: 600 }}>
                       🔮 {player.points.toLocaleString()}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#27ae60', fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: '#6fcf97', fontWeight: 600 }}>
                       🏠 {player.properties.length}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                      {t('tinhTuy.result.netWorth' as any)}: {netWorth.toLocaleString()}
-                    </Typography>
+                    {!player.isBankrupt && (
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+                        {t('tinhTuy.result.netWorth' as any)}: {netWorth.toLocaleString()}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
+
+                {/* Bankrupt badge */}
                 {player.isBankrupt && (
-                  <Chip
-                    label={t('tinhTuy.result.reasonBankrupt' as any)}
-                    size="small"
-                    sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'rgba(231,76,60,0.15)', color: '#e74c3c', fontWeight: 600 }}
-                  />
+                  <Box sx={{
+                    px: 1, py: 0.3, borderRadius: 1.5, flexShrink: 0,
+                    bgcolor: 'rgba(231,76,60,0.15)', border: '1px solid rgba(231,76,60,0.25)',
+                  }}>
+                    <Typography variant="caption" sx={{ color: '#e74c3c', fontWeight: 700, fontSize: '0.65rem' }}>
+                      {t('tinhTuy.result.reasonBankrupt' as any)}
+                    </Typography>
+                  </Box>
                 )}
               </Box>
             );
@@ -153,21 +227,31 @@ export const TinhTuyGameOverModal: React.FC = () => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 3, px: 3 }}>
+      <DialogActions sx={{ justifyContent: 'center', pb: 3, pt: 2, px: 3 }}>
         <Button
           variant="contained"
           startIcon={<HomeIcon />}
           onClick={() => setView('lobby')}
           sx={{
-            flex: 1,
+            width: '100%',
             background: 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)',
-            '&:hover': { background: 'linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%)' },
-            py: 1.2, fontWeight: 700, borderRadius: 3,
+            '&:hover': { background: 'linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%)', transform: 'translateY(-1px)' },
+            py: 1.3, fontWeight: 700, borderRadius: 3, fontSize: '0.95rem',
+            boxShadow: '0 4px 15px rgba(155,89,182,0.3)',
+            transition: 'all 0.2s',
           }}
         >
           {t('tinhTuy.result.backToLobby' as any)}
         </Button>
       </DialogActions>
+
+      {/* Trophy bounce animation */}
+      <style>{`
+        @keyframes tt-trophy-bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-6px); }
+        }
+      `}</style>
     </Dialog>
   );
 };
