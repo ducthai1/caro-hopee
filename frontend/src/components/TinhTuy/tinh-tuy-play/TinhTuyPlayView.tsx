@@ -29,6 +29,7 @@ import { TinhTuyBuildPrompt } from './TinhTuyBuildPrompt';
 import { TinhTuyFreeHouseModal } from './TinhTuyFreeHouseModal';
 import { TinhTuySellModal } from './TinhTuySellModal';
 import { TinhTuyTravelPendingAlert } from './TinhTuyTravelPendingAlert';
+import { TinhTuyBankruptAlert } from './TinhTuyBankruptAlert';
 import { TinhTuyGameOverModal } from './TinhTuyGameOverModal';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
@@ -355,6 +356,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuySellModal />
       <TinhTuyTravelPendingAlert />
       <TinhTuyGoPopup />
+      <TinhTuyBankruptAlert />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

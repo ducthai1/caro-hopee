@@ -194,6 +194,12 @@ export interface TinhTuyState {
     goToIsland?: boolean;
     houseRemoved?: { slot: number; cellIndex: number };
   } | null;
+  /** Queued bankruptcy alert — shown after rent/tax alerts */
+  queuedBankruptAlert: number | null;
+  /** Active bankruptcy alert — slot of bankrupt player */
+  bankruptAlert: number | null;
+  /** Queued game-finished — applied after all alerts are dismissed */
+  queuedGameFinished: { winner: TinhTuyWinner | null; reason: string } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -259,7 +265,10 @@ export type TinhTuyAction =
   | { type: 'CLEAR_TRAVEL_PENDING' }
   | { type: 'FREE_HOUSE_PROMPT'; payload: { slot: number; buildableCells: number[] } }
   | { type: 'CLEAR_FREE_HOUSE_PROMPT' }
-  | { type: 'DICE_ANIM_DONE' };
+  | { type: 'DICE_ANIM_DONE' }
+  | { type: 'APPLY_QUEUED_BANKRUPT_ALERT' }
+  | { type: 'CLEAR_BANKRUPT_ALERT' }
+  | { type: 'APPLY_QUEUED_GAME_FINISHED' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

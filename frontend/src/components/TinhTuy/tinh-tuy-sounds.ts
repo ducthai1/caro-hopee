@@ -250,7 +250,7 @@ class TinhTuySoundManager {
     this.stopBGM();
     this.bgmElement = new Audio('/background.mp3');
     this.bgmElement.loop = true;
-    this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
+    this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.28;
     this.bgmElement.play().catch(() => { /* autoplay blocked */ });
   }
 
@@ -281,7 +281,7 @@ class TinhTuySoundManager {
     this._volume = Math.max(0, Math.min(1, v));
     safeSetItem(STORAGE_KEY_VOLUME, String(this._volume));
     if (this.bgmElement) {
-      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
+      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.28;
     }
   }
 
@@ -289,7 +289,7 @@ class TinhTuySoundManager {
     this._isMuted = !this._isMuted;
     safeSetItem(STORAGE_KEY_MUTED, String(this._isMuted));
     if (this.bgmElement) {
-      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
+      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.28;
     }
     return this._isMuted;
   }

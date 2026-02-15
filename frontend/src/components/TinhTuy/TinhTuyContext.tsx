@@ -102,6 +102,9 @@ const initialState: TinhTuyState = {
   queuedTravelPending: null,
   freeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
   pendingCardEffect: null,
+  queuedBankruptAlert: null,
+  bankruptAlert: null,
+  queuedGameFinished: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -210,7 +213,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         round: g.round || 1,
         festival: g.festival || null,
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
-        pendingCardEffect: null,
+        pendingCardEffect: null, gameEndReason: null,
+        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null,
       };
     }
 
@@ -428,7 +432,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       );
       // Clear game-level festival if bankrupt player owned it
       const newFestival = state.festival?.slot === bSlot ? null : state.festival;
-      return { ...state, players: updated, festival: newFestival };
+      return { ...state, players: updated, festival: newFestival, queuedBankruptAlert: bSlot };
     }
 
     case 'PLAYER_SURRENDERED': {
@@ -460,13 +464,32 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_ISLAND_ALERT':
       return { ...state, islandAlertSlot: null };
 
-    case 'GAME_FINISHED':
-      clearRoomSession();
-      // Stay on game board — show result overlay instead of switching view
+    case 'APPLY_QUEUED_BANKRUPT_ALERT':
+      return { ...state, bankruptAlert: state.queuedBankruptAlert, queuedBankruptAlert: null };
+
+    case 'CLEAR_BANKRUPT_ALERT':
+      return { ...state, bankruptAlert: null };
+
+    case 'APPLY_QUEUED_GAME_FINISHED': {
+      const qgf = state.queuedGameFinished;
+      if (!qgf) return state;
       return {
         ...state, gameStatus: 'finished',
-        winner: action.payload.winner,
-        gameEndReason: action.payload.reason || 'lastStanding',
+        winner: qgf.winner,
+        gameEndReason: qgf.reason,
+        queuedGameFinished: null,
+      };
+    }
+
+    case 'GAME_FINISHED':
+      clearRoomSession();
+      // Queue — applied after all animations + alerts are dismissed
+      return {
+        ...state,
+        queuedGameFinished: {
+          winner: action.payload.winner,
+          reason: action.payload.reason || 'lastStanding',
+        },
       };
 
     case 'PLAYER_DISCONNECTED': {
@@ -868,7 +891,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleGameFinished = (data: any) => {
       dispatch({ type: 'GAME_FINISHED', payload: data });
-      tinhTuySounds.playSFX('victory');
+      // Victory sound deferred to APPLY_QUEUED_GAME_FINISHED (after all alerts)
     };
 
     const handlePlayerDisconnected = (data: any) => {
@@ -1443,6 +1466,40 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_ISLAND_ALERT' });
   }, [state.queuedIslandAlert, isAnimBusy]);
 
+  // Apply queued bankrupt alert after animations + rent/tax alerts are done
+  useEffect(() => {
+    if (state.queuedBankruptAlert == null || isAnimBusy) return;
+    // Wait for both queued AND active rent/tax alerts to clear
+    if (state.queuedRentAlert || state.rentAlert) return;
+    if (state.queuedTaxAlert || state.taxAlert) return;
+    dispatch({ type: 'APPLY_QUEUED_BANKRUPT_ALERT' });
+  }, [state.queuedBankruptAlert, isAnimBusy, state.queuedRentAlert, state.rentAlert, state.queuedTaxAlert, state.taxAlert]);
+
+  // Bankrupt alert auto-dismiss after 3.5s
+  useEffect(() => {
+    if (state.bankruptAlert == null) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BANKRUPT_ALERT' }), 3500);
+    return () => clearTimeout(timer);
+  }, [state.bankruptAlert]);
+
+  // Apply queued game-finished after ALL animations + alerts (including bankruptcy) are dismissed
+  useEffect(() => {
+    if (!state.queuedGameFinished || isAnimBusy) return;
+    if (state.queuedRentAlert || state.rentAlert) return;
+    if (state.queuedTaxAlert || state.taxAlert) return;
+    if (state.queuedIslandAlert != null || state.islandAlertSlot != null) return;
+    if (state.queuedBankruptAlert != null || state.bankruptAlert != null) return;
+    const timer = setTimeout(() => {
+      tinhTuySounds.playSFX('victory');
+      dispatch({ type: 'APPLY_QUEUED_GAME_FINISHED' });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [state.queuedGameFinished, isAnimBusy,
+    state.queuedRentAlert, state.rentAlert,
+    state.queuedTaxAlert, state.taxAlert,
+    state.queuedIslandAlert, state.islandAlertSlot,
+    state.queuedBankruptAlert, state.bankruptAlert]);
+
   // Apply queued travel pending alert after movement animation finishes
   useEffect(() => {
     if (state.queuedTravelPending == null || isAnimBusy) return;
@@ -1474,9 +1531,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_ACTION' });
   }, [state.queuedAction, isAnimBusy]);
 
-  // Apply queued turn change after movement animation finishes
+  // Apply queued turn change after movement animation finishes (skip if game ending)
   useEffect(() => {
     if (!state.queuedTurnChange || isAnimBusy) return;
+    if (state.queuedGameFinished) return; // Game ending — no next turn
     const timer = setTimeout(() => {
       // Play "your turn" sound when turn actually switches
       if (stateRef.current.queuedTurnChange?.currentSlot === stateRef.current.mySlot) {
@@ -1485,7 +1543,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'APPLY_QUEUED_TURN_CHANGE' });
     }, 300);
     return () => clearTimeout(timer);
-  }, [state.queuedTurnChange, isAnimBusy]);
+  }, [state.queuedTurnChange, isAnimBusy, state.queuedGameFinished]);
 
   // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
   useEffect(() => {
