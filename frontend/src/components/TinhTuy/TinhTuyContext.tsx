@@ -40,8 +40,11 @@ function mapPlayers(players: any[]): TinhTuyPlayer[] {
     properties: p.properties || [],
     houses: p.houses || {},
     hotels: p.hotels || {},
-    festivals: p.festivals || {},
+    // festivals removed — now game-level state.festival
     cards: p.cards || [],
+    immunityNextRent: !!p.immunityNextRent,
+    doubleRentTurns: p.doubleRentTurns || 0,
+    skipNextTurn: !!p.skipNextTurn,
     displayName: resolveDisplayName(p),
     userId: p.userId?.toString?.() || p.userId,
   }));
@@ -64,11 +67,14 @@ const initialState: TinhTuyState = {
   turnPhase: 'ROLL_DICE',
   turnStartedAt: 0,
   lastDiceResult: null,
+  diceAnimating: false,
   round: 0,
   pendingAction: null,
+  festival: null,
   winner: null,
   error: null,
   drawnCard: null,
+  houseRemovedCell: null,
   chatMessages: [],
   pendingMove: null,
   animatingToken: null,
@@ -84,9 +90,16 @@ const initialState: TinhTuyState = {
   queuedTravelPrompt: false,
   queuedFestivalPrompt: false,
   queuedAction: null,
+  buildPrompt: null,
+  queuedBuildPrompt: null,
   queuedRentAlert: null,
   queuedTaxAlert: null,
   queuedIslandAlert: null,
+  sellPrompt: null,
+  queuedSellPrompt: null,
+  travelPendingSlot: null,
+  queuedTravelPending: null,
+  freeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -158,6 +171,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           turnStartedAt: g.turnStartedAt ? new Date(g.turnStartedAt).getTime() : Date.now(),
           lastDiceResult: g.lastDiceResult || null,
           round: g.round || 1,
+          festival: g.festival || null,
+          // Restore sell prompt on reconnect with AWAITING_SELL phase
+          sellPrompt: g.turnPhase === 'AWAITING_SELL'
+            ? { deficit: Math.abs(mapPlayers(g.players).find((p: any) => p.slot === g.currentPlayerSlot)?.points ?? 0) }
+            : null,
           error: null,
         };
       }
@@ -188,27 +206,32 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         turnPhase: g.turnPhase || 'ROLL_DICE',
         turnStartedAt: Date.now(),
         round: g.round || 1,
-        lastDiceResult: null, pendingAction: null, winner: null,
+        festival: g.festival || null,
+        lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
       };
     }
 
     case 'DICE_RESULT':
-      return { ...state, lastDiceResult: { dice1: action.payload.dice1, dice2: action.payload.dice2 } };
+      return { ...state, lastDiceResult: { dice1: action.payload.dice1, dice2: action.payload.dice2 }, diceAnimating: true };
+
+    case 'DICE_ANIM_DONE':
+      return { ...state, diceAnimating: false };
 
     case 'PLAYER_MOVED': {
-      const { slot, from, to, goBonus, isTravel } = action.payload;
+      const { slot, from, to, goBonus, isTravel, teleport } = action.payload;
+      // Teleport: instant position change, no animation (e.g. triple doubles → island)
+      if (teleport) {
+        const updated = state.players.map(p =>
+          p.slot === slot ? { ...p, position: to } : p
+        );
+        return { ...state, players: updated };
+      }
       // Compute movement path (wrap around at 36)
       const path: number[] = [];
       let pos = from;
       if (isTravel) {
-        // Travel: use shortest path (no Go bonus)
-        const fwdDist = (to - from + 36) % 36;
-        const bwdDist = (from - to + 36) % 36;
-        if (fwdDist <= bwdDist) {
-          while (pos !== to) { pos = (pos + 1) % 36; path.push(pos); }
-        } else {
-          while (pos !== to) { pos = (pos - 1 + 36) % 36; path.push(pos); }
-        }
+        // Travel / card: teleport directly (single step, no cell-by-cell walk)
+        path.push(to);
       } else {
         while (pos !== to) { pos = (pos + 1) % 36; path.push(pos); }
       }
@@ -362,43 +385,63 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           currentSlot: action.payload.currentSlot,
           turnPhase: action.payload.turnPhase,
           round: action.payload.round,
+          buffs: action.payload.buffs,
         },
       };
 
     case 'APPLY_QUEUED_TURN_CHANGE': {
       const qtc = state.queuedTurnChange;
       if (!qtc) return state;
+      // Sync player buffs from backend snapshot
+      let updatedPlayers = state.players;
+      if (qtc.buffs) {
+        const buffsMap = new Map(qtc.buffs.map(b => [b.slot, b]));
+        updatedPlayers = state.players.map(p => {
+          const b = buffsMap.get(p.slot);
+          if (!b) return p;
+          return { ...p, cards: b.cards, immunityNextRent: b.immunityNextRent, doubleRentTurns: b.doubleRentTurns, skipNextTurn: b.skipNextTurn };
+        });
+      }
+      // Don't clear rentAlert/taxAlert/islandAlertSlot — they have their own 4s auto-dismiss timers
       return {
         ...state,
+        players: updatedPlayers,
         currentPlayerSlot: qtc.currentSlot,
         turnPhase: qtc.turnPhase,
         turnStartedAt: Date.now(),
         round: qtc.round || state.round,
         pendingAction: null,
-        islandAlertSlot: null,
-        taxAlert: null,
-        rentAlert: null,
+        buildPrompt: null,
+        freeHousePrompt: null,
+        sellPrompt: null,
         queuedTurnChange: null,
       };
     }
 
     case 'PLAYER_BANKRUPT': {
+      const bSlot = action.payload.slot;
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {}, festivals: {} } : p
+        p.slot === bSlot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {} } : p
       );
-      return { ...state, players: updated };
+      // Clear game-level festival if bankrupt player owned it
+      const newFestival = state.festival?.slot === bSlot ? null : state.festival;
+      return { ...state, players: updated, festival: newFestival };
     }
 
     case 'PLAYER_SURRENDERED': {
+      const sSlot = action.payload.slot;
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {}, festivals: {} } : p
+        p.slot === sSlot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {} } : p
       );
-      return { ...state, players: updated };
+      const newFestivalS = state.festival?.slot === sSlot ? null : state.festival;
+      return { ...state, players: updated, festival: newFestivalS };
     }
 
     case 'PLAYER_ISLAND': {
+      // Only set islandTurns — position is handled by movement animation (dice),
+      // teleport flag (triple doubles), or CARD_DRAWN handler (card-based island)
       const updated = state.players.map(p =>
-        p.slot === action.payload.slot ? { ...p, islandTurns: action.payload.turnsRemaining, position: 27 } : p
+        p.slot === action.payload.slot ? { ...p, islandTurns: action.payload.turnsRemaining } : p
       );
       return { ...state, players: updated, queuedIslandAlert: action.payload.slot };
     }
@@ -489,8 +532,27 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           p.slot === slot ? { ...p, position: 27, islandTurns: 3 } : p
         );
       }
+      // Buff: immunity next rent
+      if (effect?.immunityNextRent) {
+        updated = updated.map(p =>
+          p.slot === slot ? { ...p, immunityNextRent: true } : p
+        );
+      }
+      // Buff: double rent for N turns
+      if (effect?.doubleRentTurns) {
+        updated = updated.map(p =>
+          p.slot === slot ? { ...p, doubleRentTurns: p.doubleRentTurns + effect.doubleRentTurns } : p
+        );
+      }
+      // Debuff: skip next turn
+      if (effect?.skipTurn) {
+        updated = updated.map(p =>
+          p.slot === slot ? { ...p, skipNextTurn: true } : p
+        );
+      }
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
+        houseRemovedCell: effect?.houseRemoved ? effect.houseRemoved.cellIndex : null,
         displayPoints: dpCard,
         pendingNotifs: cardNotifs.length > 0 ? queueNotifs(state.pendingNotifs, cardNotifs) : state.pendingNotifs,
       };
@@ -502,24 +564,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       if (cm) {
         const player = state.players.find(p => p.slot === cm.slot);
         const from = player?.position ?? 0;
-        // Determine direction: passedGo → always forward; otherwise shortest path
-        const fwdDist = (cm.to - from + 36) % 36;
-        const bwdDist = (from - cm.to + 36) % 36;
-        const goForward = cm.passedGo || fwdDist <= bwdDist;
-        // Build step-by-step path (wrap around at 36)
-        const path: number[] = [];
-        let pos = from;
-        if (goForward) {
-          while (pos !== cm.to) {
-            pos = (pos + 1) % 36;
-            path.push(pos);
-          }
-        } else {
-          while (pos !== cm.to) {
-            pos = (pos - 1 + 36) % 36;
-            path.push(pos);
-          }
-        }
+        // Card move: teleport directly (single step, no cell-by-cell walk)
+        const path: number[] = [cm.to];
         // Go bonus is applied during animation (same as dice move)
         const goBonus = cm.passedGo ? 2000 : 0;
         const dpCm = goBonus ? freezePoints(state) : state.displayPoints;
@@ -529,6 +575,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         return {
           ...state,
           drawnCard: null,
+          houseRemovedCell: null,
           pendingCardMove: null,
           players: updatedPlayers,
           pendingMove: { slot: cm.slot, path, goBonus, passedGo: cm.passedGo, fromCard: true },
@@ -536,7 +583,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           displayPoints: dpCm,
         };
       }
-      return { ...state, drawnCard: null, pendingCardMove: null };
+      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null };
     }
 
     case 'HOUSE_BUILT': {
@@ -579,13 +626,18 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     }
 
     case 'ISLAND_ESCAPED': {
-      const { slot: escSlot, costPaid } = action.payload;
+      const { slot: escSlot, costPaid, method: escMethod } = action.payload;
       const dpEsc = costPaid ? freezePoints(state) : state.displayPoints;
-      const updated = state.players.map(p =>
-        p.slot === escSlot
-          ? { ...p, islandTurns: 0, points: costPaid ? p.points - costPaid : p.points }
-          : p
-      );
+      const updated = state.players.map(p => {
+        if (p.slot !== escSlot) return p;
+        const upd = { ...p, islandTurns: 0, points: costPaid ? p.points - costPaid : p.points };
+        // Remove escape-island card when used
+        if (escMethod === 'USE_CARD') {
+          const idx = upd.cards.indexOf('escape-island');
+          if (idx !== -1) upd.cards = upd.cards.filter((_, i) => i !== idx);
+        }
+        return upd;
+      });
       return {
         ...state, players: updated, displayPoints: dpEsc,
         pendingNotifs: costPaid ? queueNotifs(state.pendingNotifs, [{ slot: escSlot, amount: -costPaid }]) : state.pendingNotifs,
@@ -597,13 +649,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, queuedFestivalPrompt: true };
 
     case 'FESTIVAL_APPLIED': {
-      const { slot: fSlot, cellIndex: fCell } = action.payload;
-      const updated = state.players.map(p =>
-        p.slot === fSlot
-          ? { ...p, festivals: { ...p.festivals, [String(fCell)]: true } }
-          : p
-      );
-      return { ...state, players: updated };
+      const { slot: fSlot, cellIndex: fCell, multiplier: fMult } = action.payload;
+      return { ...state, festival: { slot: fSlot, cellIndex: fCell, multiplier: fMult || 1.5 } };
     }
 
     case 'APPLY_QUEUED_FESTIVAL':
@@ -617,6 +664,51 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'APPLY_QUEUED_ISLAND_ALERT':
       return { ...state, islandAlertSlot: state.queuedIslandAlert, queuedIslandAlert: null };
+
+    case 'BUILD_PROMPT':
+      // Queue — applied after movement animation finishes
+      return { ...state, queuedBuildPrompt: action.payload };
+
+    case 'APPLY_QUEUED_BUILD':
+      return { ...state, turnPhase: 'AWAITING_BUILD', buildPrompt: state.queuedBuildPrompt, queuedBuildPrompt: null };
+
+    case 'CLEAR_BUILD_PROMPT':
+      return { ...state, buildPrompt: null };
+
+    case 'FREE_HOUSE_PROMPT':
+      return { ...state, freeHousePrompt: action.payload };
+
+    case 'CLEAR_FREE_HOUSE_PROMPT':
+      return { ...state, freeHousePrompt: null };
+
+    case 'TRAVEL_PENDING':
+      return { ...state, queuedTravelPending: action.payload.slot };
+
+    case 'APPLY_QUEUED_TRAVEL_PENDING':
+      return { ...state, travelPendingSlot: state.queuedTravelPending, queuedTravelPending: null };
+
+    case 'CLEAR_TRAVEL_PENDING':
+      return { ...state, travelPendingSlot: null };
+
+    case 'SELL_PROMPT':
+      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit } };
+
+    case 'APPLY_QUEUED_SELL':
+      return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
+
+    case 'BUILDINGS_SOLD': {
+      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels } = action.payload;
+      const dpBs = freezePoints(state);
+      const prevPoints = state.players.find(p => p.slot === bsSlot)?.points ?? 0;
+      const bsDelta = newPoints - prevPoints;
+      const updated = state.players.map(p =>
+        p.slot === bsSlot ? { ...p, points: newPoints, houses: newHouses, hotels: newHotels } : p
+      );
+      return {
+        ...state, players: updated, sellPrompt: null, displayPoints: dpBs,
+        pendingNotifs: bsDelta !== 0 ? queueNotifs(state.pendingNotifs, [{ slot: bsSlot, amount: bsDelta }]) : state.pendingNotifs,
+      };
+    }
 
     case 'PLAYER_NAME_UPDATED': {
       const updated = state.players.map(p =>
@@ -658,8 +750,15 @@ interface TinhTuyContextValue {
   sendReaction: (reaction: string) => void;
   updateGuestName: (guestName: string) => void;
   clearCard: () => void;
+  clearRentAlert: () => void;
+  clearTaxAlert: () => void;
+  clearIslandAlert: () => void;
+  clearTravelPending: () => void;
   travelTo: (cellIndex: number) => void;
   applyFestival: (cellIndex: number) => void;
+  skipBuild: () => void;
+  sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel'; count: number }>) => void;
+  chooseFreeHouse: (cellIndex: number) => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -714,7 +813,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleRentPaid = (data: any) => {
       dispatch({ type: 'RENT_PAID', payload: data });
-      tinhTuySounds.playSFX('rentPay');
+      // Sound deferred to APPLY_QUEUED_RENT_ALERT (after movement animation)
     };
 
     const handleTaxPaid = (data: any) => {
@@ -736,7 +835,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handlePlayerIsland = (data: any) => {
       dispatch({ type: 'PLAYER_ISLAND', payload: data });
-      tinhTuySounds.playSFX('island');
+      // Sound deferred to APPLY_QUEUED_ISLAND_ALERT (after movement animation)
     };
 
     const handleGameFinished = (data: any) => {
@@ -774,6 +873,26 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleFestivalPrompt = (data: any) => {
       dispatch({ type: 'FESTIVAL_PROMPT', payload: data });
+    };
+
+    const handleBuildPrompt = (data: any) => {
+      dispatch({ type: 'BUILD_PROMPT', payload: data });
+    };
+
+    const handleFreeHousePrompt = (data: any) => {
+      dispatch({ type: 'FREE_HOUSE_PROMPT', payload: data });
+    };
+
+    const handleSellPrompt = (data: any) => {
+      dispatch({ type: 'SELL_PROMPT', payload: data });
+    };
+
+    const handleBuildingsSold = (data: any) => {
+      dispatch({ type: 'BUILDINGS_SOLD', payload: data });
+    };
+
+    const handleTravelPending = (data: any) => {
+      dispatch({ type: 'TRAVEL_PENDING', payload: data });
     };
 
     const handleFestivalApplied = (data: any) => {
@@ -829,6 +948,11 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:island-escaped' as any, handleIslandEscaped);
     socket.on('tinh-tuy:festival-prompt' as any, handleFestivalPrompt);
     socket.on('tinh-tuy:festival-applied' as any, handleFestivalApplied);
+    socket.on('tinh-tuy:build-prompt' as any, handleBuildPrompt);
+    socket.on('tinh-tuy:free-house-prompt' as any, handleFreeHousePrompt);
+    socket.on('tinh-tuy:sell-prompt' as any, handleSellPrompt);
+    socket.on('tinh-tuy:travel-pending' as any, handleTravelPending);
+    socket.on('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -857,6 +981,11 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:island-escaped' as any, handleIslandEscaped);
       socket.off('tinh-tuy:festival-prompt' as any, handleFestivalPrompt);
       socket.off('tinh-tuy:festival-applied' as any, handleFestivalApplied);
+      socket.off('tinh-tuy:build-prompt' as any, handleBuildPrompt);
+      socket.off('tinh-tuy:free-house-prompt' as any, handleFreeHousePrompt);
+      socket.off('tinh-tuy:sell-prompt' as any, handleSellPrompt);
+      socket.off('tinh-tuy:travel-pending' as any, handleTravelPending);
+      socket.off('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1103,6 +1232,22 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_CARD' });
   }, []);
 
+  const clearRentAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_RENT_ALERT' });
+  }, []);
+
+  const clearTaxAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_TAX_ALERT' });
+  }, []);
+
+  const clearIslandAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_ISLAND_ALERT' });
+  }, []);
+
+  const clearTravelPending = useCallback(() => {
+    dispatch({ type: 'CLEAR_TRAVEL_PENDING' });
+  }, []);
+
   const travelTo = useCallback((cellIndex: number) => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -1115,6 +1260,31 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:apply-festival' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const skipBuild = useCallback(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:skip-build' as any, {}, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const chooseFreeHouse = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    dispatch({ type: 'CLEAR_FREE_HOUSE_PROMPT' });
+    socket.emit('tinh-tuy:free-house-choose' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const sellBuildings = useCallback((selections: Array<{ cellIndex: number; type: 'house' | 'hotel'; count: number }>) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:sell-buildings' as any, { selections }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -1202,53 +1372,83 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.pointNotifs.length]);
 
+  // Common gate: wait for card modal + card movement + movement animation to all finish
+  // Gate: dice animation + card modal + movement animation must all finish before queued effects fire
+  const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken);
+
+  // Auto-clear diceAnimating after 2.3s (matches dice CSS animation + settle time)
+  useEffect(() => {
+    if (!state.diceAnimating) return;
+    const timer = setTimeout(() => dispatch({ type: 'DICE_ANIM_DONE' }), 2300);
+    return () => clearTimeout(timer);
+  }, [state.diceAnimating]);
+
   // Apply queued travel prompt after movement animation finishes
   useEffect(() => {
-    if (!state.queuedTravelPrompt) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedTravelPrompt || isAnimBusy) return;
     dispatch({ type: 'APPLY_QUEUED_TRAVEL' });
-  }, [state.queuedTravelPrompt, state.pendingMove, state.animatingToken]);
+  }, [state.queuedTravelPrompt, isAnimBusy]);
 
   // Apply queued festival prompt after movement animation finishes
   useEffect(() => {
-    if (!state.queuedFestivalPrompt) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedFestivalPrompt || isAnimBusy) return;
     dispatch({ type: 'APPLY_QUEUED_FESTIVAL' });
-  }, [state.queuedFestivalPrompt, state.pendingMove, state.animatingToken]);
+  }, [state.queuedFestivalPrompt, isAnimBusy]);
 
   // Apply queued rent alert after movement animation finishes
   useEffect(() => {
-    if (!state.queuedRentAlert) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedRentAlert || isAnimBusy) return;
+    tinhTuySounds.playSFX('rentPay');
     dispatch({ type: 'APPLY_QUEUED_RENT_ALERT' });
-  }, [state.queuedRentAlert, state.pendingMove, state.animatingToken]);
+  }, [state.queuedRentAlert, isAnimBusy]);
 
   // Apply queued tax alert after movement animation finishes
   useEffect(() => {
-    if (!state.queuedTaxAlert) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedTaxAlert || isAnimBusy) return;
     dispatch({ type: 'APPLY_QUEUED_TAX_ALERT' });
-  }, [state.queuedTaxAlert, state.pendingMove, state.animatingToken]);
+  }, [state.queuedTaxAlert, isAnimBusy]);
 
   // Apply queued island alert after movement animation finishes
   useEffect(() => {
-    if (state.queuedIslandAlert == null) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (state.queuedIslandAlert == null || isAnimBusy) return;
+    tinhTuySounds.playSFX('island');
     dispatch({ type: 'APPLY_QUEUED_ISLAND_ALERT' });
-  }, [state.queuedIslandAlert, state.pendingMove, state.animatingToken]);
+  }, [state.queuedIslandAlert, isAnimBusy]);
+
+  // Apply queued travel pending alert after movement animation finishes
+  useEffect(() => {
+    if (state.queuedTravelPending == null || isAnimBusy) return;
+    dispatch({ type: 'APPLY_QUEUED_TRAVEL_PENDING' });
+  }, [state.queuedTravelPending, isAnimBusy]);
+
+  // Travel pending alert auto-dismiss after 4s
+  useEffect(() => {
+    if (state.travelPendingSlot == null) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_TRAVEL_PENDING' }), 4000);
+    return () => clearTimeout(timer);
+  }, [state.travelPendingSlot]);
+
+  // Apply queued build prompt after movement animation finishes
+  useEffect(() => {
+    if (!state.queuedBuildPrompt || isAnimBusy) return;
+    dispatch({ type: 'APPLY_QUEUED_BUILD' });
+  }, [state.queuedBuildPrompt, isAnimBusy]);
+
+  // Apply queued sell prompt after movement animation finishes
+  useEffect(() => {
+    if (!state.queuedSellPrompt || isAnimBusy) return;
+    dispatch({ type: 'APPLY_QUEUED_SELL' });
+  }, [state.queuedSellPrompt, isAnimBusy]);
 
   // Apply queued action (buy/skip modal) after movement animation finishes
   useEffect(() => {
-    if (!state.queuedAction) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedAction || isAnimBusy) return;
     dispatch({ type: 'APPLY_QUEUED_ACTION' });
-  }, [state.queuedAction, state.pendingMove, state.animatingToken]);
+  }, [state.queuedAction, isAnimBusy]);
 
   // Apply queued turn change after movement animation finishes
-  // Only gate on movement — modals/notifs have their own timing and shouldn't block gameplay
   useEffect(() => {
-    if (!state.queuedTurnChange) return;
-    if (state.pendingMove || state.animatingToken) return;
+    if (!state.queuedTurnChange || isAnimBusy) return;
     const timer = setTimeout(() => {
       // Play "your turn" sound when turn actually switches
       if (stateRef.current.queuedTurnChange?.currentSlot === stateRef.current.mySlot) {
@@ -1257,7 +1457,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'APPLY_QUEUED_TURN_CHANGE' });
     }, 300);
     return () => clearTimeout(timer);
-  }, [state.queuedTurnChange, state.pendingMove, state.animatingToken]);
+  }, [state.queuedTurnChange, isAnimBusy]);
 
   // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
   useEffect(() => {
@@ -1291,7 +1491,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       state, createRoom, joinRoom, leaveRoom, startGame,
       rollDice, buyProperty, skipBuy, surrender,
       refreshRooms, setView, updateRoom,
-      buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName, clearCard, travelTo, applyFestival,
+      buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
+      clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse,
     }}>
       {children}
     </TinhTuyContext.Provider>

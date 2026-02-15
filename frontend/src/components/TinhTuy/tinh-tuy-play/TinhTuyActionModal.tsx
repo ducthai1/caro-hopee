@@ -44,7 +44,7 @@ export const TinhTuyActionModal: React.FC = () => {
             component="img"
             src={`/location/${cell.icon}`}
             alt=""
-            sx={{ width: 80, height: 80, objectFit: 'contain', mx: 'auto', mb: 1, borderRadius: 2 }}
+            sx={{ width: { xs: 260, md: 360 }, height: { xs: 260, md: 360 }, objectFit: 'contain', mx: 'auto', mb: 1, borderRadius: 2 }}
           />
         )}
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>

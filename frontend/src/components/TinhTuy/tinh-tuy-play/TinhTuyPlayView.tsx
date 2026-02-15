@@ -25,6 +25,10 @@ import { TinhTuyIslandModal, TinhTuyIslandAlert } from './TinhTuyIslandModal';
 import { TinhTuyTaxAlert } from './TinhTuyTaxAlert';
 import { TinhTuyRentAlert } from './TinhTuyRentAlert';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
+import { TinhTuyBuildPrompt } from './TinhTuyBuildPrompt';
+import { TinhTuyFreeHouseModal } from './TinhTuyFreeHouseModal';
+import { TinhTuySellModal } from './TinhTuySellModal';
+import { TinhTuyTravelPendingAlert } from './TinhTuyTravelPendingAlert';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
 
@@ -120,6 +124,23 @@ const PlayerCard: React.FC<{
         />
       )}
     </Box>
+    {/* Active buffs / held cards */}
+    {!player.isBankrupt && (player.cards?.length > 0 || player.immunityNextRent || player.doubleRentTurns > 0 || player.skipNextTurn) && (
+      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+        {player.cards?.includes('escape-island') && (
+          <Chip label={`🃏 ${t('tinhTuy.game.buffEscapeIsland')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(39,174,96,0.12)', color: '#27ae60' }} />
+        )}
+        {player.immunityNextRent && (
+          <Chip label={`🛡️ ${t('tinhTuy.game.buffImmunity')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(52,152,219,0.12)', color: '#2980b9' }} />
+        )}
+        {player.doubleRentTurns > 0 && (
+          <Chip label={`⚡ x2 (${player.doubleRentTurns})`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155,89,182,0.12)', color: '#8e44ad' }} />
+        )}
+        {player.skipNextTurn && (
+          <Chip label={`⏭️ ${t('tinhTuy.game.buffSkipTurn')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#e74c3c' }} />
+        )}
+      </Box>
+    )}
   </Paper>
   );
 };
@@ -328,6 +349,10 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyTaxAlert />
       <TinhTuyRentAlert />
       <TinhTuyBuildModal open={buildOpen} onClose={() => setBuildOpen(false)} />
+      <TinhTuyBuildPrompt />
+      <TinhTuyFreeHouseModal />
+      <TinhTuySellModal />
+      <TinhTuyTravelPendingAlert />
       <TinhTuyGoPopup />
 
       {/* Guest Name Edit Dialog */}

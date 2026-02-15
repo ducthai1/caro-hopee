@@ -33,7 +33,8 @@ export const TinhTuyDice: React.FC = () => {
   const { t } = useLanguage();
   const { state, rollDice } = useTinhTuy();
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
-  const canRoll = isMyTurn && state.turnPhase === 'ROLL_DICE';
+  const isAnimating = !!(state.pendingMove || state.animatingToken);
+  const canRoll = isMyTurn && state.turnPhase === 'ROLL_DICE' && !isAnimating;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>

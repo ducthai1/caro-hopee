@@ -1,7 +1,8 @@
 /**
- * TinhTuySoundManager — Web Audio API SFX synthesizer + HTMLAudioElement BGM.
+ * TinhTuySoundManager — Web Audio API SFX synthesizer + procedural ambient BGM.
  * Singleton. Init on first user gesture for iOS compatibility.
  * All audio nodes disconnected via onended to prevent memory leaks.
+ * BGM: gentle pentatonic sparkle notes over warm sine pad — no external audio files.
  */
 
 type SFXType = 'diceRoll' | 'move' | 'purchase' | 'rentPay' | 'cardDraw'
@@ -30,7 +31,12 @@ function autoCleanup(osc: OscillatorNode | AudioBufferSourceNode, ...nodes: Audi
 
 class TinhTuySoundManager {
   private audioCtx: AudioContext | null = null;
-  private bgmElement: HTMLAudioElement | null = null;
+  // BGM state — procedural ambient music
+  private bgmMasterGain: GainNode | null = null;
+  private bgmPadOscs: OscillatorNode[] = [];
+  private bgmAllNodes: AudioNode[] = [];
+  private bgmNoteTimer: any = null;
+  private bgmTrack: 'lobby' | 'game' | null = null;
   private _volume: number;
   private _isMuted: boolean;
   private initialized = false;
@@ -166,19 +172,21 @@ class TinhTuySoundManager {
   }
 
   private sfxBuildHouse(ctx: AudioContext, vol: number): void {
+    // Cheerful ascending arpeggio: C5 → E5 → G5 → C6
+    const notes = [523.25, 659.25, 783.99, 1046.5];
     const now = ctx.currentTime;
-    for (let i = 0; i < 2; i++) {
+    notes.forEach((freq, i) => {
       const osc = ctx.createOscillator();
-      osc.type = 'square';
-      osc.frequency.value = 150;
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(vol * 0.3, now + i * 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05 + i * 0.1);
+      gain.gain.setValueAtTime(vol * 0.25, now + i * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35 + i * 0.08);
       osc.connect(gain).connect(ctx.destination);
-      osc.start(now + i * 0.1);
-      osc.stop(now + 0.05 + i * 0.1);
+      osc.start(now + i * 0.08);
+      osc.stop(now + 0.35 + i * 0.08);
       autoCleanup(osc, gain);
-    }
+    });
   }
 
   private sfxIsland(ctx: AudioContext, vol: number): void {
@@ -242,32 +250,112 @@ class TinhTuySoundManager {
     autoCleanup(osc, gain);
   }
 
-  // ─── BGM ──────────────────────────────────────────────
+  // ─── BGM — Procedural ambient music via Web Audio API ─
 
   playBGM(track: 'lobby' | 'game'): void {
     this.stopBGM();
-    const src = track === 'lobby' ? '/music/tt-lobby.mp3' : '/music/tt-game.mp3';
-    this.bgmElement = new Audio(src);
-    this.bgmElement.loop = true;
-    this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
-    this.bgmElement.play().catch(() => { /* autoplay blocked */ });
+    const ctx = this.audioCtx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running') return;
+    this.bgmTrack = track;
+
+    const bgmVol = this._isMuted ? 0 : this._volume * 0.2;
+
+    // Master gain → low-pass filter → destination
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    master.gain.linearRampToValueAtTime(bgmVol, ctx.currentTime + 2.5);
+
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.value = 1400;
+    lpf.Q.value = 0.5;
+
+    master.connect(lpf).connect(ctx.destination);
+    this.bgmMasterGain = master;
+    this.bgmAllNodes.push(master, lpf);
+
+    // ── Warm pad: 3 sine oscillators with subtle vibrato ──
+    const padNotes = [130.81, 196.00, 261.63]; // C3 G3 C4
+    padNotes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.detune.value = (i - 1) * 6;
+
+      // Subtle vibrato for organic feel
+      const vib = ctx.createOscillator();
+      vib.frequency.value = 0.3 + i * 0.1;
+      const vibG = ctx.createGain();
+      vibG.gain.value = 3; // ±3 cents
+      vib.connect(vibG).connect(osc.detune);
+      vib.start();
+
+      const g = ctx.createGain();
+      g.gain.value = 0.12;
+      osc.connect(g).connect(master);
+      osc.start();
+
+      this.bgmPadOscs.push(osc, vib);
+      this.bgmAllNodes.push(osc, vib, vibG, g);
+    });
+
+    // ── Pentatonic sparkle notes on a random timer ──
+    const scale = [
+      261.63, 293.66, 329.63, 392.00, 440.00,  // C4 D4 E4 G4 A4
+      523.25, 587.33, 659.25, 783.99, 880.00,   // C5 D5 E5 G5 A5
+    ];
+
+    const scheduleNote = () => {
+      if (!this.bgmMasterGain) return; // BGM stopped
+      if (ctx.state === 'running') {
+        const freq = scale[Math.floor(Math.random() * scale.length)];
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.18, now + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 3);
+        osc.connect(g).connect(master);
+        osc.start(now);
+        osc.stop(now + 3);
+        autoCleanup(osc, g);
+      }
+      this.bgmNoteTimer = setTimeout(scheduleNote, 2000 + Math.random() * 2500);
+    };
+    this.bgmNoteTimer = setTimeout(scheduleNote, 800);
   }
 
   stopBGM(): void {
-    if (this.bgmElement) {
-      this.bgmElement.pause();
-      this.bgmElement.src = '';
-      this.bgmElement = null;
+    if (this.bgmNoteTimer) {
+      clearTimeout(this.bgmNoteTimer);
+      this.bgmNoteTimer = null;
     }
+    this.bgmPadOscs.forEach(osc => {
+      try { osc.stop(); osc.disconnect(); } catch { /* already stopped */ }
+    });
+    this.bgmAllNodes.forEach(node => {
+      try { node.disconnect(); } catch { /* already disconnected */ }
+    });
+    this.bgmPadOscs = [];
+    this.bgmAllNodes = [];
+    this.bgmMasterGain = null;
+    this.bgmTrack = null;
   }
 
-  /** Page Visibility handler — pause/resume BGM */
+  /** Page Visibility handler — silence BGM when tab hidden */
   handleVisibilityChange = (): void => {
-    if (!this.bgmElement) return;
+    if (!this.bgmMasterGain) return;
+    const ctx = this.audioCtx;
     if (document.hidden) {
-      this.bgmElement.pause();
+      this.bgmMasterGain.gain.linearRampToValueAtTime(0, (ctx?.currentTime ?? 0) + 0.3);
     } else if (!this._isMuted) {
-      this.bgmElement.play().catch(() => {});
+      this.bgmMasterGain.gain.linearRampToValueAtTime(
+        this._volume * 0.2, (ctx?.currentTime ?? 0) + 0.5,
+      );
     }
   };
 
@@ -279,16 +367,20 @@ class TinhTuySoundManager {
   setVolume(v: number): void {
     this._volume = Math.max(0, Math.min(1, v));
     safeSetItem(STORAGE_KEY_VOLUME, String(this._volume));
-    if (this.bgmElement) {
-      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
+    if (this.bgmMasterGain && this.audioCtx) {
+      this.bgmMasterGain.gain.linearRampToValueAtTime(
+        this._isMuted ? 0 : this._volume * 0.2, this.audioCtx.currentTime + 0.1,
+      );
     }
   }
 
   toggleMute(): boolean {
     this._isMuted = !this._isMuted;
     safeSetItem(STORAGE_KEY_MUTED, String(this._isMuted));
-    if (this.bgmElement) {
-      this.bgmElement.volume = this._isMuted ? 0 : this._volume * 0.4;
+    if (this.bgmMasterGain && this.audioCtx) {
+      this.bgmMasterGain.gain.linearRampToValueAtTime(
+        this._isMuted ? 0 : this._volume * 0.2, this.audioCtx.currentTime + 0.1,
+      );
     }
     return this._isMuted;
   }

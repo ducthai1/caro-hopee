@@ -50,11 +50,9 @@ export function calculateRent(
   if (cell.type === 'STATION') {
     rent = getStationRent(countStationsOwned(owner.properties));
   } else if (cell.type === 'UTILITY') {
-    // Utility rent: diceTotal * multiplier
-    const utilitiesOwned = owner.properties.filter(
-      idx => BOARD_CELLS[idx]?.type === 'UTILITY'
-    ).length;
-    rent = getUtilityRent(utilitiesOwned, diceTotal);
+    // Utility rent: scales with completed rounds (min rounds across active players)
+    const completedRounds = Math.max((game.round || 1) - 1, 0);
+    rent = getUtilityRent(cell.price || 1500, completedRounds);
   } else if (cell.type === 'PROPERTY' && cell.group) {
     // Check hotel first, then houses
     const cellKey = String(cellIndex);
@@ -72,9 +70,9 @@ export function calculateRent(
     }
   }
 
-  // Festival multiplier (1.5x)
-  if (owner.festivals[String(cellIndex)]) {
-    rent = Math.floor(rent * 1.5);
+  // Festival multiplier (game-level, stacking: 1.5x, 2x, 2.5x, ...)
+  if (game.festival && game.festival.cellIndex === cellIndex) {
+    rent = Math.floor(rent * game.festival.multiplier);
   }
 
   // Owner has double rent buff
@@ -231,19 +229,10 @@ export function canBuildHouse(
   const cell = getCell(cellIndex);
   if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable' };
   if (!player.properties.includes(cellIndex)) return { valid: false, error: 'notOwned' };
-  if (!ownsFullGroup(cell.group, player.properties)) return { valid: false, error: 'needFullGroup' };
 
   const currentHouses = player.houses[String(cellIndex)] || 0;
   if (currentHouses >= 4) return { valid: false, error: 'maxHouses' };
   if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel' };
-
-  // Even-build rule: can't be more than 1 ahead of any sibling in group
-  const groupCells = PROPERTY_GROUPS[cell.group];
-  for (const idx of groupCells) {
-    if (idx === cellIndex) continue;
-    const otherHouses = player.houses[String(idx)] || 0;
-    if (currentHouses > otherHouses) return { valid: false, error: 'evenBuildRule' };
-  }
 
   const cost = cell.houseCost || 0;
   if (player.points < cost) return { valid: false, error: 'cannotAfford' };
@@ -294,6 +283,33 @@ export function buildHotel(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
   return true;
 }
 
+// ─── Sell Building Helpers ────────────────────────────────
+
+/** Sell price = half of build cost */
+export function getSellPrice(cellIndex: number, type: 'house' | 'hotel'): number {
+  const cell = getCell(cellIndex);
+  if (!cell) return 0;
+  return Math.floor(((type === 'hotel' ? cell.hotelCost : cell.houseCost) || 0) / 2);
+}
+
+/** Total value of all sellable buildings for a player */
+export function calculateSellableValue(player: ITinhTuyPlayer): number {
+  let total = 0;
+  for (const cellIdx of player.properties) {
+    const cell = getCell(cellIdx);
+    if (!cell) continue;
+    const key = String(cellIdx);
+    if (player.hotels[key]) {
+      total += Math.floor((cell.hotelCost || 0) / 2);
+    }
+    const houses = player.houses[key] || 0;
+    if (houses > 0) {
+      total += houses * Math.floor((cell.houseCost || 0) / 2);
+    }
+  }
+  return total;
+}
+
 // ─── Cell Resolution ──────────────────────────────────────────
 
 /** Determine what action is needed when player lands on a cell */
@@ -303,13 +319,20 @@ export function resolveCellAction(
   cellIndex: number,
   diceTotal: number
 ): {
-  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card' | 'festival' | 'travel';
+  action: 'buy' | 'rent' | 'tax' | 'none' | 'go_to_island' | 'card' | 'festival' | 'travel' | 'build';
   amount?: number;
   ownerSlot?: number;
   houseCount?: number;
   hotelCount?: number;
   perHouse?: number;
   perHotel?: number;
+  // Build-specific fields
+  canBuildHouse?: boolean;
+  houseCost?: number;
+  canBuildHotel?: boolean;
+  hotelCost?: number;
+  currentHouses?: number;
+  hasHotel?: boolean;
 } {
   const cell = getCell(cellIndex);
   if (!cell) return { action: 'none' };
@@ -326,8 +349,25 @@ export function resolveCellAction(
         // Unowned — player can buy
         return { action: 'buy', amount: cell.price || 0 };
       }
-      if (owner.slot === playerSlot || owner.isBankrupt) {
-        return { action: 'none' }; // Own property or bankrupt owner
+      if (owner.isBankrupt) {
+        return { action: 'none' };
+      }
+      if (owner.slot === playerSlot) {
+        // Own property — check if can build house or hotel
+        const houseCheck = canBuildHouse(game, playerSlot, cellIndex);
+        const hotelCheck = canBuildHotel(game, playerSlot, cellIndex);
+        if (houseCheck.valid || hotelCheck.valid) {
+          return {
+            action: 'build',
+            canBuildHouse: houseCheck.valid,
+            houseCost: houseCheck.cost,
+            canBuildHotel: hotelCheck.valid,
+            hotelCost: hotelCheck.cost,
+            currentHouses: player.houses?.[String(cellIndex)] || 0,
+            hasHotel: !!player.hotels?.[String(cellIndex)],
+          };
+        }
+        return { action: 'none' };
       }
       // Owned by another — pay rent
       const rent = calculateRent(game, cellIndex, diceTotal);
@@ -357,7 +397,9 @@ export function resolveCellAction(
       return { action: 'festival' };
     case 'TRAVEL':
       return { action: 'travel' };
+    case 'ISLAND':
+      return { action: 'go_to_island' };
     default:
-      return { action: 'none' }; // GO, ISLAND
+      return { action: 'none' }; // GO
   }
 }

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, Typography, Box } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
+import { BOARD_CELLS } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
 
 const CARD_DISPLAY_MS = 3500;
@@ -65,6 +66,7 @@ export const TinhTuyCardModal: React.FC = () => {
   return (
     <Dialog
       open={true}
+      onClose={clearCard}
       maxWidth="xs"
       fullWidth
       TransitionProps={{ timeout: 400 }}
@@ -82,7 +84,7 @@ export const TinhTuyCardModal: React.FC = () => {
                 component="img"
                 src={iconSrc}
                 alt=""
-                sx={{ width: 80, height: 80, objectFit: 'contain', borderRadius: 2, opacity: 0.9 }}
+                sx={{ width: '70%', maxWidth: 260, aspectRatio: '1', objectFit: 'contain', borderRadius: 2, opacity: 0.9 }}
               />
             </div>
             {/* Front face */}
@@ -91,7 +93,7 @@ export const TinhTuyCardModal: React.FC = () => {
                 component="img"
                 src={iconSrc}
                 alt=""
-                sx={{ width: 56, height: 56, objectFit: 'contain', mb: 1.5, borderRadius: 1 }}
+                sx={{ width: '55%', maxWidth: 200, aspectRatio: '1', objectFit: 'contain', mb: 1.5, borderRadius: 1 }}
               />
               <Typography variant="caption" sx={{ color: isKhiVan ? '#8e44ad' : '#e67e22', fontWeight: 700, letterSpacing: 1, mb: 0.5 }}>
                 {isKhiVan ? t('tinhTuy.cards.khiVanTitle' as any) : t('tinhTuy.cards.coHoiTitle' as any)}
@@ -102,6 +104,21 @@ export const TinhTuyCardModal: React.FC = () => {
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 {t(card.descriptionKey as any)}
               </Typography>
+              {state.houseRemovedCell != null && BOARD_CELLS[state.houseRemovedCell] && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(231, 76, 60, 0.12)',
+                  border: '2px solid rgba(231, 76, 60, 0.4)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 800, fontSize: '1rem', mb: 0.25 }}>
+                    🏠 ➜ 💥
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: '#c0392b', fontWeight: 700 }}>
+                    {t(BOARD_CELLS[state.houseRemovedCell].name as any)}
+                  </Typography>
+                </Box>
+              )}
             </div>
           </div>
         </div>

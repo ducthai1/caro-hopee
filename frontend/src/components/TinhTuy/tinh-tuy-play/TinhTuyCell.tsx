@@ -19,6 +19,7 @@ interface Props {
   houseCount?: number;
   hasHotel?: boolean;
   hasFestival?: boolean;
+  currentRent?: number;
   selectionState?: SelectionState;
   onClick?: () => void;
 }
@@ -39,7 +40,7 @@ const CELL_ICONS: Record<string, string> = {
 
 export const TinhTuyCell: React.FC<Props> = React.memo(({
   cell, col, row, ownerSlot, isCurrentCell,
-  houseCount = 0, hasHotel = false, hasFestival = false, selectionState, onClick,
+  houseCount = 0, hasHotel = false, hasFestival = false, currentRent, selectionState, onClick,
 }) => {
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
@@ -50,7 +51,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
 
   return (
     <Tooltip
-      title={`${t(cell.name as any)} ${cell.price ? `- ${cell.price} TT` : ''}`}
+      title={`${t(cell.name as any)} ${currentRent != null ? `- 🔮${currentRent} TT` : cell.price ? `- ${cell.price} TT` : ''}`}
       arrow
       placement="top"
       enterDelay={300}
@@ -112,9 +113,9 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           />
         )}
 
-        {/* House/Hotel indicators */}
+        {/* House/Hotel indicators — top-left, next to owner dot (top-right) */}
         {(houseCount > 0 || hasHotel) && (
-          <Box sx={{ position: 'absolute', bottom: 1, left: 1, display: 'flex', gap: '1px' }}>
+          <Box sx={{ position: 'absolute', top: 1, left: 1, display: 'flex', gap: '1px', zIndex: 2 }}>
             {hasHotel ? (
               <div className="tt-hotel" />
             ) : (
@@ -179,10 +180,13 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
           )}
         </Box>
 
-        {/* Price */}
-        {cell.price && (
-          <Typography sx={{ fontSize: '0.5rem', color: 'text.secondary', lineHeight: 1, fontWeight: 600 }}>
-            {cell.price}
+        {/* Price (purchase) or current rent (owned) */}
+        {(currentRent != null || cell.price) && (
+          <Typography sx={{
+            fontSize: '0.5rem', lineHeight: 1, fontWeight: 600,
+            color: currentRent != null ? '#e74c3c' : 'text.secondary',
+          }}>
+            {currentRent != null ? `🔮${currentRent}` : cell.price}
           </Typography>
         )}
 

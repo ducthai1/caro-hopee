@@ -9,7 +9,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -49,9 +49,12 @@ export interface TinhTuyPlayer {
   properties: number[];
   houses: Record<string, number>;
   hotels: Record<string, boolean>;
-  festivals: Record<string, boolean>;
+  // festivals removed — now game-level state.festival
   islandTurns: number;
   cards: string[];
+  immunityNextRent: boolean;
+  doubleRentTurns: number;
+  skipNextTurn: boolean;
   isBankrupt: boolean;
   isConnected: boolean;
   consecutiveDoubles: number;
@@ -82,6 +85,9 @@ export interface BoardCellClient {
   group?: PropertyGroup;
   price?: number;
   rentBase?: number;
+  rentGroup?: number;
+  rentHouse?: number[];
+  rentHotel?: number;
   houseCost?: number;
   hotelCost?: number;
   icon?: string;
@@ -123,11 +129,17 @@ export interface TinhTuyState {
   turnPhase: TurnPhase;
   turnStartedAt: number;
   lastDiceResult: { dice1: number; dice2: number } | null;
+  /** True while dice roll animation is playing (blocks queued effects) */
+  diceAnimating: boolean;
   round: number;
   pendingAction: PendingAction;
+  /** Global festival — only 1 on the board at a time */
+  festival: { slot: number; cellIndex: number; multiplier: number } | null;
   winner: TinhTuyWinner | null;
   error: string | null;
   drawnCard: CardInfo | null;
+  /** Cell index of house removed by card effect (for notification) */
+  houseRemovedCell: number | null;
   chatMessages: ChatMessage[];
   pendingMove: { slot: number; path: number[]; goBonus?: number; passedGo?: boolean; fromCard?: boolean } | null;
   animatingToken: { slot: number; path: number[]; currentStep: number } | null;
@@ -143,19 +155,33 @@ export interface TinhTuyState {
   /** Frozen points snapshot — shown instead of real points while notifs are pending */
   displayPoints: Record<number, number>;
   /** Queued turn change — applied after animations + modals finish */
-  queuedTurnChange: { currentSlot: number; turnPhase: TurnPhase; round?: number } | null;
+  queuedTurnChange: { currentSlot: number; turnPhase: TurnPhase; round?: number; buffs?: Array<{ slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean }> } | null;
   /** Queued travel prompt — applied after movement animation finishes */
   queuedTravelPrompt: boolean;
   /** Queued festival prompt — applied after movement animation finishes */
   queuedFestivalPrompt: boolean;
   /** Queued awaiting action — applied after movement animation finishes */
   queuedAction: { cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } | null;
+  /** Build prompt — shown when landing on own buildable property */
+  buildPrompt: { cellIndex: number; canBuildHouse: boolean; houseCost: number; canBuildHotel: boolean; hotelCost: number; currentHouses: number; hasHotel: boolean } | null;
+  /** Queued build prompt — applied after movement animation finishes */
+  queuedBuildPrompt: TinhTuyState['buildPrompt'];
   /** Queued rent alert — shown after movement animation finishes */
   queuedRentAlert: TinhTuyState['rentAlert'];
   /** Queued tax alert — shown after movement animation finishes */
   queuedTaxAlert: TinhTuyState['taxAlert'];
   /** Queued island alert — shown after movement animation finishes */
   queuedIslandAlert: number | null;
+  /** Sell prompt — shown when player must sell buildings to cover debt */
+  sellPrompt: { deficit: number } | null;
+  /** Queued sell prompt — applied after animation settles */
+  queuedSellPrompt: { deficit: number } | null;
+  /** Travel pending alert — shown when landing on Travel cell */
+  travelPendingSlot: number | null;
+  /** Queued travel pending — applied after movement animation finishes */
+  queuedTravelPending: number | null;
+  /** Free house prompt — player chooses which property gets a free house (from card) */
+  freeHousePrompt: { slot: number; buildableCells: number[] } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -168,12 +194,12 @@ export type TinhTuyAction =
   | { type: 'ROOM_UPDATED'; payload: { players?: TinhTuyPlayer[]; settings?: TinhTuySettings; gameStatus?: TinhTuyGameStatus; hostPlayerId?: string } }
   | { type: 'GAME_STARTED'; payload: { game: any } }
   | { type: 'DICE_RESULT'; payload: { dice1: number; dice2: number; total: number; isDouble: boolean } }
-  | { type: 'PLAYER_MOVED'; payload: { slot: number; from: number; to: number; passedGo: boolean; goBonus?: number; isTravel?: boolean } }
+  | { type: 'PLAYER_MOVED'; payload: { slot: number; from: number; to: number; passedGo: boolean; goBonus?: number; isTravel?: boolean; teleport?: boolean } }
   | { type: 'AWAITING_ACTION'; payload: { slot: number; cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } }
   | { type: 'PROPERTY_BOUGHT'; payload: { slot: number; cellIndex: number; price: number; remainingPoints: number } }
   | { type: 'RENT_PAID'; payload: { fromSlot: number; toSlot: number; amount: number; cellIndex: number } }
   | { type: 'TAX_PAID'; payload: { slot: number; amount: number; cellIndex: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } }
-  | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean } }
+  | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean; buffs?: Array<{ slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean }> } }
   | { type: 'PLAYER_BANKRUPT'; payload: { slot: number } }
   | { type: 'PLAYER_SURRENDERED'; payload: { slot: number } }
   | { type: 'PLAYER_ISLAND'; payload: { slot: number; turnsRemaining: number } }
@@ -190,7 +216,7 @@ export type TinhTuyAction =
   | { type: 'HOTEL_BUILT'; payload: { slot: number; cellIndex: number; remainingPoints?: number } }
   | { type: 'ISLAND_ESCAPED'; payload: { slot: number; method: string; costPaid?: number } }
   | { type: 'FESTIVAL_PROMPT'; payload: { slot: number } }
-  | { type: 'FESTIVAL_APPLIED'; payload: { slot: number; cellIndex: number } }
+  | { type: 'FESTIVAL_APPLIED'; payload: { slot: number; cellIndex: number; multiplier: number } }
   | { type: 'APPLY_QUEUED_FESTIVAL' }
   | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
   | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
@@ -209,7 +235,19 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_ACTION' }
   | { type: 'APPLY_QUEUED_RENT_ALERT' }
   | { type: 'APPLY_QUEUED_TAX_ALERT' }
-  | { type: 'APPLY_QUEUED_ISLAND_ALERT' };
+  | { type: 'APPLY_QUEUED_ISLAND_ALERT' }
+  | { type: 'BUILD_PROMPT'; payload: { cellIndex: number; canBuildHouse: boolean; houseCost: number; canBuildHotel: boolean; hotelCost: number; currentHouses: number; hasHotel: boolean } }
+  | { type: 'APPLY_QUEUED_BUILD' }
+  | { type: 'CLEAR_BUILD_PROMPT' }
+  | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number } }
+  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean> } }
+  | { type: 'APPLY_QUEUED_SELL' }
+  | { type: 'TRAVEL_PENDING'; payload: { slot: number } }
+  | { type: 'APPLY_QUEUED_TRAVEL_PENDING' }
+  | { type: 'CLEAR_TRAVEL_PENDING' }
+  | { type: 'FREE_HOUSE_PROMPT'; payload: { slot: number; buildableCells: number[] } }
+  | { type: 'CLEAR_FREE_HOUSE_PROMPT' }
+  | { type: 'DICE_ANIM_DONE' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {
@@ -253,48 +291,60 @@ export const GROUP_COLORS: Record<PropertyGroup, string> = {
   dark_blue: '#2C3E50',
 };
 
+// ─── Property Groups (cell indices per color group) ───
+export const PROPERTY_GROUPS: Record<PropertyGroup, number[]> = {
+  brown: [1, 3],
+  light_blue: [5, 7],
+  purple: [10, 11],
+  orange: [13, 15],
+  red: [17, 19],
+  yellow: [21, 23],
+  green: [25, 26, 29, 30],
+  dark_blue: [31, 33, 35],
+};
+
 // ─── Board Definition (client-side) ───────────────────
 export const BOARD_CELLS: BoardCellClient[] = [
   // TOP (0-8)
   { index: 0, type: 'GO', name: 'tinhTuy.cells.go', icon: 'bat-dau.png' },
-  { index: 1, type: 'PROPERTY', name: 'tinhTuy.cells.benThanh', group: 'brown', price: 600, rentBase: 20, houseCost: 500, hotelCost: 500, icon: 'ben-thanh.png' },
+  { index: 1, type: 'PROPERTY', name: 'tinhTuy.cells.benThanh', group: 'brown', price: 600, rentBase: 20, rentGroup: 40, rentHouse: [100, 300, 900, 1600], rentHotel: 2500, houseCost: 500, hotelCost: 500, icon: 'ben-thanh.png' },
   { index: 2, type: 'STATION', name: 'tinhTuy.cells.canTho', price: 2000, rentBase: 250, icon: 'can-tho.png' },
-  { index: 3, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'brown', price: 600, rentBase: 40, houseCost: 500, hotelCost: 500, icon: 'ho-guom.png' },
+  { index: 3, type: 'PROPERTY', name: 'tinhTuy.cells.hoGuom', group: 'brown', price: 600, rentBase: 40, rentGroup: 80, rentHouse: [200, 600, 1800, 3200], rentHotel: 4500, houseCost: 500, hotelCost: 500, icon: 'ho-guom.png' },
   { index: 4, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
-  { index: 5, type: 'PROPERTY', name: 'tinhTuy.cells.hoiAn', group: 'light_blue', price: 1000, rentBase: 60, houseCost: 500, hotelCost: 500, icon: 'hoi-an.png' },
-  { index: 6, type: 'UTILITY', name: 'tinhTuy.cells.electric', price: 1500 },
-  { index: 7, type: 'PROPERTY', name: 'tinhTuy.cells.hue', group: 'light_blue', price: 1000, rentBase: 60, houseCost: 500, hotelCost: 500, icon: 'hue.png' },
+  { index: 5, type: 'PROPERTY', name: 'tinhTuy.cells.hoiAn', group: 'light_blue', price: 1000, rentBase: 60, rentGroup: 120, rentHouse: [300, 900, 2700, 4000], rentHotel: 5500, houseCost: 500, hotelCost: 500, icon: 'hoi-an.png' },
+  { index: 6, type: 'UTILITY', name: 'tinhTuy.cells.electric', price: 1500, icon: 'dien-luc.png' },
+  { index: 7, type: 'PROPERTY', name: 'tinhTuy.cells.hue', group: 'light_blue', price: 1000, rentBase: 60, rentGroup: 120, rentHouse: [300, 900, 2700, 4000], rentHotel: 5500, houseCost: 500, hotelCost: 500, icon: 'hue.png' },
   { index: 8, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
   // RIGHT (9-17)
   { index: 9, type: 'TRAVEL', name: 'tinhTuy.cells.travel', icon: 'du-lich.png' },
-  { index: 10, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'duc-ba.png' },
-  { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'purple', price: 1400, rentBase: 100, houseCost: 1000, hotelCost: 1000, icon: 'quoc-tu-giam.png' },
+  { index: 10, type: 'PROPERTY', name: 'tinhTuy.cells.ducBa', group: 'purple', price: 1400, rentBase: 100, rentGroup: 200, rentHouse: [500, 1500, 4500, 6250], rentHotel: 7500, houseCost: 1000, hotelCost: 1000, icon: 'duc-ba.png' },
+  { index: 11, type: 'PROPERTY', name: 'tinhTuy.cells.vanMieu', group: 'purple', price: 1400, rentBase: 100, rentGroup: 200, rentHouse: [500, 1500, 4500, 6250], rentHotel: 7500, houseCost: 1000, hotelCost: 1000, icon: 'quoc-tu-giam.png' },
   { index: 12, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
-  { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.cauVang', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'cau-vang.png' },
+  { index: 13, type: 'PROPERTY', name: 'tinhTuy.cells.cauVang', group: 'orange', price: 1800, rentBase: 140, rentGroup: 280, rentHouse: [700, 2000, 5500, 7500], rentHotel: 9500, houseCost: 1000, hotelCost: 1000, icon: 'cau-vang.png' },
   { index: 14, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
-  { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.muiNe', group: 'orange', price: 1800, rentBase: 140, houseCost: 1000, hotelCost: 1000, icon: 'mui-ne.png' },
+  { index: 15, type: 'PROPERTY', name: 'tinhTuy.cells.muiNe', group: 'orange', price: 1800, rentBase: 140, rentGroup: 280, rentHouse: [700, 2000, 5500, 7500], rentHotel: 9500, houseCost: 1000, hotelCost: 1000, icon: 'mui-ne.png' },
   { index: 16, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
-  { index: 17, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'nha-trang.png' },
+  { index: 17, type: 'PROPERTY', name: 'tinhTuy.cells.nhaTrang', group: 'red', price: 2200, rentBase: 180, rentGroup: 360, rentHouse: [900, 2500, 7000, 8750], rentHotel: 10500, houseCost: 1500, hotelCost: 1500, icon: 'nha-trang.png' },
   // BOTTOM (18-26)
   { index: 18, type: 'FESTIVAL', name: 'tinhTuy.cells.festival', icon: 'le-hoi.png' },
-  { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red', price: 2200, rentBase: 180, houseCost: 1500, hotelCost: 1500, icon: 'phong-nha.png' },
+  { index: 19, type: 'PROPERTY', name: 'tinhTuy.cells.phongNha', group: 'red', price: 2200, rentBase: 180, rentGroup: 360, rentHouse: [900, 2500, 7000, 8750], rentHotel: 10500, houseCost: 1500, hotelCost: 1500, icon: 'phong-nha.png' },
   { index: 20, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
-  { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.daLat', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'da-lat.png' },
-  { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.water', price: 1500 },
-  { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow', price: 2600, rentBase: 220, houseCost: 1500, hotelCost: 1500, icon: 'sapa.png' },
+  { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.daLat', group: 'yellow', price: 2600, rentBase: 220, rentGroup: 440, rentHouse: [1100, 3300, 8000, 9750], rentHotel: 11500, houseCost: 1500, hotelCost: 1500, icon: 'da-lat.png' },
+  { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.nhaNuoc', price: 1500, icon: 'thuy-dien.png' },
+  { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow', price: 2600, rentBase: 220, rentGroup: 440, rentHouse: [1100, 3300, 8000, 9750], rentHotel: 11500, houseCost: 1500, hotelCost: 1500, icon: 'sapa.png' },
   { index: 24, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
-  { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.haLong', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'ha-long.png' },
-  { index: 26, type: 'PROPERTY', name: 'tinhTuy.cells.phuQuoc', group: 'green', price: 3000, rentBase: 260, houseCost: 2000, hotelCost: 2000, icon: 'phu-quoc.png' },
+  { index: 25, type: 'PROPERTY', name: 'tinhTuy.cells.haLong', group: 'green', price: 3000, rentBase: 260, rentGroup: 520, rentHouse: [1300, 3900, 9000, 11000], rentHotel: 12750, houseCost: 2000, hotelCost: 2000, icon: 'ha-long.png' },
+  { index: 26, type: 'PROPERTY', name: 'tinhTuy.cells.phuQuoc', group: 'green', price: 3000, rentBase: 260, rentGroup: 520, rentHouse: [1300, 3900, 9000, 11000], rentHotel: 12750, houseCost: 2000, hotelCost: 2000, icon: 'phu-quoc.png' },
   // LEFT (27-35)
   { index: 27, type: 'ISLAND', name: 'tinhTuy.cells.island', icon: 'ra-dao.png' },
   { index: 28, type: 'KHI_VAN', name: 'tinhTuy.cells.khiVan', icon: 'khi-van.png' },
-  { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'green', price: 3200, rentBase: 280, houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
-  { index: 30, type: 'STATION', name: 'tinhTuy.cells.bienHo', price: 2000, rentBase: 250, icon: 'pleiku.png' },
-  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.trangAn', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'ninh-binh.png' },
+  { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'green', price: 3200, rentBase: 280, rentGroup: 560, rentHouse: [1500, 4500, 10000, 12000], rentHotel: 14000, houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
+  { index: 30, type: 'PROPERTY', name: 'tinhTuy.cells.bienHo', group: 'green', price: 3200, rentBase: 280, rentGroup: 560, rentHouse: [1500, 4500, 10000, 12000], rentHotel: 14000, houseCost: 2000, hotelCost: 2000, icon: 'pleiku.png' },
+  { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.trangAn', group: 'dark_blue', price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000, houseCost: 2000, hotelCost: 2000, icon: 'ninh-binh.png' },
   { index: 32, type: 'CO_HOI', name: 'tinhTuy.cells.coHoi', icon: 'co-hoi.png' },
-  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue', price: 3500, rentBase: 350, houseCost: 2000, hotelCost: 2000, icon: 'quang-tri.png' },
+  { index: 33, type: 'PROPERTY', name: 'tinhTuy.cells.quangTri', group: 'dark_blue', price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000, houseCost: 2000, hotelCost: 2000, icon: 'quang-tri.png' },
   { index: 34, type: 'TAX', name: 'tinhTuy.cells.tax', icon: 'thue.png' },
-  { index: 35, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
+  { index: 35, type: 'PROPERTY', name: 'tinhTuy.cells.landmark81', group: 'dark_blue', price: 4000, rentBase: 500, rentGroup: 1000, rentHouse: [2000, 6000, 14000, 17000], rentHotel: 20000, houseCost: 2000, hotelCost: 2000, icon: 'landmark.png' },
 ];
 
 /** Get cell position on 10x10 CSS grid (36 cells on perimeter) */

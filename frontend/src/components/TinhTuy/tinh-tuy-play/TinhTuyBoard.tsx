@@ -5,14 +5,14 @@
 import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
-import { BOARD_CELLS, getCellPosition } from '../tinh-tuy-types';
+import { BOARD_CELLS, PROPERTY_GROUPS, getCellPosition, PropertyGroup } from '../tinh-tuy-types';
 import { TinhTuyCell } from './TinhTuyCell';
 import { TinhTuyPlayerToken } from './TinhTuyPlayerToken';
 import { TinhTuyPropertyDetail } from './TinhTuyPropertyDetail';
 import './tinh-tuy-board.css';
 
-// Invalid travel destinations
-const TRAVEL_INVALID_TYPES = new Set(['GO_TO_ISLAND', 'ISLAND', 'TRAVEL']);
+// Valid travel destination types (buyable cells)
+const TRAVEL_BUYABLE_TYPES = new Set(['PROPERTY', 'STATION', 'UTILITY']);
 
 /** Compute translate offset (%) for stacking multiple tokens on one cell */
 function getTokenOffset(index: number, total: number): { x: number; y: number } {
@@ -63,15 +63,8 @@ export const TinhTuyBoard: React.FC = () => {
     playersPerCell.set(cellIdx, arr);
   });
 
-  // Build festivals map: cellIndex → true
-  const festivalsMap = new Set<number>();
-  for (const player of state.players) {
-    if (player.festivals) {
-      for (const key of Object.keys(player.festivals)) {
-        if (player.festivals[key]) festivalsMap.add(Number(key));
-      }
-    }
-  }
+  // Festival: single cell on the board (game-level)
+  const festivalCell = state.festival?.cellIndex ?? -1;
 
   // Build houses/hotels map
   const housesMap = new Map<number, { houses: number; hotel: boolean }>();
@@ -82,6 +75,41 @@ export const TinhTuyBoard: React.FC = () => {
       if (houses > 0 || hotel) {
         housesMap.set(cellIdx, { houses, hotel });
       }
+    }
+  }
+
+  // Compute current rent for each owned cell (mirrors backend calculateRent logic)
+  const currentRentMap = new Map<number, number>();
+  const completedRounds = Math.max((state.round || 1) - 1, 0);
+  for (const player of state.players) {
+    if (player.isBankrupt) continue;
+    for (const cellIdx of player.properties) {
+      const cell = BOARD_CELLS[cellIdx];
+      if (!cell) continue;
+      let rent = 0;
+      if (cell.type === 'STATION') {
+        const stationsOwned = player.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length;
+        rent = stationsOwned * 250;
+      } else if (cell.type === 'UTILITY') {
+        rent = Math.floor((cell.price || 1500) * (1 + 0.05 * completedRounds));
+      } else if (cell.type === 'PROPERTY' && cell.group) {
+        const hasHotel = !!(player.hotels || {})[String(cellIdx)];
+        const houses = (player.houses || {})[String(cellIdx)] || 0;
+        if (hasHotel && cell.rentHotel) {
+          rent = cell.rentHotel;
+        } else if (houses > 0 && cell.rentHouse) {
+          rent = cell.rentHouse[houses - 1] || 0;
+        } else {
+          const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
+          const ownsFullGroup = groupCells?.every(i => player.properties.includes(i));
+          rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
+        }
+      }
+      // Festival multiplier (game-level, stacking)
+      if (state.festival && state.festival.cellIndex === cellIdx) {
+        rent = Math.floor(rent * state.festival.multiplier);
+      }
+      currentRentMap.set(cellIdx, rent);
     }
   }
 
@@ -105,7 +133,10 @@ export const TinhTuyBoard: React.FC = () => {
           {BOARD_CELLS.map((cell) => {
             const pos = getCellPosition(cell.index);
             const building = housesMap.get(cell.index);
-            const isValidTravel = isTravelPhase && cell.index !== myPos && !TRAVEL_INVALID_TYPES.has(cell.type);
+            const isBuyableCell = TRAVEL_BUYABLE_TYPES.has(cell.type);
+            const isUnowned = isBuyableCell && !ownershipMap.has(cell.index);
+            const isOwnCell = isBuyableCell && ownershipMap.get(cell.index) === state.mySlot;
+            const isValidTravel = isTravelPhase && cell.index !== myPos && (cell.type === 'GO' || isUnowned || isOwnCell);
             const isValidFestival = isFestivalPhase && myProperties.includes(cell.index);
             const isSelectionMode = isTravelPhase || isFestivalPhase;
             // Selection state: valid (bright + clickable), invalid (dimmed), null (normal)
@@ -124,7 +155,8 @@ export const TinhTuyBoard: React.FC = () => {
                 }
                 houseCount={building?.houses || 0}
                 hasHotel={building?.hotel || false}
-                hasFestival={festivalsMap.has(cell.index)}
+                hasFestival={festivalCell === cell.index}
+                currentRent={currentRentMap.get(cell.index)}
                 selectionState={selectionState}
                 onClick={() =>
                   isValidFestival ? applyFestival(cell.index)

@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
-import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../tinh-tuy-types';
+import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PROPERTY_GROUPS, PropertyGroup } from '../tinh-tuy-types';
 
 interface Props {
   cellIndex: number | null;
@@ -31,30 +31,42 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
   const isUtility = cell.type === 'UTILITY';
   const hasRent = isProperty || isStation || isUtility;
 
-  // Rent calculations (approximation matching backend formulas)
+  // Rent values from board data
   const rentBase = cell.rentBase || 0;
-  const houseCost = Math.round((cell.price || 0) * 0.5);
-  const rentHouses = isProperty ? [
-    rentBase * 5,       // 1 house
-    rentBase * 15,      // 2 houses
-    rentBase * 35,      // 3 houses
-    rentBase * 50,      // 4 houses
-  ] : [];
-  const rentHotel = isProperty ? rentBase * 70 : 0;
+  const rentGroup = cell.rentGroup || rentBase * 2;
+  const rentHouses = cell.rentHouse || [];
+  const rentHotel = cell.rentHotel || 0;
+  const houseCost = cell.houseCost || 0;
 
-  // Houses/hotels on this cell (houses/hotels may be undefined if none built yet)
+  // Houses/hotels/festival on this cell
   const houses = owner?.houses ? (owner.houses[String(cellIndex)] || 0) : 0;
   const hasHotel = owner?.hotels ? !!owner.hotels[String(cellIndex)] : false;
+  const hasFestival = state.festival?.cellIndex === cellIndex;
+
+  // Determine current active rent level for highlighting
+  const ownsFullGroup = isProperty && owner && cell.group
+    ? PROPERTY_GROUPS[cell.group as PropertyGroup]?.every(i => owner.properties.includes(i))
+    : false;
+  // activeLevel: 'base' | 'group' | 'house-N' | 'hotel' | null
+  const activeLevel = !owner ? null
+    : hasHotel ? 'hotel'
+    : houses > 0 ? `house-${houses}`
+    : ownsFullGroup ? 'group'
+    : 'base';
+  const highlightSx = { bgcolor: 'rgba(155,89,182,0.08)', fontWeight: 700 };
 
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      {/* Location image */}
+    <Dialog open={true} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      {/* Location image — properties use cover banner, special cells use contained icon */}
       {cell.icon && (
         <Box
           component="img"
           src={`/location/${cell.icon}`}
           alt=""
-          sx={{ width: '100%', height: 160, objectFit: 'cover' }}
+          sx={hasRent
+            ? { width: '100%', height: { xs: 260, md: 400 }, objectFit: 'contain', bgcolor: '#f8f8f8' }
+            : { width: {xs: 300, md: 400}, height: {xs: 150, md: 260}, objectFit: 'contain', display: 'block', mx: 'auto', mt: 2 }
+          }
         />
       )}
 
@@ -126,32 +138,56 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
         {isProperty && (
           <Table size="small" sx={{ '& td': { py: 0.3, px: 1, fontSize: '0.75rem' } }}>
             <TableBody>
-              <TableRow>
+              <TableRow sx={activeLevel === 'base' ? highlightSx : undefined}>
                 <TableCell>{t('tinhTuy.property.rentBase' as any)}</TableCell>
                 <TableCell align="right">{rentBase} TT</TableCell>
               </TableRow>
+              <TableRow sx={activeLevel === 'group' ? highlightSx : undefined}>
+                <TableCell>{t('tinhTuy.property.rentGroup' as any)}</TableCell>
+                <TableCell align="right">{rentGroup} TT</TableCell>
+              </TableRow>
               {rentHouses.map((rent, i) => (
-                <TableRow key={i}>
+                <TableRow key={i} sx={activeLevel === `house-${i + 1}` ? highlightSx : undefined}>
                   <TableCell>{i + 1} {t('tinhTuy.property.house' as any)}</TableCell>
-                  <TableCell align="right">{rent} TT</TableCell>
+                  <TableCell align="right">{rent.toLocaleString()} TT</TableCell>
                 </TableRow>
               ))}
-              <TableRow>
+              <TableRow sx={activeLevel === 'hotel' ? highlightSx : undefined}>
                 <TableCell sx={{ fontWeight: 600 }}>{t('tinhTuy.game.hotel' as any)}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{rentHotel} TT</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{rentHotel.toLocaleString()} TT</TableCell>
               </TableRow>
+              {hasFestival && (
+                <TableRow>
+                  <TableCell sx={{ color: '#e67e22', fontWeight: 600 }}>🎉 {t('tinhTuy.property.festival' as any)}</TableCell>
+                  <TableCell align="right" sx={{ color: '#e67e22', fontWeight: 600 }}>×{state.festival?.multiplier || 1.5}</TableCell>
+                </TableRow>
+              )}
               <TableRow>
                 <TableCell sx={{ color: 'text.secondary' }}>{t('tinhTuy.property.buildCost' as any)}</TableCell>
-                <TableCell align="right" sx={{ color: 'text.secondary' }}>{houseCost} TT</TableCell>
+                <TableCell align="right" sx={{ color: 'text.secondary' }}>{houseCost.toLocaleString()} TT</TableCell>
               </TableRow>
             </TableBody>
           </Table>
         )}
 
-        {/* Tax info */}
-        {cell.type === 'TAX' && cell.taxAmount && (
-          <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 600, mt: 1 }}>
-            {t('tinhTuy.property.taxAmount' as any)}: {cell.taxAmount.toLocaleString()} TT
+        {/* Special cell descriptions */}
+        {!hasRent && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+            {t(`tinhTuy.cellDesc.${cell.type}` as any)}
+          </Typography>
+        )}
+
+        {/* Station description */}
+        {isStation && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+            {t('tinhTuy.cellDesc.STATION' as any)}
+          </Typography>
+        )}
+
+        {/* Utility description */}
+        {isUtility && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+            {t('tinhTuy.cellDesc.UTILITY' as any)}
           </Typography>
         )}
       </DialogContent>

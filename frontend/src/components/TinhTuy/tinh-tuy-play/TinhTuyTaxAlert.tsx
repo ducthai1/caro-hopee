@@ -10,7 +10,7 @@ import { PLAYER_COLORS } from '../tinh-tuy-types';
 
 export const TinhTuyTaxAlert: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, clearTaxAlert } = useTinhTuy();
 
   const tax = state.taxAlert;
   if (!tax) return null;
@@ -24,6 +24,7 @@ export const TinhTuyTaxAlert: React.FC = () => {
   return (
     <Dialog
       open={true}
+      onClose={clearTaxAlert}
       maxWidth="xs"
       fullWidth
       TransitionProps={{ timeout: 400 }}

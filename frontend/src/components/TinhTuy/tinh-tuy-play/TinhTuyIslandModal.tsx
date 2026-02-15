@@ -18,7 +18,7 @@ const ESCAPE_COST = 500;
 /* ─── "Sent to Island" Alert ───────────────────────────── */
 export const TinhTuyIslandAlert: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, clearIslandAlert } = useTinhTuy();
 
   const slot = state.islandAlertSlot;
   if (slot == null) return null;
@@ -31,6 +31,7 @@ export const TinhTuyIslandAlert: React.FC = () => {
   return (
     <Dialog
       open={true}
+      onClose={clearIslandAlert}
       maxWidth="xs"
       fullWidth
       TransitionProps={{ timeout: 400 }}

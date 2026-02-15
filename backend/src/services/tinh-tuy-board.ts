@@ -1,7 +1,7 @@
 /**
  * Tinh Tuy Dai Chien — Board Definition
- * 36 cells: 18 properties (8 groups), 2 stations, 2 utilities, 4 Khi Van, 4 Co Hoi,
- * 1 tax (35), 1 GO, 1 Travel, 1 Island (corner 27), 1 Festival (corner 18)
+ * 36 cells: 19 properties (8 groups), 1 station, 2 utilities, 4 Khi Van, 4 Co Hoi,
+ * 1 tax (34), 1 GO, 1 Travel, 1 Island (corner 27), 1 Festival (corner 18)
  */
 import { IBoardCell, PropertyGroup } from '../types/tinh-tuy.types';
 
@@ -19,7 +19,7 @@ export const PROPERTY_GROUPS: Record<PropertyGroup, number[]> = {
   orange: [13, 15],
   red: [17, 19],
   yellow: [21, 23],
-  green: [25, 26, 29],
+  green: [25, 26, 29, 30],
   dark_blue: [31, 33, 35],
 };
 
@@ -77,7 +77,7 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 21, type: 'PROPERTY', name: 'tinhTuy.cells.daLat', group: 'yellow',
     price: 2600, rentBase: 220, rentGroup: 440, rentHouse: [1100, 3300, 8000, 9750], rentHotel: 11500,
     houseCost: 1500, hotelCost: 1500, icon: 'da-lat.png' },
-  { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.nuocSach',
+  { index: 22, type: 'UTILITY', name: 'tinhTuy.cells.nhaNuoc',
     price: 1500, rentBase: 0 },
   { index: 23, type: 'PROPERTY', name: 'tinhTuy.cells.sapa', group: 'yellow',
     price: 2600, rentBase: 220, rentGroup: 440, rentHouse: [1100, 3300, 8000, 9750], rentHotel: 11500,
@@ -96,8 +96,9 @@ export const BOARD_CELLS: IBoardCell[] = [
   { index: 29, type: 'PROPERTY', name: 'tinhTuy.cells.conDao', group: 'green',
     price: 3200, rentBase: 280, rentGroup: 560, rentHouse: [1500, 4500, 10000, 12000], rentHotel: 14000,
     houseCost: 2000, hotelCost: 2000, icon: 'con-dao.png' },
-  { index: 30, type: 'STATION', name: 'tinhTuy.cells.bienHo',
-    price: 2000, rentBase: 250, icon: 'pleiku.png' },
+  { index: 30, type: 'PROPERTY', name: 'tinhTuy.cells.bienHo', group: 'green',
+    price: 3200, rentBase: 280, rentGroup: 560, rentHouse: [1500, 4500, 10000, 12000], rentHotel: 14000,
+    houseCost: 2000, hotelCost: 2000, icon: 'pleiku.png' },
   { index: 31, type: 'PROPERTY', name: 'tinhTuy.cells.trangAn', group: 'dark_blue',
     price: 3500, rentBase: 350, rentGroup: 700, rentHouse: [1750, 5000, 11000, 13000], rentHotel: 15000,
     houseCost: 2000, hotelCost: 2000, icon: 'ninh-binh.png' },
@@ -133,7 +134,10 @@ export function getStationRent(stationsOwned: number): number {
   return stationsOwned * 250;
 }
 
-/** Utility rent: diceTotal * multiplier (1 utility = x40, 2 = x100) */
-export function getUtilityRent(utilitiesOwned: number, diceTotal: number): number {
-  return utilitiesOwned >= 2 ? diceTotal * 100 : diceTotal * 40;
+/** Utility rent: price scales with completed rounds.
+ *  Formula: price × (1 + 0.25 × completedRounds), completedRounds = max(round - 1, 0) */
+export const UTILITY_ROUND_MULTIPLIER = 0.15;
+
+export function getUtilityRent(price: number, completedRounds: number): number {
+  return Math.floor(price * (1 + UTILITY_ROUND_MULTIPLIER * Math.max(completedRounds, 0)));
 }

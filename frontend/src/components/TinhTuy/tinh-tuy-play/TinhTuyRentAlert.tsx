@@ -10,7 +10,7 @@ import { PLAYER_COLORS, BOARD_CELLS } from '../tinh-tuy-types';
 
 export const TinhTuyRentAlert: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, clearRentAlert } = useTinhTuy();
 
   const rent = state.rentAlert;
   if (!rent) return null;
@@ -26,6 +26,7 @@ export const TinhTuyRentAlert: React.FC = () => {
   return (
     <Dialog
       open={true}
+      onClose={clearRentAlert}
       maxWidth="xs"
       fullWidth
       TransitionProps={{ timeout: 400 }}

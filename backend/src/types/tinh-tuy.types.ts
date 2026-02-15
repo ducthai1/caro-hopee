@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -49,7 +49,7 @@ export interface ITinhTuyPlayer {
   properties: number[];         // cell indices owned
   houses: Record<string, number>;   // cellIndex → 0-4
   hotels: Record<string, boolean>;  // cellIndex → true/false
-  festivals: Record<string, boolean>; // cellIndex → true (festival hosted)
+  // festivals removed — now game-level field
   islandTurns: number;          // turns remaining on island (0 = free)
   cards: string[];              // held card IDs (e.g., 'escape-island')
   isBankrupt: boolean;
@@ -59,6 +59,7 @@ export interface ITinhTuyPlayer {
   skipNextTurn?: boolean;
   immunityNextRent?: boolean;
   doubleRentTurns?: number;          // remaining turns where owned rents are doubled
+  pendingTravel?: boolean;           // deferred travel — next turn starts as AWAITING_TRAVEL
   deviceType?: string;
 }
 
@@ -115,6 +116,9 @@ export interface ITinhTuyGame extends Document {
   round: number;
   gameStartedAt?: Date;
   finishedAt?: Date;
+
+  /** Global festival — only one on the board at a time */
+  festival: { slot: number; cellIndex: number; multiplier: number } | null;
 
   winner?: ITinhTuyWinner | null;
 

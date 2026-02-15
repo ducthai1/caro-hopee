@@ -104,7 +104,8 @@ export const TinhTuyDice3D: React.FC = () => {
   const rollTimerRef = useRef<number | null>(null);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
-  const canRoll = isMyTurn && (state.turnPhase === 'ROLL_DICE' || state.turnPhase === 'ISLAND_TURN');
+  const isAnimating = !!(state.pendingMove || state.animatingToken);
+  const canRoll = isMyTurn && (state.turnPhase === 'ROLL_DICE' || state.turnPhase === 'ISLAND_TURN') && !isAnimating;
 
   const handleRoll = useCallback(() => {
     if (isRolling) return;
@@ -177,7 +178,7 @@ export const TinhTuyDice3D: React.FC = () => {
       )}
 
       {/* Travel prompt */}
-      {state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn && (
+      {state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn && !isAnimating && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 1,
@@ -196,7 +197,7 @@ export const TinhTuyDice3D: React.FC = () => {
       )}
 
       {/* Festival prompt */}
-      {state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn && (
+      {state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn && !isAnimating && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 1,
@@ -212,7 +213,7 @@ export const TinhTuyDice3D: React.FC = () => {
       )}
 
       {/* Status text */}
-      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && !(state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn) && (
+      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && !(state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn) && !(state.turnPhase === 'AWAITING_BUILD' && isMyTurn) && (
         <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
           {isMyTurn
             ? state.turnPhase === 'AWAITING_ACTION'

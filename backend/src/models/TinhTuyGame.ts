@@ -17,7 +17,7 @@ const TinhTuyPlayerSchema = new Schema({
   properties: { type: [Number], default: [] },
   houses: { type: Schema.Types.Mixed, default: {} },
   hotels: { type: Schema.Types.Mixed, default: {} },
-  festivals: { type: Schema.Types.Mixed, default: {} },
+  // festivals removed — now game-level field
   islandTurns: { type: Number, default: 0 },
   cards: { type: [String], default: [] },
   isBankrupt: { type: Boolean, default: false },
@@ -27,6 +27,7 @@ const TinhTuyPlayerSchema = new Schema({
   skipNextTurn: { type: Boolean, default: false },
   immunityNextRent: { type: Boolean, default: false },
   doubleRentTurns: { type: Number, default: 0 },
+  pendingTravel: { type: Boolean, default: false },
   deviceType: { type: String, default: 'desktop' },
 }, { _id: false });
 
@@ -65,7 +66,7 @@ const TinhTuyGameSchema = new Schema({
   currentPlayerSlot: { type: Number, default: 1 },
   turnPhase: {
     type: String,
-    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'ISLAND_TURN', 'END_TURN'],
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_BUILD', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'AWAITING_SELL', 'ISLAND_TURN', 'END_TURN'],
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },
@@ -80,6 +81,9 @@ const TinhTuyGameSchema = new Schema({
   round: { type: Number, default: 0 },
   gameStartedAt: { type: Date, default: null },
   finishedAt: { type: Date, default: null },
+
+  /** Global festival — only one on the board at a time { slot, cellIndex, multiplier } */
+  festival: { type: Schema.Types.Mixed, default: null },
 
   winner: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });

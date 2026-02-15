@@ -72,6 +72,23 @@ export const TinhTuyPlayerPanel: React.FC = () => {
                 <Chip label={t('tinhTuy.game.bankrupt')} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231, 76, 60, 0.15)', color: '#e74c3c' }} />
               )}
             </Box>
+            {/* Active buffs / held cards */}
+            {!player.isBankrupt && (player.cards.length > 0 || player.immunityNextRent || player.doubleRentTurns > 0 || player.skipNextTurn) && (
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                {player.cards.includes('escape-island') && (
+                  <Chip label={`🃏 ${t('tinhTuy.game.buffEscapeIsland' as any)}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(39, 174, 96, 0.12)', color: '#27ae60' }} />
+                )}
+                {player.immunityNextRent && (
+                  <Chip label={`🛡️ ${t('tinhTuy.game.buffImmunity' as any)}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(52, 152, 219, 0.12)', color: '#2980b9' }} />
+                )}
+                {player.doubleRentTurns > 0 && (
+                  <Chip label={`⚡ ${t('tinhTuy.game.buffDoubleRent' as any, { turns: player.doubleRentTurns } as any)}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155, 89, 182, 0.12)', color: '#8e44ad' }} />
+                )}
+                {player.skipNextTurn && (
+                  <Chip label={`⏭️ ${t('tinhTuy.game.buffSkipTurn' as any)}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231, 76, 60, 0.12)', color: '#e74c3c' }} />
+                )}
+              </Box>
+            )}
           </Paper>
         );
       })}
