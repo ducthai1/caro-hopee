@@ -182,6 +182,16 @@ export interface TinhTuyState {
   queuedTravelPending: number | null;
   /** Free house prompt — player chooses which property gets a free house (from card) */
   freeHousePrompt: { slot: number; buildableCells: number[] } | null;
+  /** Deferred card effects — applied only when card modal is dismissed (prevents spoilers) */
+  pendingCardEffect: {
+    slot: number;
+    cardHeld?: { slot: number; cardId: string };
+    immunityNextRent?: boolean;
+    doubleRentTurns?: number;
+    skipTurn?: boolean;
+    goToIsland?: boolean;
+    houseRemoved?: { slot: number; cellIndex: number };
+  } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────

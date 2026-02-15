@@ -100,6 +100,7 @@ const initialState: TinhTuyState = {
   travelPendingSlot: null,
   queuedTravelPending: null,
   freeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
+  pendingCardEffect: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -208,6 +209,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         round: g.round || 1,
         festival: g.festival || null,
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
+        pendingCardEffect: null,
       };
     }
 
@@ -519,47 +521,22 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           passedGo: !!effect.playerMoved.passedGo,
         };
       }
-      // Hold card
-      if (effect?.cardHeld) {
-        updated = updated.map(p =>
-          p.slot === effect.cardHeld.slot ? { ...p, cards: [...p.cards, effect.cardHeld.cardId] } : p
-        );
-      }
-      // Remove house
-      if (effect?.houseRemoved) {
-        updated = updated.map(p => {
-          if (p.slot !== effect.houseRemoved.slot) return p;
-          const key = String(effect.houseRemoved.cellIndex);
-          const h = p.houses || {};
-          return { ...p, houses: { ...h, [key]: Math.max((h[key] || 0) - 1, 0) } };
-        });
-      }
-      // Go to island — instant (teleport feel)
-      if (effect?.goToIsland) {
-        updated = updated.map(p =>
-          p.slot === slot ? { ...p, position: 27, islandTurns: 3 } : p
-        );
-      }
-      // Buff: immunity next rent
-      if (effect?.immunityNextRent) {
-        updated = updated.map(p =>
-          p.slot === slot ? { ...p, immunityNextRent: true } : p
-        );
-      }
-      // Buff: double rent for N turns
-      if (effect?.doubleRentTurns) {
-        updated = updated.map(p =>
-          p.slot === slot ? { ...p, doubleRentTurns: p.doubleRentTurns + effect.doubleRentTurns } : p
-        );
-      }
-      // Debuff: skip next turn
-      if (effect?.skipTurn) {
-        updated = updated.map(p =>
-          p.slot === slot ? { ...p, skipNextTurn: true } : p
-        );
-      }
+      // Defer buff/card/island effects until card modal is dismissed (prevents spoilers in player panel)
+      const pendingEff: TinhTuyState['pendingCardEffect'] = (
+        effect?.cardHeld || effect?.immunityNextRent || effect?.doubleRentTurns ||
+        effect?.skipTurn || effect?.goToIsland || effect?.houseRemoved
+      ) ? {
+        slot,
+        cardHeld: effect.cardHeld,
+        immunityNextRent: effect.immunityNextRent,
+        doubleRentTurns: effect.doubleRentTurns,
+        skipTurn: effect.skipTurn,
+        goToIsland: effect.goToIsland,
+        houseRemoved: effect.houseRemoved,
+      } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
+        pendingCardEffect: pendingEff,
         houseRemovedCell: effect?.houseRemoved ? effect.houseRemoved.cellIndex : null,
         displayPoints: dpCard,
         pendingNotifs: cardNotifs.length > 0 ? queueNotifs(state.pendingNotifs, cardNotifs) : state.pendingNotifs,
@@ -567,31 +544,68 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     }
 
     case 'CLEAR_CARD': {
+      // Apply deferred card effects now that card modal is dismissed
+      let clearPlayers = [...state.players];
+      const eff = state.pendingCardEffect;
+      if (eff) {
+        if (eff.cardHeld) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === eff.cardHeld!.slot ? { ...p, cards: [...p.cards, eff.cardHeld!.cardId] } : p
+          );
+        }
+        if (eff.houseRemoved) {
+          clearPlayers = clearPlayers.map(p => {
+            if (p.slot !== eff.houseRemoved!.slot) return p;
+            const key = String(eff.houseRemoved!.cellIndex);
+            const h = p.houses || {};
+            return { ...p, houses: { ...h, [key]: Math.max((h[key] || 0) - 1, 0) } };
+          });
+        }
+        if (eff.goToIsland) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === eff.slot ? { ...p, position: 27, islandTurns: 3 } : p
+          );
+        }
+        if (eff.immunityNextRent) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === eff.slot ? { ...p, immunityNextRent: true } : p
+          );
+        }
+        if (eff.doubleRentTurns) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === eff.slot ? { ...p, doubleRentTurns: p.doubleRentTurns + eff.doubleRentTurns! } : p
+          );
+        }
+        if (eff.skipTurn) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === eff.slot ? { ...p, skipNextTurn: true } : p
+          );
+        }
+      }
+
       // If card triggered a move, start movement animation now
       const cm = state.pendingCardMove;
       if (cm) {
-        const player = state.players.find(p => p.slot === cm.slot);
-        const from = player?.position ?? 0;
+        const player = clearPlayers.find(p => p.slot === cm.slot);
         // Card move: teleport directly (single step, no cell-by-cell walk)
         const path: number[] = [cm.to];
-        // Go bonus is applied during animation (same as dice move)
         const goBonus = cm.passedGo ? 2000 : 0;
         const dpCm = goBonus ? freezePoints(state) : state.displayPoints;
-        const updatedPlayers = goBonus ? state.players.map(p =>
-          p.slot === cm.slot ? { ...p, points: p.points + goBonus } : p
-        ) : state.players;
+        if (goBonus) {
+          clearPlayers = clearPlayers.map(p =>
+            p.slot === cm.slot ? { ...p, points: p.points + goBonus } : p
+          );
+        }
         return {
           ...state,
-          drawnCard: null,
-          houseRemovedCell: null,
-          pendingCardMove: null,
-          players: updatedPlayers,
+          drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null,
+          players: clearPlayers,
           pendingMove: { slot: cm.slot, path, goBonus, passedGo: cm.passedGo, fromCard: true },
           pendingNotifs: goBonus ? queueNotifs(state.pendingNotifs, [{ slot: cm.slot, amount: goBonus }]) : state.pendingNotifs,
           displayPoints: dpCm,
         };
       }
-      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null };
+      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, players: clearPlayers };
     }
 
     case 'HOUSE_BUILT': {
