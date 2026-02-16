@@ -768,8 +768,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         return upd;
       });
+      // PAY/USE_CARD: player still needs to roll → set ROLL_DICE phase
+      // ROLL: backend handles movement directly, no phase change needed
+      const escPhase = escMethod !== 'ROLL' ? 'ROLL_DICE' : state.turnPhase;
       return {
-        ...state, players: updated, displayPoints: dpEsc,
+        ...state, players: updated, turnPhase: escPhase, displayPoints: dpEsc,
         pendingNotifs: costPaid ? queueNotifs(state.pendingNotifs, [{ slot: escSlot, amount: -costPaid }]) : state.pendingNotifs,
       };
     }
