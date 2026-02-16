@@ -167,6 +167,7 @@ async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promise<void
   game.currentPlayerSlot = nextSlot;
   game.turnStartedAt = new Date();
   game.lastDiceResult = null;
+  game.markModified('lastDiceResult');
 
   // Check skip-next-turn for the next player
   const nextPlayer = game.players.find(p => p.slot === nextSlot);
@@ -378,6 +379,7 @@ async function handleCardDraw(
       player.pendingTravel = true;
       player.consecutiveDoubles = 0;
       game.lastDiceResult = null;
+      game.markModified('lastDiceResult');
     }
     // Don't resolve cards again from card movement (prevent recursion)
   }
@@ -654,6 +656,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       clearTurnTimer(roomId);
       const dice = rollDice();
       game.lastDiceResult = { dice1: dice.dice1, dice2: dice.dice2 };
+      game.markModified('lastDiceResult');
 
       // === Island escape via roll ===
       if (player.islandTurns > 0 && game.turnPhase === 'ISLAND_TURN') {
@@ -1647,6 +1650,7 @@ async function resolveAndAdvance(
       player.pendingTravel = true;
       player.consecutiveDoubles = 0; // break doubles chain
       game.lastDiceResult = null; // prevent doubles extra turn
+      game.markModified('lastDiceResult');
       game.turnPhase = 'END_TURN';
       game.markModified('players');
       await game.save();
