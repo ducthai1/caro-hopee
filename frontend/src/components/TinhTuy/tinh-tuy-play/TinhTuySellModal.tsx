@@ -138,6 +138,14 @@ export const TinhTuySellModal: React.FC = () => {
     sellBuildings(filtered);
   };
 
+  /** Select all properties (whole sell) to quickly cover deficit */
+  const handleSelectAll = () => {
+    const allProps: SellSelection[] = sellableItems
+      .filter(i => i.type === 'property')
+      .map(i => ({ cellIndex: i.cellIndex, type: 'property' as SellType, count: 1 }));
+    setSelections(allProps);
+  };
+
   if (!sp || !isMyTurn) return null;
 
   // Group items by cellIndex for visual grouping
@@ -162,11 +170,23 @@ export const TinhTuySellModal: React.FC = () => {
         {t('tinhTuy.game.sellPrompt' as any)}
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
-        {/* Deficit display */}
+        {/* Deficit display + Select All */}
         <Box sx={{ textAlign: 'center', mb: 2 }}>
-          <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 700 }}>
+          <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 700, mb: 1 }}>
             {t('tinhTuy.game.sellDeficit' as any)}: {deficit.toLocaleString()} TT
           </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleSelectAll}
+            sx={{
+              fontSize: '0.7rem', fontWeight: 600,
+              borderColor: 'rgba(155,89,182,0.4)', color: '#9b59b6',
+              '&:hover': { borderColor: '#9b59b6', bgcolor: 'rgba(155,89,182,0.08)' },
+            }}
+          >
+            {t('tinhTuy.game.sellSelectAll' as any)}
+          </Button>
         </Box>
 
         {/* Sellable items grouped by property */}

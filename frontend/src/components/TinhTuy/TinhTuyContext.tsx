@@ -1665,11 +1665,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.buybackPrompt]);
 
-  // Apply queued sell prompt after movement animation finishes
+  // Apply queued sell prompt after movement animation + rent/tax alerts finish
   useEffect(() => {
     if (!state.queuedSellPrompt || isAnimBusy) return;
+    if (state.queuedRentAlert || state.rentAlert) return;
+    if (state.queuedTaxAlert || state.taxAlert) return;
     dispatch({ type: 'APPLY_QUEUED_SELL' });
-  }, [state.queuedSellPrompt, isAnimBusy]);
+  }, [state.queuedSellPrompt, isAnimBusy, state.queuedRentAlert, state.rentAlert, state.queuedTaxAlert, state.taxAlert]);
 
   // Apply queued action (buy/skip modal) after movement animation finishes
   useEffect(() => {

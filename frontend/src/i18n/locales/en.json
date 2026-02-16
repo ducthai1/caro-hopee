@@ -943,6 +943,7 @@
       "sellProperty": "Sell land",
       "sellSelect": "Sell",
       "sellSelected": "Selected",
+      "sellSelectAll": "Select all",
       "sellAutoTimeout": "Time's up - auto selling",
       "attackDestroyTitle": "Destroy Property",
       "attackDowngradeTitle": "Downgrade Building",

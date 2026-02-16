@@ -4,6 +4,9 @@
 import React from 'react';
 import { Box, Typography, Paper, Chip, Button } from '@mui/material';
 import FlagIcon from '@mui/icons-material/Flag';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import TabletMacIcon from '@mui/icons-material/TabletMac';
+import LaptopMacIcon from '@mui/icons-material/LaptopMac';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { PLAYER_COLORS } from '../tinh-tuy-types';
@@ -51,6 +54,17 @@ export const TinhTuyPlayerPanel: React.FC = () => {
               </Typography>
               {isCurrentTurn && !player.isBankrupt && (
                 <Chip label="🎯" size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+              )}
+              {!player.isBankrupt && (
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {player.deviceType === 'mobile' ? (
+                    <PhoneIphoneIcon sx={{ fontSize: 13, color: '#3498db' }} />
+                  ) : player.deviceType === 'tablet' ? (
+                    <TabletMacIcon sx={{ fontSize: 13, color: '#9b59b6' }} />
+                  ) : (
+                    <LaptopMacIcon sx={{ fontSize: 13, color: '#7f8c8d' }} />
+                  )}
+                </Box>
               )}
               {!player.isConnected && !player.isBankrupt && (
                 <Chip label="📡" size="small" sx={{ height: 20, fontSize: '0.6rem', bgcolor: 'rgba(231, 76, 60, 0.15)' }} />
