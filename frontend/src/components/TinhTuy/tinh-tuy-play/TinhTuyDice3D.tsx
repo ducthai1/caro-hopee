@@ -105,7 +105,7 @@ export const TinhTuyDice3D: React.FC = () => {
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const isAnimating = !!(state.pendingMove || state.animatingToken);
-  const canRoll = isMyTurn && (state.turnPhase === 'ROLL_DICE' || state.turnPhase === 'ISLAND_TURN') && !isAnimating;
+  const canRoll = isMyTurn && state.turnPhase === 'ROLL_DICE' && !isAnimating;
 
   const handleRoll = useCallback(() => {
     if (isRolling) return;
@@ -168,12 +168,7 @@ export const TinhTuyDice3D: React.FC = () => {
             boxShadow: '0 4px 12px rgba(155, 89, 182, 0.4)',
           }}
         >
-          {isRolling
-            ? t('tinhTuy.game.waitingPhase')
-            : state.turnPhase === 'ISLAND_TURN'
-              ? t('tinhTuy.game.islandRoll' as any)
-              : t('tinhTuy.game.rollDice')
-          }
+          {isRolling ? t('tinhTuy.game.waitingPhase') : t('tinhTuy.game.rollDice')}
         </Button>
       )}
 

@@ -1301,10 +1301,9 @@ async function resolveAndAdvance(
       const cell = getCell(cellIndex);
       if (cell && (cell.type === 'KHI_VAN' || cell.type === 'CO_HOI')) {
         await handleCardDraw(io, game, player, cell.type);
-        // handleCardDraw manages its own END_TURN + advanceTurn
-        // Check if it set AWAITING_ACTION (card moved player to buyable cell)
-        if (game.turnPhase === 'AWAITING_ACTION') return;
-        // Otherwise it set END_TURN
+        // handleCardDraw may set a waiting phase (AWAITING_ACTION, AWAITING_FREE_HOUSE, etc.)
+        // Only advance turn if it completed with END_TURN
+        if (game.turnPhase !== 'END_TURN') return;
         await advanceTurnOrDoubles(io, game, player);
         return;
       }

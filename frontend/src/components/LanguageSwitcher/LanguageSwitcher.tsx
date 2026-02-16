@@ -25,6 +25,8 @@ const LanguageSwitcher: React.FC = memo(() => {
         bottom: { xs: 16, lg: 'auto' },
         right: 16,
         zIndex: 999, // Below mobile top bar (1000)
+        // Hide during fullscreen gameplay (e.g. TinhTuy) to avoid overlapping chat input
+        'body.tt-fullscreen &': { display: 'none' },
       }}
     >
       <ToggleButtonGroup

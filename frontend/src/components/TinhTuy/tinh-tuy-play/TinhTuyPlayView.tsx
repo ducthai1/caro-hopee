@@ -156,7 +156,8 @@ export const TinhTuyPlayView: React.FC = () => {
 
   useEffect(() => {
     setFullscreen(true);
-    return () => setFullscreen(false);
+    document.body.classList.add('tt-fullscreen');
+    return () => { setFullscreen(false); document.body.classList.remove('tt-fullscreen'); };
   }, [setFullscreen]);
 
   const [buildOpen, setBuildOpen] = useState(false);
@@ -312,11 +313,11 @@ export const TinhTuyPlayView: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           p: { xs: 1, md: 2 },
-          maxHeight: { md: '100vh' },
-          overflowY: 'auto',
+          height: { xs: 250, md: '100vh' },
+          maxHeight: { xs: 250, md: '100vh' },
         }}
       >
-        <Box sx={{ flex: 1, minHeight: 200 }}>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
           <TinhTuyChat />
         </Box>
       </Box>

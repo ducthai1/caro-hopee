@@ -78,7 +78,7 @@ export const TinhTuyChat: React.FC = () => {
   };
 
   return (
-    <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 200 }}>
+    <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ px: 1.5, py: 0.75, bgcolor: 'rgba(155,89,182,0.08)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
         <Typography variant="caption" sx={{ fontWeight: 700, color: '#9b59b6' }}>
           {t('tinhTuy.game.chat' as any)}
@@ -87,7 +87,7 @@ export const TinhTuyChat: React.FC = () => {
       <Box
         ref={scrollRef}
         sx={{
-          flex: 1, overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 0.5,
+          flex: 1, minHeight: 0, overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 0.5,
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.15)', borderRadius: 2 },
         }}
