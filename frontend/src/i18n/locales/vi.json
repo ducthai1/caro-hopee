@@ -943,7 +943,20 @@
       "sellProperty": "Bán đất",
       "sellSelect": "Bán",
       "sellSelected": "Đã chọn",
-      "sellAutoTimeout": "Hết giờ - tự động bán"
+      "sellAutoTimeout": "Hết giờ - tự động bán",
+      "attackDestroyTitle": "Phá Hủy Đất",
+      "attackDowngradeTitle": "Hạ Cấp Nhà",
+      "attackDestroyDesc": "Chọn một mảnh đất của đối phương để phá hủy hoàn toàn",
+      "attackDowngradeDesc": "Chọn một mảnh đất của đối phương để hạ cấp",
+      "attackWillRemoveHotel": "Gỡ khách sạn",
+      "attackWillRemoveHouse": "Phá 1 nhà",
+      "attackWillDestroy": "Tịch thu đất",
+      "attackAlertDestroyTitle": "Đất bị phá hủy!",
+      "attackAlertDowngradeTitle": "Nhà bị hạ cấp!",
+      "attackResultDestroyed": "Mảnh đất đã bị phá hủy hoàn toàn và trở thành vô chủ",
+      "attackResultDemolished": "Đất trống đã bị tịch thu và trở thành vô chủ",
+      "attackResultHotelRemoved": "Khách sạn đã bị gỡ bỏ",
+      "attackResultHouseRemoved": "Một căn nhà đã bị phá hủy"
     },
     "property": {
       "owner": "Chủ sở hữu",
@@ -1002,7 +1015,9 @@
       "ch13": { "name": "Vận May", "desc": "Nhận ngẫu nhiên 0-3,000 TT" },
       "ch14": { "name": "Bảo Hiểm", "desc": "Mỗi người chơi trả bạn 500 TT" },
       "ch15": { "name": "Khiên Bảo Vệ", "desc": "Miễn phí thuê đất lần kế tiếp" },
-      "ch16": { "name": "Từ Thiện", "desc": "Trả mỗi người chơi 500 TT" }
+      "ch16": { "name": "Từ Thiện", "desc": "Trả mỗi người chơi 500 TT" },
+      "ch17": { "name": "Hạ Cấp", "desc": "Chọn 1 mảnh đất của đối phương để hạ cấp. Khách sạn bị gỡ, nhà mất 1 căn, đất trống bị tịch thu" },
+      "kv17": { "name": "Phá Hủy", "desc": "Chọn 1 mảnh đất của đối phương để phá hủy hoàn toàn. Đất và tất cả nhà cửa bị xóa sổ" }
     },
     "cells": {
       "go": "Xuất Phát",

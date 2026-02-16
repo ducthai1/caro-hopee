@@ -9,7 +9,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -200,6 +200,10 @@ export interface TinhTuyState {
   bankruptAlert: number | null;
   /** Queued game-finished — applied after all alerts are dismissed */
   queuedGameFinished: { winner: TinhTuyWinner | null; reason: string } | null;
+  /** Attack property prompt — player chooses opponent's property to attack */
+  attackPrompt: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } | null;
+  /** Attack result alert — shown to all players when property is attacked */
+  attackAlert: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -268,7 +272,10 @@ export type TinhTuyAction =
   | { type: 'DICE_ANIM_DONE' }
   | { type: 'APPLY_QUEUED_BANKRUPT_ALERT' }
   | { type: 'CLEAR_BANKRUPT_ALERT' }
-  | { type: 'APPLY_QUEUED_GAME_FINISHED' };
+  | { type: 'APPLY_QUEUED_GAME_FINISHED' }
+  | { type: 'ATTACK_PROPERTY_PROMPT'; payload: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } }
+  | { type: 'PROPERTY_ATTACKED'; payload: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } }
+  | { type: 'CLEAR_ATTACK_ALERT' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

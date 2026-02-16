@@ -42,6 +42,8 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'GAIN_FROM_EACH', amount: 1000 } },
   { id: 'kv-16', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv16.name', descriptionKey: 'tinhTuy.cards.kv16.desc',
     action: { type: 'GAIN_POINTS', amount: 1500 } },
+  { id: 'kv-17', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv17.name', descriptionKey: 'tinhTuy.cards.kv17.desc',
+    action: { type: 'DESTROY_PROPERTY' } },
 ];
 
 // ─── 16 Co Hoi Cards ────────────────────────────────────────
@@ -79,6 +81,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'IMMUNITY_NEXT_RENT' } },
   { id: 'ch-16', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch16.name', descriptionKey: 'tinhTuy.cards.ch16.desc',
     action: { type: 'LOSE_TO_EACH', amount: 500 } },
+  { id: 'ch-17', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch17.name', descriptionKey: 'tinhTuy.cards.ch17.desc',
+    action: { type: 'DOWNGRADE_BUILDING' } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -228,6 +232,31 @@ export function executeCardEffect(
     case 'IMMUNITY_NEXT_RENT':
       result.immunityNextRent = true;
       break;
+
+    case 'DESTROY_PROPERTY': {
+      // Collect all opponents' properties (targetable cells)
+      const opponentProps = game.players
+        .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+        .flatMap(p => p.properties);
+      if (opponentProps.length > 0) {
+        result.requiresChoice = 'DESTROY_PROPERTY';
+        result.targetableCells = opponentProps;
+      }
+      // If no targets, card has no effect
+      break;
+    }
+
+    case 'DOWNGRADE_BUILDING': {
+      // Collect all opponents' properties (targetable cells)
+      const opponentProps2 = game.players
+        .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+        .flatMap(p => p.properties);
+      if (opponentProps2.length > 0) {
+        result.requiresChoice = 'DOWNGRADE_BUILDING';
+        result.targetableCells = opponentProps2;
+      }
+      break;
+    }
   }
 
   return result;

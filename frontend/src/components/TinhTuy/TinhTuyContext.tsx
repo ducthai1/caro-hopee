@@ -105,6 +105,8 @@ const initialState: TinhTuyState = {
   queuedBankruptAlert: null,
   bankruptAlert: null,
   queuedGameFinished: null,
+  attackPrompt: null,
+  attackAlert: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -214,7 +216,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         festival: g.festival || null,
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
         pendingCardEffect: null, gameEndReason: null,
-        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null,
+        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null,
       };
     }
 
@@ -469,6 +471,34 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CLEAR_BANKRUPT_ALERT':
       return { ...state, bankruptAlert: null };
+
+    case 'ATTACK_PROPERTY_PROMPT':
+      return { ...state, attackPrompt: action.payload };
+
+    case 'PROPERTY_ATTACKED': {
+      const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel } = action.payload;
+      const updatedPlayers = state.players.map(p => {
+        if (p.slot !== victimSlot) return p;
+        if (atkResult === 'destroyed' || atkResult === 'demolished') {
+          // Property fully removed
+          const newHousesMap = { ...p.houses };
+          const newHotelsMap = { ...p.hotels };
+          delete newHousesMap[String(cellIndex)];
+          delete newHotelsMap[String(cellIndex)];
+          return { ...p, properties: p.properties.filter(idx => idx !== cellIndex), houses: newHousesMap, hotels: newHotelsMap };
+        }
+        // Downgraded — update buildings
+        return {
+          ...p,
+          houses: { ...p.houses, [String(cellIndex)]: newHouses },
+          hotels: { ...p.hotels, [String(cellIndex)]: newHotel },
+        };
+      });
+      return { ...state, players: updatedPlayers, attackPrompt: null, attackAlert: action.payload };
+    }
+
+    case 'CLEAR_ATTACK_ALERT':
+      return { ...state, attackAlert: null };
 
     case 'APPLY_QUEUED_GAME_FINISHED': {
       const qgf = state.queuedGameFinished;
@@ -810,6 +840,8 @@ interface TinhTuyContextValue {
   skipBuild: () => void;
   sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => void;
   chooseFreeHouse: (cellIndex: number) => void;
+  attackPropertyChoose: (cellIndex: number) => void;
+  clearAttackAlert: () => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -942,6 +974,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'BUILDINGS_SOLD', payload: data });
     };
 
+    const handleAttackPropertyPrompt = (data: any) => {
+      dispatch({ type: 'ATTACK_PROPERTY_PROMPT', payload: data });
+    };
+
+    const handlePropertyAttacked = (data: any) => {
+      dispatch({ type: 'PROPERTY_ATTACKED', payload: data });
+    };
+
     const handleTravelPending = (data: any) => {
       dispatch({ type: 'TRAVEL_PENDING', payload: data });
     };
@@ -1004,6 +1044,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:sell-prompt' as any, handleSellPrompt);
     socket.on('tinh-tuy:travel-pending' as any, handleTravelPending);
     socket.on('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
+    socket.on('tinh-tuy:attack-property-prompt' as any, handleAttackPropertyPrompt);
+    socket.on('tinh-tuy:property-attacked' as any, handlePropertyAttacked);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1037,6 +1079,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:sell-prompt' as any, handleSellPrompt);
       socket.off('tinh-tuy:travel-pending' as any, handleTravelPending);
       socket.off('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
+      socket.off('tinh-tuy:attack-property-prompt' as any, handleAttackPropertyPrompt);
+      socket.off('tinh-tuy:property-attacked' as any, handlePropertyAttacked);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1340,6 +1384,18 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const attackPropertyChoose = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:attack-property-choose' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const clearAttackAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_ATTACK_ALERT' });
+  }, []);
+
   // Auto-refresh rooms on lobby view
   useEffect(() => {
     if (state.view === 'lobby') refreshRooms();
@@ -1577,7 +1633,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert,
     }}>
       {children}
     </TinhTuyContext.Provider>

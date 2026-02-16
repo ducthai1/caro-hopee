@@ -33,6 +33,8 @@ import { TinhTuyBankruptAlert } from './TinhTuyBankruptAlert';
 import { TinhTuyGameOverModal } from './TinhTuyGameOverModal';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
+import { TinhTuyAttackPropertyModal } from './TinhTuyAttackPropertyModal';
+import { TinhTuyAttackAlert } from './TinhTuyAttackAlert';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
 const PlayerCard: React.FC<{
@@ -358,6 +360,8 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyTravelPendingAlert />
       <TinhTuyGoPopup />
       <TinhTuyBankruptAlert />
+      <TinhTuyAttackPropertyModal />
+      <TinhTuyAttackAlert />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

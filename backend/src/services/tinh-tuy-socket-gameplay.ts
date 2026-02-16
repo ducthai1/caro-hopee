@@ -3,6 +3,7 @@
  * Phase 3: roll-dice (with cards + island), buy-property, skip-buy,
  * build-house, build-hotel, escape-island, surrender, chat, reactions
  */
+import crypto from 'crypto';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import TinhTuyGame from '../models/TinhTuyGame';
 import { TinhTuyCallback, ITinhTuyGame, ITinhTuyPlayer, CardEffectResult } from '../types/tinh-tuy.types';
@@ -418,6 +419,34 @@ async function handleCardDraw(
     }
   }
 
+  // DESTROY_PROPERTY / DOWNGRADE_BUILDING: let player choose opponent's property
+  if (effect.requiresChoice === 'DESTROY_PROPERTY' || effect.requiresChoice === 'DOWNGRADE_BUILDING') {
+    const targetCells = effect.targetableCells || [];
+    if (targetCells.length > 0) {
+      const phase = effect.requiresChoice === 'DESTROY_PROPERTY' ? 'AWAITING_DESTROY_PROPERTY' : 'AWAITING_DOWNGRADE_BUILDING';
+      game.turnPhase = phase as any;
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:attack-property-prompt', {
+        slot: player.slot, attackType: effect.requiresChoice, targetCells,
+      });
+      // Auto-pick random on timeout
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || (g.turnPhase !== 'AWAITING_DESTROY_PROPERTY' && g.turnPhase !== 'AWAITING_DOWNGRADE_BUILDING')) return;
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          const randomCell = targetCells[crypto.randomInt(0, targetCells.length)];
+          applyPropertyAttack(g, g.turnPhase === 'AWAITING_DESTROY_PROPERTY' ? 'DESTROY_PROPERTY' : 'DOWNGRADE_BUILDING', randomCell, io);
+          g.turnPhase = 'END_TURN';
+          g.markModified('players');
+          await g.save();
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Attack property timeout:', err); }
+      });
+      return; // Wait for player choice
+    }
+  }
+
   game.turnPhase = 'END_TURN';
   await game.save();
 }
@@ -463,6 +492,69 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
     }
   }
   game.markModified('players');
+}
+
+// ─── Property Attack Helpers ─────────────────────────────────
+
+/**
+ * Apply a property attack (DESTROY_PROPERTY or DOWNGRADE_BUILDING) to a target cell.
+ * Returns the result details for the notification event.
+ */
+function applyPropertyAttack(
+  game: ITinhTuyGame,
+  attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING',
+  cellIndex: number,
+  io: SocketIOServer,
+): { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null {
+  // Find the owner of this cell
+  const victim = game.players.find(p => p.properties.includes(cellIndex));
+  if (!victim) return null;
+
+  const key = String(cellIndex);
+  const prevHouses = victim.houses[key] || 0;
+  const prevHotel = !!victim.hotels[key];
+
+  if (attackType === 'DESTROY_PROPERTY') {
+    // Destroy entirely: remove property + all buildings
+    delete victim.houses[key];
+    delete victim.hotels[key];
+    victim.properties = victim.properties.filter(idx => idx !== cellIndex);
+    // Clear game-level festival if on this cell
+    if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === victim.slot) {
+      game.festival = null;
+      game.markModified('festival');
+    }
+    const result = { victimSlot: victim.slot, cellIndex, result: 'destroyed' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false };
+    io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
+    return result;
+  }
+
+  // DOWNGRADE_BUILDING: reduce 1 level
+  if (prevHotel) {
+    // Hotel → remove hotel, land only
+    victim.hotels[key] = false;
+    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses, newHotel: false };
+    io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
+    return result;
+  } else if (prevHouses > 0) {
+    // N houses → N-1
+    victim.houses[key] = prevHouses - 1;
+    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses - 1, newHotel: false };
+    io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
+    return result;
+  } else {
+    // Just land → destroy (unowned)
+    delete victim.houses[key];
+    delete victim.hotels[key];
+    victim.properties = victim.properties.filter(idx => idx !== cellIndex);
+    if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === victim.slot) {
+      game.festival = null;
+      game.markModified('festival');
+    }
+    const result = { victimSlot: victim.slot, cellIndex, result: 'demolished' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false };
+    io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
+    return result;
+  }
 }
 
 // ─── Chat Rate Limiting ──────────────────────────────────────
@@ -965,6 +1057,57 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:free-house-choose]', err.message);
       callback({ success: false, error: 'freeHouseFailed' });
+    }
+  });
+
+  // ── Attack Property (destroy or downgrade opponent's property) ─
+  socket.on('tinh-tuy:attack-property-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+
+      const { cellIndex } = data || {};
+      if (typeof cellIndex !== 'number') {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+
+      // Validate phase
+      const isDestroy = game.turnPhase === 'AWAITING_DESTROY_PROPERTY';
+      const isDowngrade = game.turnPhase === 'AWAITING_DOWNGRADE_BUILDING';
+      if (!isDestroy && !isDowngrade) {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      // Validate target is an opponent's property
+      const victim = game.players.find(p => !p.isBankrupt && p.slot !== player.slot && p.properties.includes(cellIndex));
+      if (!victim) {
+        return callback({ success: false, error: 'invalidTarget' });
+      }
+
+      clearTurnTimer(roomId);
+      const attackType = isDestroy ? 'DESTROY_PROPERTY' : 'DOWNGRADE_BUILDING';
+      applyPropertyAttack(game, attackType, cellIndex, io);
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+
+      if (game.turnPhase !== 'END_TURN') return; // guard
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:attack-property-choose]', err.message);
+      callback({ success: false, error: 'attackFailed' });
     }
   });
 

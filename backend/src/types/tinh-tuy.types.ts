@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -156,7 +156,9 @@ export type CardAction =
   | { type: 'RANDOM_POINTS'; min: number; max: number }
   | { type: 'LOSE_ONE_HOUSE' }
   | { type: 'ALL_LOSE_POINTS'; amount: number }
-  | { type: 'IMMUNITY_NEXT_RENT' };
+  | { type: 'IMMUNITY_NEXT_RENT' }
+  | { type: 'DESTROY_PROPERTY' }
+  | { type: 'DOWNGRADE_BUILDING' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -174,8 +176,10 @@ export interface CardEffectResult {
   cardHeld?: { slot: number; cardId: string };
   houseRemoved?: { slot: number; cellIndex: number };
   skipTurn?: boolean;
-  requiresChoice?: 'FREE_HOUSE';
+  requiresChoice?: 'FREE_HOUSE' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING';
   goToIsland?: boolean;
+  /** Target properties for attack cards — opponent cells the current player can target */
+  targetableCells?: number[];
   immunityNextRent?: boolean;
   doubleRentTurns?: number;
 }

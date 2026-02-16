@@ -943,7 +943,20 @@
       "sellProperty": "Sell land",
       "sellSelect": "Sell",
       "sellSelected": "Selected",
-      "sellAutoTimeout": "Time's up - auto selling"
+      "sellAutoTimeout": "Time's up - auto selling",
+      "attackDestroyTitle": "Destroy Property",
+      "attackDowngradeTitle": "Downgrade Building",
+      "attackDestroyDesc": "Choose an opponent's property to completely destroy",
+      "attackDowngradeDesc": "Choose an opponent's property to downgrade",
+      "attackWillRemoveHotel": "Remove hotel",
+      "attackWillRemoveHouse": "Remove 1 house",
+      "attackWillDestroy": "Seize land",
+      "attackAlertDestroyTitle": "Property Destroyed!",
+      "attackAlertDowngradeTitle": "Building Downgraded!",
+      "attackResultDestroyed": "The property was completely destroyed and is now unowned",
+      "attackResultDemolished": "Empty land was seized and is now unowned",
+      "attackResultHotelRemoved": "The hotel has been removed",
+      "attackResultHouseRemoved": "One house has been demolished"
     },
     "property": {
       "owner": "Owner",
@@ -1002,7 +1015,9 @@
       "ch13": { "name": "Lucky Draw", "desc": "Receive random 0-3,000 TT" },
       "ch14": { "name": "Insurance", "desc": "Each player pays you 500 TT" },
       "ch15": { "name": "Shield", "desc": "Skip rent payment next time" },
-      "ch16": { "name": "Charity", "desc": "Pay each player 500 TT" }
+      "ch16": { "name": "Charity", "desc": "Pay each player 500 TT" },
+      "ch17": { "name": "Downgrade", "desc": "Choose an opponent's property to downgrade. Hotel removed, 1 house demolished, empty land seized" },
+      "kv17": { "name": "Demolish", "desc": "Choose an opponent's property to completely destroy. Land and all buildings wiped out" }
     },
     "cells": {
       "go": "GO",
