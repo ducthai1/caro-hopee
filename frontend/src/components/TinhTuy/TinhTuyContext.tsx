@@ -748,12 +748,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
 
     case 'BUILDINGS_SOLD': {
-      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels } = action.payload;
+      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels, properties: newProps } = action.payload;
       const dpBs = freezePoints(state);
       const prevPoints = state.players.find(p => p.slot === bsSlot)?.points ?? 0;
       const bsDelta = newPoints - prevPoints;
       const updated = state.players.map(p =>
-        p.slot === bsSlot ? { ...p, points: newPoints, houses: newHouses, hotels: newHotels } : p
+        p.slot === bsSlot ? { ...p, points: newPoints, houses: newHouses, hotels: newHotels, ...(newProps ? { properties: newProps } : {}) } : p
       );
       return {
         ...state, players: updated, sellPrompt: null, displayPoints: dpBs,
@@ -808,7 +808,7 @@ interface TinhTuyContextValue {
   travelTo: (cellIndex: number) => void;
   applyFestival: (cellIndex: number) => void;
   skipBuild: () => void;
-  sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel'; count: number }>) => void;
+  sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => void;
   chooseFreeHouse: (cellIndex: number) => void;
 }
 

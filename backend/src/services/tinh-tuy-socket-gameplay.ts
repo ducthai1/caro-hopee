@@ -10,7 +10,7 @@ import {
   rollDice, calculateNewPosition, resolveCellAction,
   getNextActivePlayer, checkGameEnd, sendToIsland,
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
-  calculateRent, getSellPrice, calculateSellableValue,
+  calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
 } from './tinh-tuy-engine';
 import { GO_SALARY, getCell, ISLAND_ESCAPE_COST } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited } from './tinh-tuy-socket';
@@ -74,6 +74,7 @@ async function checkBankruptcy(
           io.to(game.roomId).emit('tinh-tuy:buildings-sold', {
             slot: p.slot, newPoints: p.points,
             houses: { ...p.houses }, hotels: { ...p.hotels },
+            properties: [...p.properties],
           });
           await advanceTurnOrDoubles(io, g, p);
         } catch (err) { console.error('[tinh-tuy] Sell timeout:', err); }
@@ -421,24 +422,22 @@ async function handleCardDraw(
   await game.save();
 }
 
-/** Auto-sell cheapest buildings until player points >= 0 */
+/** Auto-sell cheapest assets (buildings first, then properties) until player points >= 0 */
 function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
-  // Gather all sellable items
-  const items: Array<{ cellIndex: number; type: 'house' | 'hotel'; price: number }> = [];
+  // Phase 1: sell buildings (cheapest first)
+  const buildings: Array<{ cellIndex: number; type: 'house' | 'hotel'; price: number }> = [];
   for (const cellIdx of player.properties) {
     const key = String(cellIdx);
     if (player.hotels[key]) {
-      items.push({ cellIndex: cellIdx, type: 'hotel', price: getSellPrice(cellIdx, 'hotel') });
+      buildings.push({ cellIndex: cellIdx, type: 'hotel', price: getSellPrice(cellIdx, 'hotel') });
     }
     const houses = player.houses[key] || 0;
     for (let i = 0; i < houses; i++) {
-      items.push({ cellIndex: cellIdx, type: 'house', price: getSellPrice(cellIdx, 'house') });
+      buildings.push({ cellIndex: cellIdx, type: 'house', price: getSellPrice(cellIdx, 'house') });
     }
   }
-  // Sort cheapest first
-  items.sort((a, b) => a.price - b.price);
-  // Sell until solvent
-  for (const item of items) {
+  buildings.sort((a, b) => a.price - b.price);
+  for (const item of buildings) {
     if (player.points >= 0) break;
     const key = String(item.cellIndex);
     if (item.type === 'hotel') {
@@ -447,6 +446,21 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
       player.houses[key] = (player.houses[key] || 0) - 1;
     }
     player.points += item.price;
+  }
+
+  // Phase 2: sell properties (cheapest land first) if still in debt
+  if (player.points < 0) {
+    const props = player.properties
+      .map(idx => ({ cellIndex: idx, price: getSellPrice(idx, 'property') }))
+      .sort((a, b) => a.price - b.price);
+    for (const prop of props) {
+      if (player.points >= 0) break;
+      const key = String(prop.cellIndex);
+      delete player.houses[key];
+      delete player.hotels[key];
+      player.properties = player.properties.filter(idx => idx !== prop.cellIndex);
+      player.points += prop.price;
+    }
   }
   game.markModified('players');
 }
@@ -974,7 +988,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'invalidPhase' });
       }
 
-      const selections: Array<{ cellIndex: number; type: 'house' | 'hotel'; count: number }> = data?.selections;
+      const selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }> = data?.selections;
       if (!Array.isArray(selections) || selections.length === 0) {
         return callback({ success: false, error: 'noSelections' });
       }
@@ -987,7 +1001,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           return callback({ success: false, error: 'notOwned' });
         }
         const key = String(cellIndex);
-        if (type === 'hotel') {
+        if (type === 'property') {
+          // Selling whole property (land + any buildings on it)
+          totalSellValue += getPropertyTotalSellValue(player, cellIndex);
+        } else if (type === 'hotel') {
           if (!player.hotels[key]) return callback({ success: false, error: 'noHotel' });
           totalSellValue += getSellPrice(cellIndex, 'hotel');
         } else {
@@ -1003,14 +1020,22 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'insufficientSell' });
       }
 
-      // Apply sells
-      for (const sel of selections) {
+      // Apply sells — process property sells last to avoid index issues
+      const propertySells = selections.filter(s => s.type === 'property');
+      const buildingSells = selections.filter(s => s.type !== 'property');
+      for (const sel of buildingSells) {
         const key = String(sel.cellIndex);
         if (sel.type === 'hotel') {
           player.hotels[key] = false;
         } else {
           player.houses[key] = (player.houses[key] || 0) - sel.count;
         }
+      }
+      for (const sel of propertySells) {
+        const key = String(sel.cellIndex);
+        delete player.houses[key];
+        delete player.hotels[key];
+        player.properties = player.properties.filter(idx => idx !== sel.cellIndex);
       }
       player.points += totalSellValue;
 
@@ -1022,6 +1047,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       io.to(roomId).emit('tinh-tuy:buildings-sold', {
         slot: player.slot, newPoints: player.points,
         houses: { ...player.houses }, hotels: { ...player.hotels },
+        properties: [...player.properties],
       });
 
       await advanceTurnOrDoubles(io, game, player);

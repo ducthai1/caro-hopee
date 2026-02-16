@@ -285,27 +285,31 @@ export function buildHotel(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
 
 // ─── Sell Building Helpers ────────────────────────────────
 
-/** Sell price = half of build cost */
-export function getSellPrice(cellIndex: number, type: 'house' | 'hotel'): number {
+/** Sell price = half of build cost (buildings) or half of purchase price (property) */
+export function getSellPrice(cellIndex: number, type: 'house' | 'hotel' | 'property'): number {
   const cell = getCell(cellIndex);
   if (!cell) return 0;
+  if (type === 'property') return Math.floor((cell.price || 0) / 2);
   return Math.floor(((type === 'hotel' ? cell.hotelCost : cell.houseCost) || 0) / 2);
 }
 
-/** Total value of all sellable buildings for a player */
+/** Total sell value of a single property (land + any buildings on it) */
+export function getPropertyTotalSellValue(player: ITinhTuyPlayer, cellIndex: number): number {
+  const cell = getCell(cellIndex);
+  if (!cell) return 0;
+  const key = String(cellIndex);
+  let total = Math.floor((cell.price || 0) / 2);
+  if (player.hotels[key]) total += Math.floor((cell.hotelCost || 0) / 2);
+  const houses = player.houses[key] || 0;
+  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) / 2);
+  return total;
+}
+
+/** Total value of all sellable assets (buildings + properties) for a player */
 export function calculateSellableValue(player: ITinhTuyPlayer): number {
   let total = 0;
   for (const cellIdx of player.properties) {
-    const cell = getCell(cellIdx);
-    if (!cell) continue;
-    const key = String(cellIdx);
-    if (player.hotels[key]) {
-      total += Math.floor((cell.hotelCost || 0) / 2);
-    }
-    const houses = player.houses[key] || 0;
-    if (houses > 0) {
-      total += houses * Math.floor((cell.houseCost || 0) / 2);
-    }
+    total += getPropertyTotalSellValue(player, cellIdx);
   }
   return total;
 }

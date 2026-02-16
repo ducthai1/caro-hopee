@@ -934,12 +934,15 @@
       "festivalNoProperty": "No property available for festival",
       "surrenderConfirmTitle": "Surrender?",
       "surrenderConfirm": "Are you sure you want to surrender? All your properties will be lost.",
-      "sellPrompt": "Sell buildings to pay debt",
+      "sellPrompt": "Sell assets to pay debt",
       "sellDeficit": "Debt",
       "sellTotal": "Sell total",
       "sellConfirm": "Confirm sell",
       "sellHouse": "House",
       "sellHotel": "Hotel",
+      "sellProperty": "Sell land",
+      "sellSelect": "Sell",
+      "sellSelected": "Selected",
       "sellAutoTimeout": "Time's up - auto selling"
     },
     "property": {

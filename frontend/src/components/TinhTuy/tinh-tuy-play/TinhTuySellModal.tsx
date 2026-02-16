@@ -1,25 +1,37 @@
 /**
- * TinhTuySellModal — Shown when player must sell buildings to cover debt.
- * Player selects which buildings to sell; confirm disabled until total >= deficit.
+ * TinhTuySellModal — Shown when player must sell assets to cover debt.
+ * Player can sell individual buildings (house/hotel) or entire properties (land + buildings).
+ * When selling a property, all buildings on it are included automatically.
  */
 import React, { useState, useMemo } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, Chip, IconButton, LinearProgress,
+  Button, Typography, Box, Chip, IconButton, LinearProgress, Divider,
 } from '@mui/material';
 import SellIcon from '@mui/icons-material/Sell';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import TerrainIcon from '@mui/icons-material/Terrain';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, GROUP_COLORS, PropertyGroup } from '../tinh-tuy-types';
 
+type SellType = 'house' | 'hotel' | 'property';
+
 interface SellSelection {
   cellIndex: number;
-  type: 'house' | 'hotel';
+  type: SellType;
   count: number;
+}
+
+/** Calculate total value when selling a property (land + all buildings) */
+function calcPropertySellValue(cell: typeof BOARD_CELLS[0], houses: number, hasHotel: boolean): number {
+  let total = Math.floor((cell.price || 0) / 2);
+  if (hasHotel) total += Math.floor((cell.hotelCost || 0) / 2);
+  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) / 2);
+  return total;
 }
 
 export const TinhTuySellModal: React.FC = () => {
@@ -31,11 +43,17 @@ export const TinhTuySellModal: React.FC = () => {
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
 
-  // Build list of sellable items from my properties
+  // Set of properties selected for full sell (land + buildings)
+  const propertySellSet = useMemo(
+    () => new Set(selections.filter(s => s.type === 'property' && s.count > 0).map(s => s.cellIndex)),
+    [selections],
+  );
+
+  // Build sellable items: buildings first, then property (land)
   const sellableItems = useMemo(() => {
     if (!myPlayer) return [];
     const items: Array<{
-      cellIndex: number; type: 'house' | 'hotel';
+      cellIndex: number; type: SellType;
       maxCount: number; priceEach: number;
       cellName: string; icon?: string; group?: PropertyGroup;
     }> = [];
@@ -43,14 +61,17 @@ export const TinhTuySellModal: React.FC = () => {
       const cell = BOARD_CELLS.find(c => c.index === cellIdx);
       if (!cell) continue;
       const key = String(cellIdx);
-      if (myPlayer.hotels[key]) {
+      const houses = myPlayer.houses[key] || 0;
+      const hasHotel = !!myPlayer.hotels[key];
+
+      // Building items
+      if (hasHotel) {
         items.push({
           cellIndex: cellIdx, type: 'hotel', maxCount: 1,
           priceEach: Math.floor((cell.hotelCost || 0) / 2),
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }
-      const houses = myPlayer.houses[key] || 0;
       if (houses > 0) {
         items.push({
           cellIndex: cellIdx, type: 'house', maxCount: houses,
@@ -58,29 +79,44 @@ export const TinhTuySellModal: React.FC = () => {
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }
+
+      // Property (land) item — selling the whole property
+      items.push({
+        cellIndex: cellIdx, type: 'property', maxCount: 1,
+        priceEach: calcPropertySellValue(cell, houses, hasHotel),
+        cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
+      });
     }
     return items;
   }, [myPlayer]);
 
-  // Calculate total sell value from selections
+  // Calculate total sell value
   const totalSellValue = useMemo(() => {
     let total = 0;
     for (const sel of selections) {
+      if (sel.count <= 0) continue;
       const item = sellableItems.find(i => i.cellIndex === sel.cellIndex && i.type === sel.type);
-      if (item) total += sel.count * item.priceEach;
+      if (!item) continue;
+      // If property is sold, only count property value (buildings already included)
+      if (sel.type === 'property') {
+        total += item.priceEach;
+      } else if (!propertySellSet.has(sel.cellIndex)) {
+        // Only count building sells if property isn't being sold entirely
+        total += sel.count * item.priceEach;
+      }
     }
     return total;
-  }, [selections, sellableItems]);
+  }, [selections, sellableItems, propertySellSet]);
 
   const deficit = sp?.deficit ?? 0;
   const canConfirm = totalSellValue >= deficit;
   const progress = deficit > 0 ? Math.min((totalSellValue / deficit) * 100, 100) : 0;
 
-  const getSelCount = (cellIndex: number, type: 'house' | 'hotel') => {
+  const getSelCount = (cellIndex: number, type: SellType) => {
     return selections.find(s => s.cellIndex === cellIndex && s.type === type)?.count ?? 0;
   };
 
-  const updateSelection = (cellIndex: number, type: 'house' | 'hotel', delta: number, max: number) => {
+  const updateSelection = (cellIndex: number, type: SellType, delta: number, max: number) => {
     setSelections(prev => {
       const existing = prev.find(s => s.cellIndex === cellIndex && s.type === type);
       const current = existing?.count ?? 0;
@@ -93,11 +129,24 @@ export const TinhTuySellModal: React.FC = () => {
 
   const handleConfirm = () => {
     if (!canConfirm) return;
-    const filtered = selections.filter(s => s.count > 0);
+    // Filter: if property is sold, remove individual building selections for that property
+    const filtered = selections.filter(s => {
+      if (s.count <= 0) return false;
+      if (s.type !== 'property' && propertySellSet.has(s.cellIndex)) return false;
+      return true;
+    });
     sellBuildings(filtered);
   };
 
   if (!sp || !isMyTurn) return null;
+
+  // Group items by cellIndex for visual grouping
+  const groupedByCell = new Map<number, typeof sellableItems>();
+  for (const item of sellableItems) {
+    const arr = groupedByCell.get(item.cellIndex) || [];
+    arr.push(item);
+    groupedByCell.set(item.cellIndex, arr);
+  }
 
   return (
     <Dialog
@@ -120,80 +169,131 @@ export const TinhTuySellModal: React.FC = () => {
           </Typography>
         </Box>
 
-        {/* Sellable buildings list */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {sellableItems.map((item) => {
-            const count = getSelCount(item.cellIndex, item.type);
-            const groupColor = item.group ? GROUP_COLORS[item.group] : '#999';
+        {/* Sellable items grouped by property */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {[...groupedByCell.entries()].map(([cellIndex, items], gi) => {
+            const isPropertySold = propertySellSet.has(cellIndex);
+            const propertyItem = items.find(i => i.type === 'property')!;
+            const groupColor = propertyItem.group ? GROUP_COLORS[propertyItem.group] : '#999';
+
             return (
-              <Box
-                key={`${item.cellIndex}-${item.type}`}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 1,
-                  p: 1, borderRadius: 2,
-                  bgcolor: count > 0 ? 'rgba(231,76,60,0.06)' : 'rgba(0,0,0,0.02)',
-                  border: count > 0 ? '1px solid rgba(231,76,60,0.3)' : '1px solid rgba(0,0,0,0.08)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {/* Cell icon */}
-                {item.icon && (
-                  <Box
-                    component="img"
-                    src={`/location/${item.icon}`}
-                    alt=""
-                    sx={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 1 }}
-                  />
-                )}
-
-                {/* Cell name + type */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2 }} noWrap>
-                    {t(item.cellName as any)}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Chip
-                      icon={item.type === 'hotel' ? <ApartmentIcon sx={{ fontSize: 14 }} /> : <HomeWorkIcon sx={{ fontSize: 14 }} />}
-                      label={item.type === 'hotel' ? t('tinhTuy.game.sellHotel' as any) : t('tinhTuy.game.sellHouse' as any)}
-                      size="small"
-                      sx={{
-                        height: 20, fontSize: '0.65rem',
-                        bgcolor: `${groupColor}20`, color: groupColor, fontWeight: 600,
-                      }}
+              <Box key={cellIndex}>
+                {gi > 0 && <Divider sx={{ mb: 1 }} />}
+                {/* Property header */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  {propertyItem.icon && (
+                    <Box
+                      component="img"
+                      src={`/location/${propertyItem.icon}`}
+                      alt=""
+                      sx={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 1 }}
                     />
-                    <Typography variant="caption" sx={{ color: '#e67e22', fontWeight: 600 }}>
-                      {item.priceEach.toLocaleString()} TT
-                    </Typography>
-                    {item.maxCount > 1 && (
-                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                        x{item.maxCount}
-                      </Typography>
-                    )}
-                  </Box>
+                  )}
+                  <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', flex: 1 }} noWrap>
+                    {t(propertyItem.cellName as any)}
+                  </Typography>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: groupColor, flexShrink: 0 }} />
                 </Box>
 
-                {/* Count selector */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => updateSelection(item.cellIndex, item.type, -1, item.maxCount)}
-                    disabled={count === 0}
-                    sx={{ p: 0.5 }}
-                  >
-                    <RemoveIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                  <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
-                    {count}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={() => updateSelection(item.cellIndex, item.type, 1, item.maxCount)}
-                    disabled={count >= item.maxCount}
-                    sx={{ p: 0.5 }}
-                  >
-                    <AddIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Box>
+                {/* Individual items for this property */}
+                {items.map((item) => {
+                  const count = getSelCount(item.cellIndex, item.type);
+                  const isBuilding = item.type !== 'property';
+                  // Disable building toggles if property is being sold
+                  const disabled = isBuilding && isPropertySold;
+
+                  return (
+                    <Box
+                      key={`${item.cellIndex}-${item.type}`}
+                      sx={{
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        p: 0.75, pl: 1.5, borderRadius: 2, ml: 1,
+                        bgcolor: count > 0 && !disabled
+                          ? item.type === 'property' ? 'rgba(155,89,182,0.06)' : 'rgba(231,76,60,0.06)'
+                          : 'rgba(0,0,0,0.02)',
+                        border: count > 0 && !disabled
+                          ? item.type === 'property' ? '1px solid rgba(155,89,182,0.3)' : '1px solid rgba(231,76,60,0.3)'
+                          : '1px solid rgba(0,0,0,0.08)',
+                        opacity: disabled ? 0.4 : 1,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Chip
+                            icon={
+                              item.type === 'property' ? <TerrainIcon sx={{ fontSize: 14 }} /> :
+                              item.type === 'hotel' ? <ApartmentIcon sx={{ fontSize: 14 }} /> :
+                              <HomeWorkIcon sx={{ fontSize: 14 }} />
+                            }
+                            label={
+                              item.type === 'property' ? t('tinhTuy.game.sellProperty' as any) :
+                              item.type === 'hotel' ? t('tinhTuy.game.sellHotel' as any) :
+                              t('tinhTuy.game.sellHouse' as any)
+                            }
+                            size="small"
+                            sx={{
+                              height: 20, fontSize: '0.65rem', fontWeight: 600,
+                              bgcolor: item.type === 'property' ? 'rgba(155,89,182,0.12)' : `${groupColor}20`,
+                              color: item.type === 'property' ? '#8e44ad' : groupColor,
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ color: '#e67e22', fontWeight: 600 }}>
+                            {item.priceEach.toLocaleString()} TT
+                          </Typography>
+                          {isBuilding && item.maxCount > 1 && (
+                            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                              x{item.maxCount}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+
+                      {/* Toggle for property (checkbox-like) or +/- for buildings */}
+                      {item.type === 'property' ? (
+                        <Button
+                          size="small"
+                          variant={count > 0 ? 'contained' : 'outlined'}
+                          onClick={() => updateSelection(cellIndex, 'property', count > 0 ? -1 : 1, 1)}
+                          sx={{
+                            minWidth: 56, py: 0.25, fontSize: '0.7rem', fontWeight: 700,
+                            ...(count > 0 ? {
+                              background: 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)',
+                              '&:hover': { background: 'linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%)' },
+                            } : {
+                              borderColor: 'rgba(155,89,182,0.4)', color: '#9b59b6',
+                              '&:hover': { borderColor: '#9b59b6', bgcolor: 'rgba(155,89,182,0.08)' },
+                            }),
+                          }}
+                        >
+                          {count > 0 ? t('tinhTuy.game.sellSelected' as any) : t('tinhTuy.game.sellSelect' as any)}
+                        </Button>
+                      ) : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => updateSelection(item.cellIndex, item.type, -1, item.maxCount)}
+                            disabled={count === 0 || disabled}
+                            sx={{ p: 0.5 }}
+                          >
+                            <RemoveIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                          <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
+                            {count}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => updateSelection(item.cellIndex, item.type, 1, item.maxCount)}
+                            disabled={count >= item.maxCount || disabled}
+                            sx={{ p: 0.5 }}
+                          >
+                            <AddIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
               </Box>
             );
           })}
