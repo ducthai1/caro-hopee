@@ -166,7 +166,7 @@ async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promise<void
 
   game.currentPlayerSlot = nextSlot;
   game.turnStartedAt = new Date();
-  game.lastDiceResult = undefined;
+  game.lastDiceResult = null;
 
   // Check skip-next-turn for the next player
   const nextPlayer = game.players.find(p => p.slot === nextSlot);
@@ -377,7 +377,7 @@ async function handleCardDraw(
       // Card moved player to Travel cell — defer travel to next turn, break doubles
       player.pendingTravel = true;
       player.consecutiveDoubles = 0;
-      game.lastDiceResult = undefined;
+      game.lastDiceResult = null;
     }
     // Don't resolve cards again from card movement (prevent recursion)
   }
@@ -1646,7 +1646,7 @@ async function resolveAndAdvance(
       // Deferred travel: end turn now, next turn starts as AWAITING_TRAVEL
       player.pendingTravel = true;
       player.consecutiveDoubles = 0; // break doubles chain
-      game.lastDiceResult = undefined; // prevent doubles extra turn
+      game.lastDiceResult = null; // prevent doubles extra turn
       game.turnPhase = 'END_TURN';
       game.markModified('players');
       await game.save();

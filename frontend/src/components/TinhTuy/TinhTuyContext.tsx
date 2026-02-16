@@ -248,8 +248,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       }
       // Freeze display points, update real points, queue notif (shown after animation)
       const dp1 = goBonus ? freezePoints(state) : state.displayPoints;
+      // Sync position to server's `from` — ensures position is correct even if
+      // a prior card-move animation didn't complete (fixes doubles + card move desync)
       const updated = state.players.map(p =>
-        p.slot === slot ? { ...p, points: goBonus ? p.points + goBonus : p.points } : p
+        p.slot === slot ? { ...p, position: from, points: goBonus ? p.points + goBonus : p.points } : p
       );
       return {
         ...state,

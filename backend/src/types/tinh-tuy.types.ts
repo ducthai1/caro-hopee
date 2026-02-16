@@ -105,7 +105,7 @@ export interface ITinhTuyGame extends Document {
   currentPlayerSlot: number;
   turnPhase: TurnPhase;
   turnStartedAt?: Date;
-  lastDiceResult?: { dice1: number; dice2: number };
+  lastDiceResult?: { dice1: number; dice2: number } | null;
 
   // Card decks (Phase 3 — placeholder arrays for now)
   luckCardDeck: string[];

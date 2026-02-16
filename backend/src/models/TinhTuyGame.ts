@@ -70,7 +70,10 @@ const TinhTuyGameSchema = new Schema({
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },
-  lastDiceResult: { type: Schema.Types.Mixed, default: null },
+  lastDiceResult: {
+    type: { dice1: Number, dice2: Number },
+    default: null,
+  },
 
   // Card decks (Phase 3 — placeholder for now)
   luckCardDeck: { type: [String], default: [] },
