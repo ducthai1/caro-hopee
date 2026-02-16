@@ -190,7 +190,7 @@ export const TinhTuyBoard: React.FC = () => {
                   transition: isAnim ? 'none' : 'transform 0.15s ease',
                 }}
               >
-                <TinhTuyPlayerToken slot={slot} isAnimating={isAnim} />
+                <TinhTuyPlayerToken slot={slot} character={state.players.find(p => p.slot === slot)?.character} isAnimating={isAnim} />
               </Box>
             );
           })}

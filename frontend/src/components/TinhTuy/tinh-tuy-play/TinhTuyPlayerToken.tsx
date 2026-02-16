@@ -5,16 +5,17 @@
  */
 import React from 'react';
 import { Box } from '@mui/material';
-import { PLAYER_ACTORS, PLAYER_COLORS } from '../tinh-tuy-types';
+import { TinhTuyCharacter, CHARACTER_IMAGES, PLAYER_COLORS } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
 
 interface Props {
   slot: number;
+  character?: TinhTuyCharacter;
   isAnimating?: boolean;
 }
 
-export const TinhTuyPlayerToken: React.FC<Props> = React.memo(({ slot, isAnimating }) => {
-  const actorSrc = PLAYER_ACTORS[slot];
+export const TinhTuyPlayerToken: React.FC<Props> = React.memo(({ slot, character, isAnimating }) => {
+  const actorSrc = CHARACTER_IMAGES[character || 'shiba'];
   const color = PLAYER_COLORS[slot] || '#999';
 
   return (

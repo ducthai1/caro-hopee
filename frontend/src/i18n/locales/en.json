@@ -850,6 +850,14 @@
       "leaveConfirmTitle": "Leave room?",
       "leaveConfirmMsg": "Are you sure you want to leave?"
     },
+    "characters": {
+      "selectCharacter": "Choose Character",
+      "shiba": "Shiba",
+      "kungfu": "Kungfu",
+      "fox": "Fox",
+      "elephant": "Elephant",
+      "characterTaken": "Taken by"
+    },
     "settings": {
       "maxPlayers": "Max players",
       "startingPoints": "Starting Tinh Tuy",

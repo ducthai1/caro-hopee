@@ -3,6 +3,16 @@
  * Mirrors backend types + UI-specific extensions.
  */
 
+// ─── Character ───────────────────────────────────────
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant'];
+export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
+  shiba: '/tinh-tuy-actor/shiba.png',
+  kungfu: '/tinh-tuy-actor/kungfu.png',
+  fox: '/tinh-tuy-actor/fox.png',
+  elephant: '/tinh-tuy-actor/elephant.png',
+};
+
 // ─── View ─────────────────────────────────────────────
 export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 
@@ -40,6 +50,7 @@ export const DEFAULT_SETTINGS: TinhTuySettings = {
 // ─── Player ───────────────────────────────────────────
 export interface TinhTuyPlayer {
   slot: number;
+  character: TinhTuyCharacter;
   userId?: string;
   guestId?: string;
   guestName?: string;
@@ -283,7 +294,8 @@ export type TinhTuyAction =
   | { type: 'BUYBACK_PROMPT'; payload: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } }
   | { type: 'APPLY_QUEUED_BUYBACK' }
   | { type: 'CLEAR_BUYBACK_PROMPT' }
-  | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } };
+  | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } }
+  | { type: 'FORCE_CLEAR_ANIM' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

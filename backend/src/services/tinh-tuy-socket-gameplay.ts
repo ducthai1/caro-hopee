@@ -14,7 +14,7 @@ import {
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
 } from './tinh-tuy-engine';
 import { GO_SALARY, getCell, ISLAND_ESCAPE_COST } from './tinh-tuy-board';
-import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited } from './tinh-tuy-socket';
+import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -158,7 +158,7 @@ async function advanceTurnOrDoubles(
   }
 }
 
-async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promise<void> {
+export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promise<void> {
   const nextSlot = getNextActivePlayer(game.players, game.currentPlayerSlot);
   if (nextSlot <= game.currentPlayerSlot) {
     game.round += 1;
@@ -743,6 +743,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:roll-dice]', err.message);
       callback({ success: false, error: 'rollFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -793,6 +795,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:buy-property]', err.message);
       callback({ success: false, error: 'buyFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -825,6 +829,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:skip-buy]', err.message);
       callback({ success: false, error: 'skipFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -886,6 +892,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:travel-to]', err.message);
       callback({ success: false, error: 'travelFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -942,6 +950,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:apply-festival]', err.message);
       callback({ success: false, error: 'festivalFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -990,6 +1000,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:build-house]', err.message);
       callback({ success: false, error: 'buildFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1036,6 +1048,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:build-hotel]', err.message);
       callback({ success: false, error: 'buildFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1068,6 +1082,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:skip-build]', err.message);
       callback({ success: false, error: 'skipFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1123,6 +1139,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:free-house-choose]', err.message);
       callback({ success: false, error: 'freeHouseFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1174,6 +1192,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:attack-property-choose]', err.message);
       callback({ success: false, error: 'attackFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1269,6 +1289,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:buyback-property]', err.message);
       callback({ success: false, error: 'buybackFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1359,6 +1381,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:sell-buildings]', err.message);
       callback({ success: false, error: 'sellFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1417,6 +1441,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:escape-island]', err.message);
       callback({ success: false, error: 'escapeFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 
@@ -1463,6 +1489,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:surrender]', err.message);
       callback({ success: false, error: 'surrenderFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
     }
   });
 

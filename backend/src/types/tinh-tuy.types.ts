@@ -5,6 +5,10 @@
 import { Document } from 'mongoose';
 import mongoose from 'mongoose';
 
+// ─── Character ───────────────────────────────────────────────
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant'];
+
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
@@ -41,6 +45,7 @@ export interface ITinhTuySettings {
 // ─── Player ───────────────────────────────────────────────────
 export interface ITinhTuyPlayer {
   slot: number;                 // 1-4
+  character: TinhTuyCharacter;  // chosen character
   userId?: mongoose.Types.ObjectId;
   guestId?: string;
   guestName?: string;

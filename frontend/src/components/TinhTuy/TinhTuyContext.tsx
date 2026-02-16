@@ -11,7 +11,7 @@ import { getGuestId } from '../../utils/guestId';
 import { getGuestName } from '../../utils/guestName';
 import { API_BASE_URL } from '../../utils/constants';
 import {
-  TinhTuyState, TinhTuyAction, TinhTuyView, TinhTuyPlayer,
+  TinhTuyState, TinhTuyAction, TinhTuyView, TinhTuyPlayer, TinhTuyCharacter,
   TinhTuySettings, WaitingRoomInfo, CreateRoomPayload, DEFAULT_SETTINGS,
 } from './tinh-tuy-types';
 import { tinhTuySounds } from './tinh-tuy-sounds';
@@ -37,6 +37,7 @@ function resolveDisplayName(p: any): string {
 function mapPlayers(players: any[]): TinhTuyPlayer[] {
   return (players || []).map((p: any) => ({
     ...p,
+    character: p.character || 'shiba',
     properties: p.properties || [],
     houses: p.houses || {},
     hotels: p.hotels || {},
@@ -227,6 +228,22 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'DICE_ANIM_DONE':
       return { ...state, diceAnimating: false };
+
+    case 'FORCE_CLEAR_ANIM': {
+      // Safety: force-clear all animation state to unblock queued effects
+      const fcPlayers = state.animatingToken
+        ? state.players.map(p =>
+          p.slot === state.animatingToken!.slot
+            ? { ...p, position: state.animatingToken!.path[state.animatingToken!.path.length - 1] }
+            : p
+        )
+        : state.players;
+      return {
+        ...state, players: fcPlayers,
+        diceAnimating: false, drawnCard: null, pendingMove: null, animatingToken: null,
+        houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null,
+      };
+    }
 
     case 'PLAYER_MOVED': {
       const { slot, from, to, goBonus, isTravel, teleport } = action.payload;
@@ -895,6 +912,7 @@ interface TinhTuyContextValue {
   attackPropertyChoose: (cellIndex: number) => void;
   clearAttackAlert: () => void;
   buybackProperty: (cellIndex: number, accept: boolean) => void;
+  selectCharacter: (character: TinhTuyCharacter) => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -1471,6 +1489,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const selectCharacter = useCallback((character: TinhTuyCharacter) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:select-character' as any, { character }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   // Auto-refresh rooms on lobby view
   useEffect(() => {
     if (state.view === 'lobby') refreshRooms();
@@ -1557,6 +1583,16 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Common gate: wait for card modal + card movement + movement animation to all finish
   // Gate: dice animation + card modal + movement animation must all finish before queued effects fire
   const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken);
+
+  // Safety watchdog: force-clear stuck animation state after 15s
+  useEffect(() => {
+    if (!isAnimBusy) return;
+    const timer = setTimeout(() => {
+      console.warn('[TinhTuy] Animation stuck >15s — force clearing');
+      dispatch({ type: 'FORCE_CLEAR_ANIM' });
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [isAnimBusy]);
 
   // Auto-clear diceAnimating after 2.3s (matches dice CSS animation + settle time)
   useEffect(() => {
@@ -1725,7 +1761,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert, buybackProperty,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert, buybackProperty, selectCharacter,
     }}>
       {children}
     </TinhTuyContext.Provider>

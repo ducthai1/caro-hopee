@@ -850,6 +850,14 @@
       "leaveConfirmTitle": "Rời phòng?",
       "leaveConfirmMsg": "Bạn có chắc chắn muốn rời phòng?"
     },
+    "characters": {
+      "selectCharacter": "Chọn nhân vật",
+      "shiba": "Shiba",
+      "kungfu": "Kungfu",
+      "fox": "Cáo",
+      "elephant": "Voi",
+      "characterTaken": "Đã được chọn bởi"
+    },
     "settings": {
       "maxPlayers": "Số người chơi tối đa",
       "startingPoints": "Tinh Túy khởi đầu",

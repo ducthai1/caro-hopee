@@ -71,6 +71,25 @@ export function clearTurnTimer(roomId: string): void {
   if (timer) { clearTimeout(timer); activeTimers.delete(roomId); }
 }
 
+/**
+ * Safety net: if no turn timer is running after an error, start one to prevent stuck games.
+ * Loads fresh game from DB and advances turn after a short delay.
+ */
+export function safetyRestartTimer(io: SocketIOServer, roomId: string): void {
+  if (activeTimers.has(roomId)) return; // Timer already running — no action needed
+  console.warn(`[tinh-tuy] Safety timer activated for room ${roomId}`);
+  startTurnTimer(roomId, 5000, async () => {
+    try {
+      const g = await TinhTuyGame.findOne({ roomId });
+      if (!g || g.gameStatus !== 'playing') return;
+      const { advanceTurn: advTurn } = await import('./tinh-tuy-socket-gameplay');
+      g.turnPhase = 'END_TURN';
+      await g.save();
+      await advTurn(io, g);
+    } catch (err) { console.error('[tinh-tuy] Safety timer error:', err); }
+  });
+}
+
 export function cleanupRoom(roomId: string, full = false): void {
   clearTurnTimer(roomId);
   if (full) {
@@ -197,6 +216,15 @@ export function setupTinhTuySocketHandlers(io: SocketIOServer): void {
                 currentSlot: g.currentPlayerSlot,
                 turnPhase: g.turnPhase,
                 turnStartedAt: g.turnStartedAt,
+              });
+              // Start timer for next player's turn
+              startTurnTimer(roomId, (g.settings?.turnDuration || 60) * 1000, async () => {
+                try {
+                  const g2 = await TinhTuyGame.findOne({ roomId });
+                  if (!g2 || g2.gameStatus !== 'playing') return;
+                  const { advanceTurn: advTurn } = await import('./tinh-tuy-socket-gameplay');
+                  await advTurn(io, g2);
+                } catch (e) { console.error('[tinh-tuy] Disconnect skip timer error:', e); }
               });
             }
           } catch (err) {

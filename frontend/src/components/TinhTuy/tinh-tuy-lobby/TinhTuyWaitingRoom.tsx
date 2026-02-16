@@ -25,7 +25,7 @@ import { useTinhTuy } from '../TinhTuyContext';
 import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useToast } from '../../../contexts/ToastContext';
 import { TinhTuySettingsForm } from './TinhTuySettingsForm';
-import { TinhTuyGameMode, PLAYER_COLORS } from '../tinh-tuy-types';
+import { TinhTuyGameMode, TinhTuyCharacter, PLAYER_COLORS, VALID_CHARACTERS, CHARACTER_IMAGES } from '../tinh-tuy-types';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
 import {
   TinhTuyChatButton,
@@ -37,7 +37,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
   const toast = useToast();
   const { isAuthenticated } = useAuth();
-  const { state, startGame, leaveRoom, updateRoom, sendChat, updateGuestName } = useTinhTuy();
+  const { state, startGame, leaveRoom, updateRoom, sendChat, updateGuestName, selectCharacter } = useTinhTuy();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -193,6 +193,55 @@ export const TinhTuyWaitingRoom: React.FC = () => {
         </Box>
       </Paper>
 
+      {/* Character Selector */}
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, mb: 3 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+          {t('tinhTuy.characters.selectCharacter')}
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: { xs: 1, sm: 1.5 } }}>
+          {VALID_CHARACTERS.map((char) => {
+            const isMyChoice = myPlayer?.character === char;
+            const takenByPlayer = state.players.find(p => p.character === char && p.slot !== state.mySlot);
+            const isTaken = !!takenByPlayer;
+
+            return (
+              <Box
+                key={char}
+                onClick={() => !isTaken && !isMyChoice && selectCharacter(char)}
+                sx={{
+                  p: { xs: 1, sm: 1.5 },
+                  borderRadius: 2.5,
+                  border: '2px solid',
+                  borderColor: isMyChoice ? '#9b59b6' : isTaken ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.12)',
+                  bgcolor: isMyChoice ? 'rgba(155, 89, 182, 0.08)' : isTaken ? 'rgba(0,0,0,0.03)' : 'transparent',
+                  cursor: isTaken || isMyChoice ? 'default' : 'pointer',
+                  opacity: isTaken ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                  textAlign: 'center',
+                  '&:hover': !isTaken && !isMyChoice ? { borderColor: '#9b59b6', bgcolor: 'rgba(155, 89, 182, 0.04)' } : {},
+                }}
+              >
+                <Box
+                  component="img"
+                  src={CHARACTER_IMAGES[char]}
+                  alt={char}
+                  draggable={false}
+                  sx={{ width: '100%', maxWidth: 80, height: 'auto', aspectRatio: '1', objectFit: 'contain', mx: 'auto', display: 'block', filter: isTaken ? 'grayscale(0.8)' : 'none' }}
+                />
+                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mt: 0.5, color: isMyChoice ? '#9b59b6' : 'text.primary' }}>
+                  {t(`tinhTuy.characters.${char}`)}
+                </Typography>
+                {isTaken && (
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.disabled', display: 'block' }}>
+                    {t('tinhTuy.characters.characterTaken')} {takenByPlayer.displayName}
+                  </Typography>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </Paper>
+
       {/* Players List */}
       <Paper elevation={1} sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3, mb: 3 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
@@ -214,10 +263,16 @@ export const TinhTuyWaitingRoom: React.FC = () => {
                   width: 36, height: 36, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   bgcolor: PLAYER_COLORS[player.slot] || '#9b59b6',
-                  color: '#fff', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0,
+                  flexShrink: 0, overflow: 'hidden', position: 'relative',
                 }}
               >
-                {player.slot}
+                <Box
+                  component="img"
+                  src={CHARACTER_IMAGES[player.character]}
+                  alt={player.character}
+                  draggable={false}
+                  sx={{ width: '115%', height: '115%', objectFit: 'cover', objectPosition: 'top' }}
+                />
               </Box>
               <Box sx={{ flex: 1, fontWeight: player.slot === state.mySlot ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <span>{player.displayName}</span>

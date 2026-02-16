@@ -6,7 +6,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import TinhTuyGame from '../models/TinhTuyGame';
-import { TinhTuyCallback } from '../types/tinh-tuy.types';
+import { TinhTuyCallback, TinhTuyCharacter, VALID_CHARACTERS, ITinhTuyPlayer } from '../types/tinh-tuy.types';
 import { generateUniqueRoomCode } from './tinh-tuy-engine';
 import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
 import {
@@ -20,6 +20,12 @@ const ROOM_CODE_REGEX = /^[A-Z0-9]{6}$/;
 function sanitizeString(val: any, maxLen = 50): string {
   if (typeof val !== 'string') return '';
   return val.replace(/[\x00-\x1f]/g, '').trim().slice(0, maxLen);
+}
+
+/** Return first character not taken by existing players */
+function getFirstAvailableCharacter(players: ITinhTuyPlayer[]): TinhTuyCharacter {
+  const taken = new Set(players.map(p => p.character));
+  return VALID_CHARACTERS.find(c => !taken.has(c)) || 'shiba';
 }
 
 export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
@@ -59,7 +65,8 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
           password: hashedPassword,
         },
         players: [{
-          slot: 1, userId: userId || undefined,
+          slot: 1, character: VALID_CHARACTERS[0],
+          userId: userId || undefined,
           guestId: userId ? undefined : guestId,
           guestName: userId ? undefined : guestName,
           points: startingPoints, position: 0,
@@ -169,7 +176,8 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
       while (usedSlots.has(newSlot) && newSlot <= 4) newSlot++;
 
       game.players.push({
-        slot: newSlot, userId: userId || undefined,
+        slot: newSlot, character: getFirstAvailableCharacter(game.players as ITinhTuyPlayer[]),
+        userId: userId || undefined,
         guestId: userId ? undefined : guestId,
         guestName: userId ? undefined : guestName,
         points: game.settings.startingPoints, position: 0,
@@ -410,6 +418,50 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
     } catch (err: any) {
       console.error('[tinh-tuy:update-guest-name]', err.message);
       callback?.({ success: false, error: 'failedToUpdate' });
+    }
+  });
+
+  // ── Select Character ────────────────────────────────────────
+  socket.on('tinh-tuy:select-character', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      const playerId = socket.data.tinhTuyPlayerId as string;
+      if (!roomId || !playerId) return callback({ success: false, error: 'notInRoom' });
+
+      const character = data?.character as TinhTuyCharacter;
+      if (!VALID_CHARACTERS.includes(character)) {
+        return callback({ success: false, error: 'invalidCharacter' });
+      }
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game) return callback({ success: false, error: 'roomNotFound' });
+      if (game.gameStatus !== 'waiting') {
+        return callback({ success: false, error: 'gameAlreadyStarted' });
+      }
+
+      const player = game.players.find(
+        p => (p.userId?.toString() === playerId) || (p.guestId === playerId)
+      );
+      if (!player) return callback({ success: false, error: 'notInRoom' });
+
+      // Check if character is already taken by another player
+      const takenBy = game.players.find(
+        p => p.character === character && p.slot !== player.slot
+      );
+      if (takenBy) return callback({ success: false, error: 'characterTaken' });
+
+      player.character = character as any;
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:room-updated', {
+        players: game.players,
+      });
+
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:select-character]', err.message);
+      callback({ success: false, error: 'failedToSelect' });
     }
   });
 
