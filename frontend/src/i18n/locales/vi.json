@@ -956,7 +956,13 @@
       "attackResultDestroyed": "Mảnh đất đã bị phá hủy hoàn toàn và trở thành vô chủ",
       "attackResultDemolished": "Đất trống đã bị tịch thu và trở thành vô chủ",
       "attackResultHotelRemoved": "Khách sạn đã bị gỡ bỏ",
-      "attackResultHouseRemoved": "Một căn nhà đã bị phá hủy"
+      "attackResultHouseRemoved": "Một căn nhà đã bị phá hủy",
+      "buybackTitle": "Mua lại đất",
+      "buybackOwner": "Chủ sở hữu",
+      "buybackPriceDesc": "Giá trị tài sản +10%",
+      "buybackAccept": "Mua lại",
+      "buybackDecline": "Bỏ qua",
+      "buybackCantAfford": "Không đủ tiền mua lại!"
     },
     "property": {
       "owner": "Chủ sở hữu",

@@ -35,6 +35,7 @@ import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
 import { TinhTuyAttackPropertyModal } from './TinhTuyAttackPropertyModal';
 import { TinhTuyAttackAlert } from './TinhTuyAttackAlert';
+import { TinhTuyBuybackModal } from './TinhTuyBuybackModal';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
 const PlayerCard: React.FC<{
@@ -362,6 +363,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyBankruptAlert />
       <TinhTuyAttackPropertyModal />
       <TinhTuyAttackAlert />
+      <TinhTuyBuybackModal />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

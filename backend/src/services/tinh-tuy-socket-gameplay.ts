@@ -321,7 +321,9 @@ async function handleCardDraw(
       // Check immunity
       if (player.immunityNextRent) {
         player.immunityNextRent = false;
-        // Immune — no rent paid
+        // Immune — no rent paid, but still offer buyback
+        const bb = await emitBuybackPrompt(io, game, player, effect.playerMoved.to, landingAction.ownerSlot);
+        if (bb) return;
       } else {
         player.points -= landingAction.amount;
         const owner = game.players.find(p => p.slot === landingAction.ownerSlot);
@@ -332,6 +334,9 @@ async function handleCardDraw(
         });
         const gameEnded = await checkBankruptcy(io, game, player);
         if (gameEnded) return;
+        // Offer buyback after rent
+        const bb = await emitBuybackPrompt(io, game, player, effect.playerMoved.to, landingAction.ownerSlot);
+        if (bb) return;
       }
     } else if (landingAction.action === 'buy') {
       // Player can buy — show action prompt
@@ -555,6 +560,64 @@ function applyPropertyAttack(
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
   }
+}
+
+// ─── Buyback Price Calculation ────────────────────────────────
+
+/** Calculate buyback price = total property value × 1.1 */
+function calculateBuybackPrice(owner: ITinhTuyPlayer, cellIndex: number): number {
+  const cell = getCell(cellIndex);
+  if (!cell || !cell.price) return 0;
+  const key = String(cellIndex);
+  let total = cell.price;
+  const houses = owner.houses[key] || 0;
+  if (houses > 0) total += houses * (cell.houseCost || 0);
+  if (owner.hotels[key]) total += (cell.hotelCost || 0);
+  return Math.ceil(total * 1.1);
+}
+
+/**
+ * Emit buyback prompt after rent payment.
+ * If player can't afford, still emit with canAfford=false for frontend notification.
+ * Returns true if we entered AWAITING_BUYBACK phase (caller should return/not advance).
+ */
+async function emitBuybackPrompt(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
+  cellIndex: number, ownerSlot: number,
+): Promise<boolean> {
+  const owner = game.players.find(p => p.slot === ownerSlot);
+  if (!owner || owner.isBankrupt) return false;
+  const price = calculateBuybackPrice(owner, cellIndex);
+  if (price <= 0) return false;
+  const canAfford = player.points >= price;
+
+  if (!canAfford) {
+    // Just notify — not enough money, don't enter waiting phase
+    io.to(game.roomId).emit('tinh-tuy:buyback-prompt', {
+      slot: player.slot, ownerSlot, cellIndex, price, canAfford: false,
+    });
+    return false;
+  }
+
+  // Enter buyback phase
+  game.turnPhase = 'AWAITING_BUYBACK';
+  await game.save();
+  io.to(game.roomId).emit('tinh-tuy:buyback-prompt', {
+    slot: player.slot, ownerSlot, cellIndex, price, canAfford: true,
+  });
+
+  startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+    try {
+      const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+      if (!g || g.turnPhase !== 'AWAITING_BUYBACK') return;
+      // Auto-decline on timeout
+      g.turnPhase = 'END_TURN';
+      await g.save();
+      const p = g.players.find(pp => pp.slot === player.slot)!;
+      await advanceTurnOrDoubles(io, g, p);
+    } catch (err) { console.error('[tinh-tuy] Buyback timeout:', err); }
+  });
+  return true;
 }
 
 // ─── Chat Rate Limiting ──────────────────────────────────────
@@ -1111,6 +1174,101 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     }
   });
 
+  // ── Buyback Property (after paying rent) ─────────────────────
+  socket.on('tinh-tuy:buyback-property', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_BUYBACK') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const { accept, cellIndex } = data || {};
+      if (typeof cellIndex !== 'number') {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+
+      clearTurnTimer(roomId);
+
+      if (!accept) {
+        // Decline — just advance turn
+        game.turnPhase = 'END_TURN';
+        await game.save();
+        await advanceTurnOrDoubles(io, game, player);
+        callback({ success: true });
+        return;
+      }
+
+      // Accept — transfer property from owner to buyer
+      const owner = game.players.find(p => !p.isBankrupt && p.properties.includes(cellIndex));
+      if (!owner) {
+        game.turnPhase = 'END_TURN';
+        await game.save();
+        await advanceTurnOrDoubles(io, game, player);
+        return callback({ success: false, error: 'propertyNotFound' });
+      }
+
+      const price = calculateBuybackPrice(owner, cellIndex);
+      if (player.points < price) {
+        game.turnPhase = 'END_TURN';
+        await game.save();
+        await advanceTurnOrDoubles(io, game, player);
+        return callback({ success: false, error: 'cantAfford' });
+      }
+
+      // Transfer payment
+      player.points -= price;
+      owner.points += price;
+
+      // Transfer property + buildings
+      const key = String(cellIndex);
+      owner.properties = owner.properties.filter(idx => idx !== cellIndex);
+      player.properties.push(cellIndex);
+      player.houses[key] = owner.houses[key] || 0;
+      player.hotels[key] = !!owner.hotels[key];
+      delete owner.houses[key];
+      delete owner.hotels[key];
+
+      // Transfer festival if on this cell
+      if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === owner.slot) {
+        game.festival.slot = player.slot;
+        game.markModified('festival');
+      }
+
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:buyback-completed', {
+        buyerSlot: player.slot,
+        ownerSlot: owner.slot,
+        cellIndex,
+        price,
+        buyerPoints: player.points,
+        ownerPoints: owner.points,
+        houses: player.houses[key] || 0,
+        hotel: !!player.hotels[key],
+      });
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:buyback-property]', err.message);
+      callback({ success: false, error: 'buybackFailed' });
+    }
+  });
+
   // ── Sell Buildings (to avoid bankruptcy) ─────────────────────
   socket.on('tinh-tuy:sell-buildings', async (data: any, callback: TinhTuyCallback) => {
     try {
@@ -1397,7 +1555,9 @@ async function resolveAndAdvance(
       // Check immunity
       if (player.immunityNextRent) {
         player.immunityNextRent = false;
-        // Immune — skip rent
+        // Immune — skip rent, but still offer buyback
+        const buybackStarted = await emitBuybackPrompt(io, game, player, cellIndex, cellAction.ownerSlot);
+        if (buybackStarted) return;
         break;
       }
       player.points -= cellAction.amount;
@@ -1411,6 +1571,10 @@ async function resolveAndAdvance(
 
       const gameEnded = await checkBankruptcy(io, game, player);
       if (gameEnded) return;
+
+      // Offer buyback after paying rent (if still solvent)
+      const buybackStarted = await emitBuybackPrompt(io, game, player, cellIndex, cellAction.ownerSlot);
+      if (buybackStarted) return;
       break;
     }
     case 'tax': {

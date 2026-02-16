@@ -956,7 +956,13 @@
       "attackResultDestroyed": "The property was completely destroyed and is now unowned",
       "attackResultDemolished": "Empty land was seized and is now unowned",
       "attackResultHotelRemoved": "The hotel has been removed",
-      "attackResultHouseRemoved": "One house has been demolished"
+      "attackResultHouseRemoved": "One house has been demolished",
+      "buybackTitle": "Buy Back Property",
+      "buybackOwner": "Owner",
+      "buybackPriceDesc": "Property value +10%",
+      "buybackAccept": "Buy",
+      "buybackDecline": "Skip",
+      "buybackCantAfford": "Can't afford to buy back!"
     },
     "property": {
       "owner": "Owner",

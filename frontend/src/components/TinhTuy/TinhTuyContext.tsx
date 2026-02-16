@@ -107,6 +107,8 @@ const initialState: TinhTuyState = {
   queuedGameFinished: null,
   attackPrompt: null,
   attackAlert: null,
+  buybackPrompt: null,
+  queuedBuybackPrompt: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -216,7 +218,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         festival: g.festival || null,
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
         pendingCardEffect: null, gameEndReason: null,
-        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null,
+        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null, buybackPrompt: null, queuedBuybackPrompt: null,
       };
     }
 
@@ -423,6 +425,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         buildPrompt: null,
         freeHousePrompt: null,
         sellPrompt: null,
+        buybackPrompt: null,
         queuedTurnChange: null,
       };
     }
@@ -499,6 +502,50 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CLEAR_ATTACK_ALERT':
       return { ...state, attackAlert: null };
+
+    case 'BUYBACK_PROMPT':
+      return { ...state, queuedBuybackPrompt: action.payload };
+
+    case 'APPLY_QUEUED_BUYBACK':
+      return { ...state, turnPhase: 'AWAITING_BUYBACK', buybackPrompt: state.queuedBuybackPrompt, queuedBuybackPrompt: null };
+
+    case 'CLEAR_BUYBACK_PROMPT':
+      return { ...state, buybackPrompt: null };
+
+    case 'BUYBACK_COMPLETED': {
+      const { buyerSlot, ownerSlot, cellIndex: bbCell, price: bbPrice, buyerPoints, ownerPoints, houses: bbHouses, hotel: bbHotel } = action.payload;
+      const dpBb = freezePoints(state);
+      const updatedPlayers = state.players.map(p => {
+        if (p.slot === buyerSlot) {
+          const key = String(bbCell);
+          return {
+            ...p,
+            points: buyerPoints,
+            properties: [...p.properties, bbCell],
+            houses: { ...p.houses, [key]: bbHouses },
+            hotels: { ...p.hotels, [key]: bbHotel },
+          };
+        }
+        if (p.slot === ownerSlot) {
+          const key = String(bbCell);
+          const newHouses = { ...p.houses };
+          const newHotels = { ...p.hotels };
+          delete newHouses[key];
+          delete newHotels[key];
+          return { ...p, points: ownerPoints, properties: p.properties.filter(idx => idx !== bbCell), houses: newHouses, hotels: newHotels };
+        }
+        return p;
+      });
+      // Transfer festival if needed
+      let newFestival = state.festival;
+      if (state.festival && state.festival.cellIndex === bbCell && state.festival.slot === ownerSlot) {
+        newFestival = { ...state.festival, slot: buyerSlot };
+      }
+      return {
+        ...state, players: updatedPlayers, buybackPrompt: null, festival: newFestival, displayPoints: dpBb,
+        pendingNotifs: queueNotifs(state.pendingNotifs, [{ slot: buyerSlot, amount: -bbPrice }, { slot: ownerSlot, amount: bbPrice }]),
+      };
+    }
 
     case 'APPLY_QUEUED_GAME_FINISHED': {
       const qgf = state.queuedGameFinished;
@@ -842,6 +889,7 @@ interface TinhTuyContextValue {
   chooseFreeHouse: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
   clearAttackAlert: () => void;
+  buybackProperty: (cellIndex: number, accept: boolean) => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -982,6 +1030,15 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'PROPERTY_ATTACKED', payload: data });
     };
 
+    const handleBuybackPrompt = (data: any) => {
+      dispatch({ type: 'BUYBACK_PROMPT', payload: data });
+    };
+
+    const handleBuybackCompleted = (data: any) => {
+      dispatch({ type: 'BUYBACK_COMPLETED', payload: data });
+      tinhTuySounds.playSFX('purchase');
+    };
+
     const handleTravelPending = (data: any) => {
       dispatch({ type: 'TRAVEL_PENDING', payload: data });
     };
@@ -1046,6 +1103,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
     socket.on('tinh-tuy:attack-property-prompt' as any, handleAttackPropertyPrompt);
     socket.on('tinh-tuy:property-attacked' as any, handlePropertyAttacked);
+    socket.on('tinh-tuy:buyback-prompt' as any, handleBuybackPrompt);
+    socket.on('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1081,6 +1140,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
       socket.off('tinh-tuy:attack-property-prompt' as any, handleAttackPropertyPrompt);
       socket.off('tinh-tuy:property-attacked' as any, handlePropertyAttacked);
+      socket.off('tinh-tuy:buyback-prompt' as any, handleBuybackPrompt);
+      socket.off('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1376,7 +1437,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
-  const sellBuildings = useCallback((selections: Array<{ cellIndex: number; type: 'house' | 'hotel'; count: number }>) => {
+  const sellBuildings = useCallback((selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => {
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:sell-buildings' as any, { selections }, (res: any) => {
@@ -1394,6 +1455,15 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const clearAttackAlert = useCallback(() => {
     dispatch({ type: 'CLEAR_ATTACK_ALERT' });
+  }, []);
+
+  const buybackProperty = useCallback((cellIndex: number, accept: boolean) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    dispatch({ type: 'CLEAR_BUYBACK_PROMPT' });
+    socket.emit('tinh-tuy:buyback-property' as any, { cellIndex, accept }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
   }, []);
 
   // Auto-refresh rooms on lobby view
@@ -1575,6 +1645,21 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_BUILD' });
   }, [state.queuedBuildPrompt, isAnimBusy]);
 
+  // Apply queued buyback prompt after movement + rent alert finishes
+  useEffect(() => {
+    if (!state.queuedBuybackPrompt || isAnimBusy) return;
+    // Wait for rent alert to show and dismiss first
+    if (state.queuedRentAlert || state.rentAlert) return;
+    dispatch({ type: 'APPLY_QUEUED_BUYBACK' });
+  }, [state.queuedBuybackPrompt, isAnimBusy, state.queuedRentAlert, state.rentAlert]);
+
+  // Buyback prompt with canAfford=false auto-dismiss after 3s
+  useEffect(() => {
+    if (!state.buybackPrompt || state.buybackPrompt.canAfford) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BUYBACK_PROMPT' }), 3000);
+    return () => clearTimeout(timer);
+  }, [state.buybackPrompt]);
+
   // Apply queued sell prompt after movement animation finishes
   useEffect(() => {
     if (!state.queuedSellPrompt || isAnimBusy) return;
@@ -1633,7 +1718,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert, buybackProperty,
     }}>
       {children}
     </TinhTuyContext.Provider>

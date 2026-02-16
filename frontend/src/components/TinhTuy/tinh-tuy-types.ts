@@ -9,7 +9,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -204,6 +204,10 @@ export interface TinhTuyState {
   attackPrompt: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } | null;
   /** Attack result alert — shown to all players when property is attacked */
   attackAlert: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null;
+  /** Buyback prompt — shown after paying rent on opponent's property */
+  buybackPrompt: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } | null;
+  /** Queued buyback prompt — applied after animations settle */
+  queuedBuybackPrompt: TinhTuyState['buybackPrompt'];
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -262,7 +266,7 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_BUILD' }
   | { type: 'CLEAR_BUILD_PROMPT' }
   | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number } }
-  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean> } }
+  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[] } }
   | { type: 'APPLY_QUEUED_SELL' }
   | { type: 'TRAVEL_PENDING'; payload: { slot: number } }
   | { type: 'APPLY_QUEUED_TRAVEL_PENDING' }
@@ -275,7 +279,11 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_GAME_FINISHED' }
   | { type: 'ATTACK_PROPERTY_PROMPT'; payload: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } }
   | { type: 'PROPERTY_ATTACKED'; payload: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } }
-  | { type: 'CLEAR_ATTACK_ALERT' };
+  | { type: 'CLEAR_ATTACK_ALERT' }
+  | { type: 'BUYBACK_PROMPT'; payload: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } }
+  | { type: 'APPLY_QUEUED_BUYBACK' }
+  | { type: 'CLEAR_BUYBACK_PROMPT' }
+  | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {
