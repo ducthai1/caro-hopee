@@ -3,7 +3,7 @@
  * Player can sell individual buildings (house/hotel) or entire properties (land + buildings).
  * When selling a property, all buildings on it are included automatically.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Typography, Box, Chip, IconButton, LinearProgress, Divider,
@@ -42,6 +42,11 @@ export const TinhTuySellModal: React.FC = () => {
   const sp = state.sellPrompt;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
+
+  // Reset selections when a new sell session starts (sp changes from null → object)
+  useEffect(() => {
+    if (sp) setSelections([]);
+  }, [sp]);
 
   // Set of properties selected for full sell (land + buildings)
   const propertySellSet = useMemo(
