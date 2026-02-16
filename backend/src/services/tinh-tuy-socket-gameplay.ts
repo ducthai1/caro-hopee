@@ -431,7 +431,7 @@ async function handleCardDraw(
     const targetCells = effect.targetableCells || [];
     if (targetCells.length > 0) {
       const phase = effect.requiresChoice === 'DESTROY_PROPERTY' ? 'AWAITING_DESTROY_PROPERTY' : 'AWAITING_DOWNGRADE_BUILDING';
-      game.turnPhase = phase as any;
+      game.turnPhase = phase;
       await game.save();
       io.to(game.roomId).emit('tinh-tuy:attack-property-prompt', {
         slot: player.slot, attackType: effect.requiresChoice, targetCells,

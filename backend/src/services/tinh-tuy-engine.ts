@@ -222,20 +222,19 @@ export function handleIslandEscape(
 /** Check if player can build a house on cellIndex */
 export function canBuildHouse(
   game: ITinhTuyGame, playerSlot: number, cellIndex: number
-): { valid: boolean; error?: string; cost?: number } {
+): { valid: boolean; error?: string; cost: number } {
   const player = game.players.find(p => p.slot === playerSlot);
-  if (!player) return { valid: false, error: 'playerNotFound' };
+  if (!player) return { valid: false, error: 'playerNotFound', cost: 0 };
 
   const cell = getCell(cellIndex);
-  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable' };
-  if (!player.properties.includes(cellIndex)) return { valid: false, error: 'notOwned' };
-
-  const currentHouses = player.houses[String(cellIndex)] || 0;
-  if (currentHouses >= 4) return { valid: false, error: 'maxHouses' };
-  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel' };
+  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable', cost: 0 };
+  if (!player.properties.includes(cellIndex)) return { valid: false, error: 'notOwned', cost: 0 };
 
   const cost = cell.houseCost || 0;
-  if (player.points < cost) return { valid: false, error: 'cannotAfford' };
+  const currentHouses = player.houses[String(cellIndex)] || 0;
+  if (currentHouses >= 4) return { valid: false, error: 'maxHouses', cost };
+  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel', cost };
+  if (player.points < cost) return { valid: false, error: 'cannotAfford', cost };
 
   return { valid: true, cost };
 }
@@ -246,7 +245,7 @@ export function buildHouse(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
   if (!check.valid) return false;
 
   const player = game.players.find(p => p.slot === playerSlot)!;
-  player.points -= check.cost!;
+  player.points -= check.cost;
   player.houses[String(cellIndex)] = (player.houses[String(cellIndex)] || 0) + 1;
   return true;
 }
@@ -254,19 +253,18 @@ export function buildHouse(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
 /** Check if player can upgrade to hotel on cellIndex (requires 4 houses) */
 export function canBuildHotel(
   game: ITinhTuyGame, playerSlot: number, cellIndex: number
-): { valid: boolean; error?: string; cost?: number } {
+): { valid: boolean; error?: string; cost: number } {
   const player = game.players.find(p => p.slot === playerSlot);
-  if (!player) return { valid: false, error: 'playerNotFound' };
+  if (!player) return { valid: false, error: 'playerNotFound', cost: 0 };
 
   const cell = getCell(cellIndex);
-  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable' };
-
-  const currentHouses = player.houses[String(cellIndex)] || 0;
-  if (currentHouses !== 4) return { valid: false, error: 'need4Houses' };
-  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel' };
+  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable', cost: 0 };
 
   const cost = cell.hotelCost || 0;
-  if (player.points < cost) return { valid: false, error: 'cannotAfford' };
+  const currentHouses = player.houses[String(cellIndex)] || 0;
+  if (currentHouses !== 4) return { valid: false, error: 'need4Houses', cost };
+  if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel', cost };
+  if (player.points < cost) return { valid: false, error: 'cannotAfford', cost };
 
   return { valid: true, cost };
 }
@@ -277,7 +275,7 @@ export function buildHotel(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
   if (!check.valid) return false;
 
   const player = game.players.find(p => p.slot === playerSlot)!;
-  player.points -= check.cost!;
+  player.points -= check.cost;
   player.houses[String(cellIndex)] = 0;
   player.hotels[String(cellIndex)] = true;
   return true;

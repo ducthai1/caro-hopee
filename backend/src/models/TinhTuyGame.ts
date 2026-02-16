@@ -66,7 +66,7 @@ const TinhTuyGameSchema = new Schema({
   currentPlayerSlot: { type: Number, default: 1 },
   turnPhase: {
     type: String,
-    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_BUILD', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'AWAITING_SELL', 'ISLAND_TURN', 'END_TURN'],
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_BUILD', 'AWAITING_FREE_HOUSE', 'AWAITING_CARD', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'AWAITING_SELL', 'AWAITING_DESTROY_PROPERTY', 'AWAITING_DOWNGRADE_BUILDING', 'AWAITING_BUYBACK', 'ISLAND_TURN', 'END_TURN'],
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },

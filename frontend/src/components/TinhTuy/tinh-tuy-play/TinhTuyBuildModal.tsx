@@ -19,6 +19,7 @@ interface BuildableProperty {
   houses: number;
   hasHotel: boolean;
   houseCost: number;
+  hotelCost: number;
   canBuildHouse: boolean;
   canBuildHotel: boolean;
 }
@@ -53,16 +54,17 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
         if (!cell) continue;
         const houses = (myPlayer.houses || {})[String(idx)] || 0;
         const hasHotel = !!(myPlayer.hotels || {})[String(idx)];
-        const houseCost = cell.houseCost || Math.round((cell.price || 0) * 0.5);
+        const houseCost = cell.houseCost || 0;
+        const hotelCost = cell.hotelCost || 0;
 
         // Even-build: can only build if this is at min level in group
         const minHouses = Math.min(...props.map(i => (myPlayer.houses || {})[String(i)] || 0));
         const canBuildHouse = !hasHotel && houses < 4 && houses <= minHouses && myPlayer.points >= houseCost;
-        const canBuildHotel = !hasHotel && houses === 4 && myPlayer.points >= houseCost;
+        const canBuildHotel = !hasHotel && houses === 4 && myPlayer.points >= hotelCost;
 
         result.push({
           cellIndex: idx, name: cell.name, group: cell.group as PropertyGroup,
-          houses, hasHotel, houseCost, canBuildHouse, canBuildHotel,
+          houses, hasHotel, houseCost, hotelCost, canBuildHouse, canBuildHotel,
         });
       }
     }
@@ -108,9 +110,6 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
                         sx={{ bgcolor: 'rgba(39,174,96,0.15)', color: '#27ae60' }}
                       />
                     )}
-                    <Typography variant="caption" sx={{ color: 'text.secondary', alignSelf: 'center' }}>
-                      {prop.houseCost.toLocaleString()} TT
-                    </Typography>
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -124,7 +123,7 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
                         fontSize: '0.7rem', px: 1.5,
                       }}
                     >
-                      {t('tinhTuy.game.buildHouse' as any)}
+                      {t('tinhTuy.game.buildHouse' as any)} — {prop.houseCost.toLocaleString()} TT
                     </Button>
                   )}
                   {prop.canBuildHotel && (
@@ -137,7 +136,7 @@ export const TinhTuyBuildModal: React.FC<{ open: boolean; onClose: () => void }>
                         fontSize: '0.7rem', px: 1.5,
                       }}
                     >
-                      {t('tinhTuy.game.buildHotel' as any)}
+                      {t('tinhTuy.game.buildHotel' as any)} — {prop.hotelCost.toLocaleString()} TT
                     </Button>
                   )}
                 </Box>
