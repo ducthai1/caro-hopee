@@ -171,10 +171,10 @@ export const TinhTuySellModal: React.FC = () => {
 
         {/* Sellable items grouped by property */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {[...groupedByCell.entries()].map(([cellIndex, items], gi) => {
+          {Array.from(groupedByCell.entries()).map(([cellIndex, items]: [number, typeof sellableItems], gi: number) => {
             const isPropertySold = propertySellSet.has(cellIndex);
-            const propertyItem = items.find(i => i.type === 'property')!;
-            const groupColor = propertyItem.group ? GROUP_COLORS[propertyItem.group] : '#999';
+            const propertyItem = items.find((i: typeof sellableItems[0]) => i.type === 'property')!;
+            const groupColor = propertyItem.group ? GROUP_COLORS[propertyItem.group as PropertyGroup] : '#999';
 
             return (
               <Box key={cellIndex}>
@@ -196,7 +196,7 @@ export const TinhTuySellModal: React.FC = () => {
                 </Box>
 
                 {/* Individual items for this property */}
-                {items.map((item) => {
+                {items.map((item: typeof sellableItems[0]) => {
                   const count = getSelCount(item.cellIndex, item.type);
                   const isBuilding = item.type !== 'property';
                   // Disable building toggles if property is being sold

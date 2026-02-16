@@ -59,7 +59,7 @@ export const TinhTuyAttackPropertyModal: React.FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {[...cellsByOwner.entries()].map(([ownerSlot, cells], gi) => {
+          {Array.from(cellsByOwner.entries()).map(([ownerSlot, cells]: [number, number[]], gi: number) => {
             const owner = state.players.find(p => p.slot === ownerSlot);
             if (!owner) return null;
             const ownerColor = PLAYER_COLORS[ownerSlot] || '#999';
@@ -76,7 +76,7 @@ export const TinhTuyAttackPropertyModal: React.FC = () => {
                 </Box>
 
                 {/* Owner's properties */}
-                {cells.map(cellIdx => {
+                {cells.map((cellIdx: number) => {
                   const cell = BOARD_CELLS.find(c => c.index === cellIdx);
                   if (!cell) return null;
                   const key = String(cellIdx);
