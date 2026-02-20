@@ -150,6 +150,8 @@ async function advanceTurnOrDoubles(
       try {
         const g = await TinhTuyGame.findOne({ roomId: game.roomId });
         if (!g || g.gameStatus !== 'playing') return;
+        // Guard: if player already rolled (turnPhase moved past ROLL_DICE), skip
+        if (g.turnPhase !== 'ROLL_DICE') return;
         await advanceTurn(io, g);
       } catch (err) { console.error('[tinh-tuy] Turn timeout:', err); }
     });

@@ -484,6 +484,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         });
       }
       // Don't clear rentAlert/taxAlert/islandAlertSlot — they have their own 4s auto-dismiss timers
+      // Clear ALL stale queued effects from the previous turn to prevent them from
+      // firing after the turn change and overwriting the new turnPhase (e.g. doubles → ROLL_DICE)
       return {
         ...state,
         players: updatedPlayers,
@@ -498,6 +500,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         buybackPrompt: null,
         attackPrompt: null,
         queuedTurnChange: null,
+        queuedAction: null,
+        queuedBuildPrompt: null,
+        queuedSellPrompt: null,
+        queuedBuybackPrompt: null,
+        queuedTravelPrompt: false,
+        queuedFestivalPrompt: false,
       };
     }
 
@@ -1600,7 +1608,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const delay = state.pendingMove.fromCard ? 300 : 2500;
     const timer = setTimeout(() => dispatch({ type: 'START_MOVE' }), delay);
     return () => clearTimeout(timer);
-  }, [state.pendingMove?.slot, state.pendingMove?.path.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.pendingMove]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Movement animation driver — step every 280ms + move SFX per step
   useEffect(() => {
