@@ -1619,10 +1619,11 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [state.queuedTravelPrompt, isAnimBusy]);
 
   // Apply queued festival prompt after movement animation finishes
+  // Uses isTurnChangeBusy — excludes diceAnimating to prevent stuck state
   useEffect(() => {
-    if (!state.queuedFestivalPrompt || isAnimBusy) return;
+    if (!state.queuedFestivalPrompt || isTurnChangeBusy) return;
     dispatch({ type: 'APPLY_QUEUED_FESTIVAL' });
-  }, [state.queuedFestivalPrompt, isAnimBusy]);
+  }, [state.queuedFestivalPrompt, isTurnChangeBusy]);
 
   // Apply queued rent alert after movement animation finishes
   useEffect(() => {
@@ -1693,17 +1694,17 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Apply queued build prompt after movement animation finishes
   useEffect(() => {
-    if (!state.queuedBuildPrompt || isAnimBusy) return;
+    if (!state.queuedBuildPrompt || isTurnChangeBusy) return;
     dispatch({ type: 'APPLY_QUEUED_BUILD' });
-  }, [state.queuedBuildPrompt, isAnimBusy]);
+  }, [state.queuedBuildPrompt, isTurnChangeBusy]);
 
   // Apply queued buyback prompt after movement + rent alert finishes
   useEffect(() => {
-    if (!state.queuedBuybackPrompt || isAnimBusy) return;
+    if (!state.queuedBuybackPrompt || isTurnChangeBusy) return;
     // Wait for rent alert to show and dismiss first
     if (state.queuedRentAlert || state.rentAlert) return;
     dispatch({ type: 'APPLY_QUEUED_BUYBACK' });
-  }, [state.queuedBuybackPrompt, isAnimBusy, state.queuedRentAlert, state.rentAlert]);
+  }, [state.queuedBuybackPrompt, isTurnChangeBusy, state.queuedRentAlert, state.rentAlert]);
 
   // Buyback prompt with canAfford=false auto-dismiss after 3s
   useEffect(() => {
@@ -1714,17 +1715,17 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Apply queued sell prompt after movement animation + rent/tax alerts finish
   useEffect(() => {
-    if (!state.queuedSellPrompt || isAnimBusy) return;
+    if (!state.queuedSellPrompt || isTurnChangeBusy) return;
     if (state.queuedRentAlert || state.rentAlert) return;
     if (state.queuedTaxAlert || state.taxAlert) return;
     dispatch({ type: 'APPLY_QUEUED_SELL' });
-  }, [state.queuedSellPrompt, isAnimBusy, state.queuedRentAlert, state.rentAlert, state.queuedTaxAlert, state.taxAlert]);
+  }, [state.queuedSellPrompt, isTurnChangeBusy, state.queuedRentAlert, state.rentAlert, state.queuedTaxAlert, state.taxAlert]);
 
   // Apply queued action (buy/skip modal) after movement animation finishes
   useEffect(() => {
-    if (!state.queuedAction || isAnimBusy) return;
+    if (!state.queuedAction || isTurnChangeBusy) return;
     dispatch({ type: 'APPLY_QUEUED_ACTION' });
-  }, [state.queuedAction, isAnimBusy]);
+  }, [state.queuedAction, isTurnChangeBusy]);
 
   // Apply queued turn change after movement animation finishes (skip if game ending)
   // Uses isTurnChangeBusy (not isAnimBusy) — excludes diceAnimating to prevent stuck state
