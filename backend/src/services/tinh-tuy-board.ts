@@ -135,8 +135,8 @@ export function getStationRent(stationsOwned: number): number {
 }
 
 /** Utility rent: price scales with completed rounds.
- *  Formula: price × (1 + 0.25 × completedRounds), completedRounds = max(round - 1, 0) */
-export const UTILITY_ROUND_MULTIPLIER = 0.15;
+ *  Formula: price × (1 + 0.08 × completedRounds), completedRounds = max(round - 1, 0) */
+export const UTILITY_ROUND_MULTIPLIER = 0.08;
 
 export function getUtilityRent(price: number, completedRounds: number): number {
   return Math.floor(price * (1 + UTILITY_ROUND_MULTIPLIER * Math.max(completedRounds, 0)));
