@@ -9,6 +9,7 @@ import {
   Button, Typography, Box,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
+import ReplayIcon from '@mui/icons-material/Replay';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS, TinhTuyPlayer } from '../tinh-tuy-types';
@@ -37,7 +38,7 @@ const MEDAL_BORDER = ['rgba(255,193,7,0.5)', 'rgba(158,158,158,0.4)', 'rgba(205,
 
 export const TinhTuyGameOverModal: React.FC = () => {
   const { t } = useLanguage();
-  const { state, setView } = useTinhTuy();
+  const { state, setView, playAgain, leaveRoom } = useTinhTuy();
 
   if (state.gameStatus !== 'finished') return null;
 
@@ -225,18 +226,47 @@ export const TinhTuyGameOverModal: React.FC = () => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ justifyContent: 'center', pb: 3, pt: 2, px: 3 }}>
+      <DialogActions sx={{ flexDirection: 'column', gap: 1, pb: 3, pt: 2, px: 3 }}>
+        {state.isHost ? (
+          <Button
+            variant="contained"
+            startIcon={<ReplayIcon />}
+            onClick={playAgain}
+            sx={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #27ae60 0%, #1e8449 100%)',
+              color: '#fff',
+              '&:hover': { background: 'linear-gradient(135deg, #1e8449 0%, #196f3d 100%)', transform: 'translateY(-1px)' },
+              py: 1.3, fontWeight: 700, borderRadius: 3, fontSize: '0.95rem',
+              boxShadow: '0 4px 15px rgba(39,174,96,0.3)',
+              transition: 'all 0.2s',
+            }}
+          >
+            {t('tinhTuy.result.playAgain' as any)}
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            disabled
+            startIcon={<ReplayIcon />}
+            sx={{
+              width: '100%',
+              py: 1.3, fontWeight: 700, borderRadius: 3, fontSize: '0.95rem',
+            }}
+          >
+            {t('tinhTuy.result.waitingHost' as any)}
+          </Button>
+        )}
         <Button
-          variant="contained"
+          variant="outlined"
           startIcon={<HomeIcon />}
-          onClick={() => setView('lobby')}
+          onClick={leaveRoom}
           sx={{
             width: '100%',
-            background: 'linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)',
-            color: '#fff',
-            '&:hover': { background: 'linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%)', transform: 'translateY(-1px)' },
-            py: 1.3, fontWeight: 700, borderRadius: 3, fontSize: '0.95rem',
-            boxShadow: '0 4px 15px rgba(155,89,182,0.3)',
+            color: '#9b59b6',
+            borderColor: 'rgba(155,89,182,0.4)',
+            '&:hover': { borderColor: '#9b59b6', bgcolor: 'rgba(155,89,182,0.04)', transform: 'translateY(-1px)' },
+            py: 1, fontWeight: 600, borderRadius: 3, fontSize: '0.9rem',
             transition: 'all 0.2s',
           }}
         >

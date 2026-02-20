@@ -1094,7 +1094,8 @@
       "reasonRoundsComplete": "All rounds completed",
       "reasonBankrupt": "bankrupt",
       "reasonSurrender": "surrendered",
-      "netWorth": "Net worth"
+      "netWorth": "Net worth",
+      "waitingHost": "Waiting for host..."
     }
   }
 }

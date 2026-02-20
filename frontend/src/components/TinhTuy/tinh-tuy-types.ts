@@ -295,7 +295,8 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_BUYBACK' }
   | { type: 'CLEAR_BUYBACK_PROMPT' }
   | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } }
-  | { type: 'FORCE_CLEAR_ANIM' };
+  | { type: 'FORCE_CLEAR_ANIM' }
+  | { type: 'ROOM_RESET'; payload: { game: any } };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

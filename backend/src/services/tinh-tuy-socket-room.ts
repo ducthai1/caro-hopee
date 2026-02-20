@@ -465,6 +465,76 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
     }
   });
 
+  // ── Play Again (reset to waiting room) ─────────────────────
+  socket.on('tinh-tuy:play-again', async (_data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      const playerId = socket.data.tinhTuyPlayerId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game) return callback({ success: false, error: 'roomNotFound' });
+      if (game.hostPlayerId !== playerId) {
+        return callback({ success: false, error: 'notHost' });
+      }
+      if (game.gameStatus !== 'finished') {
+        return callback({ success: false, error: 'gameNotFinished' });
+      }
+
+      // Clear turn timer
+      const { clearTurnTimer } = await import('./tinh-tuy-socket');
+      clearTurnTimer(roomId);
+
+      // Reset game-level fields
+      game.gameStatus = 'waiting';
+      game.winner = undefined;
+      game.finishedAt = undefined;
+      game.gameStartedAt = undefined;
+      game.festival = null as any;
+      game.lastDiceResult = null as any;
+      game.round = 0;
+      game.turnPhase = 'ROLL_DICE';
+      game.currentPlayerSlot = 1;
+      game.luckCardDeck = [];
+      game.luckCardIndex = 0;
+      game.opportunityCardDeck = [];
+      game.opportunityCardIndex = 0;
+
+      // Reset each player (keep identity + character)
+      const startingPoints = game.settings.startingPoints;
+      for (const p of game.players) {
+        p.points = startingPoints;
+        p.position = 0;
+        p.properties = [];
+        p.houses = {} as Record<string, number>;
+        p.hotels = {} as Record<string, boolean>;
+        p.islandTurns = 0;
+        p.cards = [];
+        p.isBankrupt = false;
+        p.consecutiveDoubles = 0;
+        p.skipNextTurn = false;
+        p.immunityNextRent = false;
+        p.doubleRentTurns = 0;
+        p.pendingTravel = false;
+      }
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:room-reset', { game: game.toObject() });
+
+      // Notify lobby
+      io.emit('tinh-tuy:lobby-room-updated', {
+        roomId: game.roomId, roomCode: game.roomCode,
+        playerCount: game.players.length, maxPlayers: game.settings.maxPlayers,
+      });
+
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:play-again]', err.message);
+      callback({ success: false, error: 'failedToReset' });
+    }
+  });
+
   // ── Update Room Settings ─────────────────────────────────────
   socket.on('tinh-tuy:update-room', async (data: any, callback: TinhTuyCallback) => {
     try {

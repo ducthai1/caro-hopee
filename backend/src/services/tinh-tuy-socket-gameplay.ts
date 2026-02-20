@@ -267,7 +267,7 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
 
 /** Draw card and resolve — handles most card types immediately */
 async function handleCardDraw(
-  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, cellType: 'KHI_VAN' | 'CO_HOI'
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, cellType: 'KHI_VAN' | 'CO_HOI', depth = 0
 ): Promise<void> {
   const isKhiVan = cellType === 'KHI_VAN';
   const deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
@@ -431,7 +431,14 @@ async function handleCardDraw(
       });
       return; // Wait for player choice
     }
-    // Don't resolve cards again from card movement (prevent recursion)
+    // Card moved player to another KHI_VAN/CO_HOI cell — draw again (max 3 deep)
+    if (landingAction.action === 'card' && depth < 3) {
+      const landingCell = getCell(effect.playerMoved.to);
+      if (landingCell && (landingCell.type === 'KHI_VAN' || landingCell.type === 'CO_HOI')) {
+        await handleCardDraw(io, game, player, landingCell.type, depth + 1);
+        return;
+      }
+    }
   }
 
   // If go to island from card

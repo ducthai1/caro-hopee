@@ -922,6 +922,23 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CHAT_MESSAGE':
       return { ...state, chatMessages: [...state.chatMessages, action.payload].slice(-50) };
 
+    case 'ROOM_RESET': {
+      const rg = action.payload.game;
+      saveRoomSession(rg.roomCode);
+      return {
+        ...initialState,
+        waitingRooms: state.waitingRooms,
+        view: 'waiting' as TinhTuyView,
+        roomId: rg.roomId,
+        roomCode: rg.roomCode,
+        settings: rg.settings,
+        players: mapPlayers(rg.players),
+        isHost: state.isHost,
+        mySlot: state.mySlot,
+        gameStatus: 'waiting',
+      };
+    }
+
     case 'LEAVE_ROOM':
       clearRoomSession();
       return { ...initialState, waitingRooms: state.waitingRooms };
@@ -965,6 +982,7 @@ interface TinhTuyContextValue {
   clearAttackAlert: () => void;
   buybackProperty: (cellIndex: number, accept: boolean) => void;
   selectCharacter: (character: TinhTuyCharacter) => void;
+  playAgain: () => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -1130,6 +1148,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
     };
 
+    const handleRoomReset = (data: any) => {
+      dispatch({ type: 'ROOM_RESET', payload: data });
+    };
+
     const handleChatMessage = (data: any) => {
       dispatch({ type: 'CHAT_MESSAGE', payload: data });
       tinhTuySounds.playSFX('chat');
@@ -1183,6 +1205,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
+    socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
     socket.on('tinh-tuy:room-created' as any, handleLobbyUpdated);
     socket.on('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
 
@@ -1220,6 +1243,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
+      socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
       socket.off('tinh-tuy:room-created' as any, handleLobbyUpdated);
       socket.off('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
     };
@@ -1541,6 +1565,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const playAgain = useCallback(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:play-again' as any, {}, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   const selectCharacter = useCallback((character: TinhTuyCharacter) => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -1835,7 +1867,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert, buybackProperty, selectCharacter,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, clearAttackAlert, buybackProperty, selectCharacter, playAgain,
     }}>
       {children}
     </TinhTuyContext.Provider>
