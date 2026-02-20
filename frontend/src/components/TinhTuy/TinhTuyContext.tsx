@@ -445,6 +445,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         freeHousePrompt: null,
         sellPrompt: null,
         buybackPrompt: null,
+        attackPrompt: null,
         queuedTurnChange: null,
       };
     }
@@ -1556,6 +1557,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.rentAlert]);
 
+  // Attack alert auto-dismiss after 4s (safety net — component also has its own timer,
+  // but if component unmounts/remounts during timer, this context-level timer ensures cleanup)
+  useEffect(() => {
+    if (!state.attackAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ATTACK_ALERT' }), 4000);
+    return () => clearTimeout(timer);
+  }, [state.attackAlert]);
+
   // Flush pending notifs → visible pointNotifs when animation + modals are all done
   useEffect(() => {
     if (state.pendingNotifs.length === 0) return;
@@ -1580,17 +1589,19 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.pointNotifs.length]);
 
-  // Common gate: wait for card modal + card movement + movement animation to all finish
-  // Gate: dice animation + card modal + movement animation must all finish before queued effects fire
+  // Gate: dice animation + card modal + movement animation must all finish before queued visual effects fire
   const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken);
+  // Separate gate for turn change: excludes diceAnimating since it's purely visual
+  // and its timer can fail (tab backgrounded, component re-mount), causing permanent stuck state
+  const isTurnChangeBusy = !!(state.drawnCard || state.pendingMove || state.animatingToken);
 
-  // Safety watchdog: force-clear stuck animation state after 15s
+  // Safety watchdog: force-clear stuck animation state after 5s
   useEffect(() => {
     if (!isAnimBusy) return;
     const timer = setTimeout(() => {
-      console.warn('[TinhTuy] Animation stuck >15s — force clearing');
+      console.warn('[TinhTuy] Animation stuck >5s — force clearing');
       dispatch({ type: 'FORCE_CLEAR_ANIM' });
-    }, 15000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [isAnimBusy]);
 
@@ -1716,8 +1727,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [state.queuedAction, isAnimBusy]);
 
   // Apply queued turn change after movement animation finishes (skip if game ending)
+  // Uses isTurnChangeBusy (not isAnimBusy) — excludes diceAnimating to prevent stuck state
+  // when dice animation timer fails (tab backgrounded, component re-mount)
   useEffect(() => {
-    if (!state.queuedTurnChange || isAnimBusy) return;
+    if (!state.queuedTurnChange || isTurnChangeBusy) return;
     if (state.queuedGameFinished) return; // Game ending — no next turn
     const timer = setTimeout(() => {
       // Play "your turn" sound when turn actually switches
@@ -1727,7 +1740,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'APPLY_QUEUED_TURN_CHANGE' });
     }, 300);
     return () => clearTimeout(timer);
-  }, [state.queuedTurnChange, isAnimBusy, state.queuedGameFinished]);
+  }, [state.queuedTurnChange, isTurnChangeBusy, state.queuedGameFinished]);
 
   // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
   useEffect(() => {
