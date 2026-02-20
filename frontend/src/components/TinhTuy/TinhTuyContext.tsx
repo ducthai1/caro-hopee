@@ -231,17 +231,68 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'FORCE_CLEAR_ANIM': {
       // Safety: force-clear all animation state to unblock queued effects
-      const fcPlayers = state.animatingToken
+      // Also applies pending card effects (movement, buffs) that would otherwise be lost
+      let fcPlayers = state.animatingToken
         ? state.players.map(p =>
           p.slot === state.animatingToken!.slot
             ? { ...p, position: state.animatingToken!.path[state.animatingToken!.path.length - 1] }
             : p
         )
-        : state.players;
+        : [...state.players];
+      // Apply pending card effects before clearing (same logic as CLEAR_CARD)
+      const fcEff = state.pendingCardEffect;
+      if (fcEff) {
+        if (fcEff.cardHeld) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcEff.cardHeld!.slot ? { ...p, cards: [...p.cards, fcEff.cardHeld!.cardId] } : p
+          );
+        }
+        if (fcEff.houseRemoved) {
+          fcPlayers = fcPlayers.map(p => {
+            if (p.slot !== fcEff.houseRemoved!.slot) return p;
+            const key = String(fcEff.houseRemoved!.cellIndex);
+            const h = p.houses || {};
+            return { ...p, houses: { ...h, [key]: Math.max((h[key] || 0) - 1, 0) } };
+          });
+        }
+        if (fcEff.goToIsland) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcEff.slot ? { ...p, position: 27, islandTurns: 3 } : p
+          );
+        }
+        if (fcEff.immunityNextRent) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcEff.slot ? { ...p, immunityNextRent: true } : p
+          );
+        }
+        if (fcEff.doubleRentTurns) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcEff.slot ? { ...p, doubleRentTurns: p.doubleRentTurns + fcEff.doubleRentTurns! } : p
+          );
+        }
+        if (fcEff.skipTurn) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcEff.slot ? { ...p, skipNextTurn: true } : p
+          );
+        }
+      }
+      // Apply pending card movement (teleport directly)
+      const fcCm = state.pendingCardMove;
+      let fcPendingMove = null;
+      if (fcCm) {
+        const goBonus = fcCm.passedGo ? 2000 : 0;
+        if (goBonus) {
+          fcPlayers = fcPlayers.map(p =>
+            p.slot === fcCm.slot ? { ...p, points: p.points + goBonus } : p
+          );
+        }
+        fcPendingMove = { slot: fcCm.slot, path: [fcCm.to], goBonus, passedGo: fcCm.passedGo, fromCard: true };
+      }
       return {
         ...state, players: fcPlayers,
-        diceAnimating: false, drawnCard: null, pendingMove: null, animatingToken: null,
+        diceAnimating: false, drawnCard: null, animatingToken: null,
         houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null,
+        pendingMove: fcPendingMove,
       };
     }
 
