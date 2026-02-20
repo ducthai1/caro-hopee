@@ -380,6 +380,56 @@ async function handleCardDraw(
       player.consecutiveDoubles = 0;
       game.lastDiceResult = null;
       game.markModified('lastDiceResult');
+    } else if (landingAction.action === 'build') {
+      // Card moved player to own property — let them build
+      game.turnPhase = 'AWAITING_BUILD';
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:build-prompt', {
+        slot: player.slot, cellIndex: effect.playerMoved.to,
+        canBuildHouse: landingAction.canBuildHouse,
+        houseCost: landingAction.houseCost,
+        canBuildHotel: landingAction.canBuildHotel,
+        hotelCost: landingAction.hotelCost,
+        currentHouses: landingAction.currentHouses,
+        hasHotel: landingAction.hasHotel,
+      });
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_BUILD') return;
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Card build timeout:', err); }
+      });
+      return; // Wait for player choice
+    } else if (landingAction.action === 'festival') {
+      // Card moved player to festival cell — let them choose
+      game.turnPhase = 'AWAITING_FESTIVAL';
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:festival-prompt', { slot: player.slot });
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_FESTIVAL') return;
+          // Auto-pick: apply festival to first owned property
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          if (p.properties.length > 0) {
+            const autoCell = p.properties[0];
+            const autoMult = 1.5;
+            g.festival = { slot: p.slot, cellIndex: autoCell, multiplier: autoMult };
+            g.markModified('festival');
+          }
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          if (p.properties.length > 0) {
+            io.to(game.roomId).emit('tinh-tuy:festival-applied', { slot: p.slot, cellIndex: p.properties[0], multiplier: 1.5 });
+          }
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Card festival timeout:', err); }
+      });
+      return; // Wait for player choice
     }
     // Don't resolve cards again from card movement (prevent recursion)
   }
