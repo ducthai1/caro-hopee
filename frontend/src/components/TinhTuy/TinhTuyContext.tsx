@@ -1596,6 +1596,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   const isTurnChangeBusy = !!(state.drawnCard || state.pendingMove || state.animatingToken);
 
   // Safety watchdog: force-clear stuck animation state after 5s
+  // Uses granular key so timer RESETS when busy composition changes (dice→movement→card),
+  // preventing premature clearing of card modal that has its own 3.5s auto-dismiss
+  const animBusyKey = `${state.diceAnimating}-${!!state.drawnCard}-${!!state.pendingMove}-${!!state.animatingToken}`;
   useEffect(() => {
     if (!isAnimBusy) return;
     const timer = setTimeout(() => {
@@ -1603,7 +1606,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'FORCE_CLEAR_ANIM' });
     }, 5000);
     return () => clearTimeout(timer);
-  }, [isAnimBusy]);
+  }, [isAnimBusy, animBusyKey]);
 
   // Auto-clear diceAnimating after 2.3s (matches dice CSS animation + settle time)
   useEffect(() => {
