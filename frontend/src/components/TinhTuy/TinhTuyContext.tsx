@@ -1646,16 +1646,22 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   // and its timer can fail (tab backgrounded, component re-mount), causing permanent stuck state
   const isTurnChangeBusy = !!(state.drawnCard || state.pendingMove || state.animatingToken);
 
-  // Safety watchdog: force-clear stuck animation state after 5s
-  // Uses granular key so timer RESETS when busy composition changes (dice→movement→card),
-  // preventing premature clearing of card modal that has its own 3.5s auto-dismiss
+  // Safety watchdog: force-clear stuck animation state after 8s
+  // Uses granular key so timer RESETS when busy composition changes (dice→movement→card).
+  // Ref guards against stale timer firing before React effect cleanup on slow devices:
+  // the ref updates during render (sync), so even if cleanup is delayed, the callback bails.
   const animBusyKey = `${state.diceAnimating}-${!!state.drawnCard}-${!!state.pendingMove}-${!!state.animatingToken}`;
+  const animBusyKeyRef = useRef(animBusyKey);
+  animBusyKeyRef.current = animBusyKey; // Updated during render, before effects
   useEffect(() => {
     if (!isAnimBusy) return;
+    const capturedKey = animBusyKey;
     const timer = setTimeout(() => {
-      console.warn('[TinhTuy] Animation stuck >5s — force clearing');
+      // If animBusyKey changed since this timer was set, a newer timer handles it
+      if (animBusyKeyRef.current !== capturedKey) return;
+      console.warn('[TinhTuy] Animation stuck >8s — force clearing');
       dispatch({ type: 'FORCE_CLEAR_ANIM' });
-    }, 5000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [isAnimBusy, animBusyKey]);
 
