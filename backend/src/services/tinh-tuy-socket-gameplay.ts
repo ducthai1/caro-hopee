@@ -13,7 +13,7 @@ import {
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
 } from './tinh-tuy-engine';
-import { GO_SALARY, getCell, ISLAND_ESCAPE_COST } from './tinh-tuy-board';
+import { GO_SALARY, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
@@ -566,15 +566,28 @@ function applyPropertyAttack(
 
 // ─── Buyback Price Calculation ────────────────────────────────
 
-/** Calculate buyback price = total property value × 1.1 */
-function calculateBuybackPrice(owner: ITinhTuyPlayer, cellIndex: number): number {
+/** Calculate buyback price = total property value × 1.1
+ *  For utilities: uses current rent value (scales with round) as base
+ *  For stations: uses rent value (scales with stations owned) as base */
+function calculateBuybackPrice(owner: ITinhTuyPlayer, cellIndex: number, completedRounds: number): number {
   const cell = getCell(cellIndex);
   if (!cell || !cell.price) return 0;
   const key = String(cellIndex);
-  let total = cell.price;
-  const houses = owner.houses[key] || 0;
-  if (houses > 0) total += houses * (cell.houseCost || 0);
-  if (owner.hotels[key]) total += (cell.hotelCost || 0);
+
+  let total: number;
+  if (cell.type === 'UTILITY') {
+    // Utility value scales with rounds — use current rent as base
+    total = getUtilityRent(cell.price, completedRounds);
+  } else if (cell.type === 'STATION') {
+    // Station value scales with how many stations owned
+    const stationsOwned = owner.properties.filter(i => getCell(i)?.type === 'STATION').length;
+    total = cell.price + getStationRent(stationsOwned);
+  } else {
+    total = cell.price;
+    const houses = owner.houses[key] || 0;
+    if (houses > 0) total += houses * (cell.houseCost || 0);
+    if (owner.hotels[key]) total += (cell.hotelCost || 0);
+  }
   return Math.ceil(total * 1.1);
 }
 
@@ -589,7 +602,8 @@ async function emitBuybackPrompt(
 ): Promise<boolean> {
   const owner = game.players.find(p => p.slot === ownerSlot);
   if (!owner || owner.isBankrupt) return false;
-  const price = calculateBuybackPrice(owner, cellIndex);
+  const completedRounds = Math.max((game.round || 1) - 1, 0);
+  const price = calculateBuybackPrice(owner, cellIndex, completedRounds);
   if (price <= 0) return false;
   const canAfford = player.points >= price;
 
@@ -1242,7 +1256,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'propertyNotFound' });
       }
 
-      const price = calculateBuybackPrice(owner, cellIndex);
+      const completedRounds = Math.max((game.round || 1) - 1, 0);
+      const price = calculateBuybackPrice(owner, cellIndex, completedRounds);
       if (player.points < price) {
         game.turnPhase = 'END_TURN';
         await game.save();
