@@ -322,7 +322,8 @@ export function executeCardEffect(
       if (victims.length > 0) {
         const victim = victims[crypto.randomInt(0, victims.length)];
         const cellIdx = victim.stealable[crypto.randomInt(0, victim.stealable.length)];
-        result.stolenProperty = { fromSlot: victim.slot, toSlot: playerSlot, cellIndex: cellIdx };
+        const stolenHouses = victim.houses[String(cellIdx)] || 0;
+        result.stolenProperty = { fromSlot: victim.slot, toSlot: playerSlot, cellIndex: cellIdx, houses: stolenHouses };
       }
       break;
     }

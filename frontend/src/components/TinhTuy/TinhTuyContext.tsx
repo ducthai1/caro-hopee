@@ -307,18 +307,29 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         if (fcEff.stolenProperty) {
           const st = fcEff.stolenProperty;
+          const key = String(st.cellIndex);
           fcPlayers = dedupeProperty(fcPlayers, st.cellIndex, st.toSlot);
           fcPlayers = fcPlayers.map(p => {
             if (p.slot === st.fromSlot) {
+              const { [key]: _h, ...restHouses } = p.houses;
+              const { [key]: _ht, ...restHotels } = p.hotels;
               return {
                 ...p,
                 properties: p.properties.filter(idx => idx !== st.cellIndex),
-                houses: { ...p.houses, [String(st.cellIndex)]: 0 },
-                hotels: { ...p.hotels, [String(st.cellIndex)]: false },
+                houses: restHouses,
+                hotels: restHotels,
               };
             }
             if (p.slot === st.toSlot) {
-              return { ...p, properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex] };
+              const victimP = fcPlayers.find(pp => pp.slot === st.fromSlot);
+              const transferHouses = victimP ? (victimP.houses[key] || 0) : 0;
+              const transferHotel = victimP ? !!victimP.hotels[key] : false;
+              return {
+                ...p,
+                properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex],
+                houses: transferHouses > 0 ? { ...p.houses, [key]: transferHouses } : p.houses,
+                hotels: transferHotel ? { ...p.hotels, [key]: true } : p.hotels,
+              };
             }
             return p;
           });
@@ -891,6 +902,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             stolenCellIndex: effect.stolenProperty?.cellIndex,
             stolenFromSlot: effect.stolenProperty?.fromSlot,
             stolenToSlot: effect.stolenProperty?.toSlot,
+            stolenHouses: effect.stolenProperty?.houses,
             taxedSlot: effect.taxedSlot,
             randomSteps: effect.randomSteps,
             randomPoints: effect.randomPoints,
@@ -959,19 +971,32 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         if (eff.stolenProperty) {
           const st = eff.stolenProperty;
+          const key = String(st.cellIndex);
           // Defensive: remove property from ALL other players first
           clearPlayers = dedupeProperty(clearPlayers, st.cellIndex, st.toSlot);
           clearPlayers = clearPlayers.map(p => {
             if (p.slot === st.fromSlot) {
+              // Remove property + buildings from victim
+              const { [key]: _h, ...restHouses } = p.houses;
+              const { [key]: _ht, ...restHotels } = p.hotels;
               return {
                 ...p,
                 properties: p.properties.filter(idx => idx !== st.cellIndex),
-                houses: { ...p.houses, [String(st.cellIndex)]: 0 },
-                hotels: { ...p.hotels, [String(st.cellIndex)]: false },
+                houses: restHouses,
+                hotels: restHotels,
               };
             }
             if (p.slot === st.toSlot) {
-              return { ...p, properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex] };
+              // Transfer property + buildings to thief
+              const victimP = clearPlayers.find(pp => pp.slot === st.fromSlot);
+              const transferHouses = victimP ? (victimP.houses[key] || 0) : 0;
+              const transferHotel = victimP ? !!victimP.hotels[key] : false;
+              return {
+                ...p,
+                properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex],
+                houses: transferHouses > 0 ? { ...p.houses, [key]: transferHouses } : p.houses,
+                hotels: transferHotel ? { ...p.hotels, [key]: true } : p.hotels,
+              };
             }
             return p;
           });

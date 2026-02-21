@@ -209,7 +209,7 @@ export interface CardEffectResult {
   /** Swap position — both players teleport to each other's old position */
   swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
   /** Stolen property — transferred from opponent to current player */
-  stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number };
+  stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number; houses: number };
   /** Slot of the player who got taxed (for TAX_RICHEST visual) */
   taxedSlot?: number;
   /** Random steps rolled (for MOVE_RANDOM — stored so frontend can display the number) */

@@ -169,7 +169,7 @@ export const TinhTuyCardModal: React.FC = () => {
                   <Typography variant="body2" sx={{ color: '#c0392b', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
                     🏴‍☠️ {t('tinhTuy.cards.stolenResult' as any)}
                   </Typography>
-                  {/* Property name — prominent */}
+                  {/* Property name + building level — prominent */}
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1,
                     p: 1, borderRadius: 1.5, bgcolor: 'rgba(231, 76, 60, 0.08)',
                   }}>
@@ -177,9 +177,14 @@ export const TinhTuyCardModal: React.FC = () => {
                       <Box component="img" src={`/location/${BOARD_CELLS[extra.stolenCellIndex].icon}`} alt=""
                         sx={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 0.5 }} />
                     )}
-                    <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 800, fontSize: '1.05rem' }}>
-                      {t(BOARD_CELLS[extra.stolenCellIndex].name as any)}
-                    </Typography>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 800, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                        {t(BOARD_CELLS[extra.stolenCellIndex].name as any)}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        {(extra.stolenHouses ?? 0) > 0 ? `🏠×${extra.stolenHouses}` : t('tinhTuy.game.land' as any)}
+                      </Typography>
+                    </Box>
                   </Box>
                   {/* Thief gets property */}
                   {extra.stolenToSlot != null && (
