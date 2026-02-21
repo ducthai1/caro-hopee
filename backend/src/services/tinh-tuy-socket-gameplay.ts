@@ -711,6 +711,8 @@ async function emitBuybackPrompt(
 ): Promise<boolean> {
   const owner = game.players.find(p => p.slot === ownerSlot);
   if (!owner || owner.isBankrupt) return false;
+  // Hotel properties cannot be bought back
+  if (owner.hotels[String(cellIndex)]) return false;
   const completedRounds = Math.max((game.round || 1) - 1, 0);
   const price = calculateBuybackPrice(owner, cellIndex, completedRounds);
   if (price <= 0) return false;
