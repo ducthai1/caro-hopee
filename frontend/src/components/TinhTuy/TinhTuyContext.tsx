@@ -369,6 +369,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return {
         ...state,
         queuedAction: {
+          slot: action.payload.slot,
           cellIndex: action.payload.cellIndex,
           cellType: action.payload.cellType,
           price: action.payload.price || 0,
@@ -379,16 +380,18 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'APPLY_QUEUED_ACTION': {
       const qa = state.queuedAction;
       if (!qa) return state;
+      // Only show purchase modal for the player whose turn it is
+      const isForMe = qa.slot === state.mySlot;
       return {
         ...state,
         turnPhase: 'AWAITING_ACTION',
-        pendingAction: {
+        pendingAction: isForMe ? {
           type: 'BUY_PROPERTY',
           cellIndex: qa.cellIndex,
           price: qa.price || 0,
           canAfford: qa.canAfford ?? true,
           cellType: qa.cellType,
-        },
+        } : null,
         queuedAction: null,
       };
     }
@@ -564,7 +567,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, attackPrompt: action.payload };
 
     case 'PROPERTY_ATTACKED': {
-      const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel } = action.payload;
+      const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel, festival: atkFestival } = action.payload;
       const updatedPlayers = state.players.map(p => {
         if (p.slot !== victimSlot) return p;
         if (atkResult === 'destroyed' || atkResult === 'demolished') {
@@ -582,7 +585,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           hotels: { ...p.hotels, [String(cellIndex)]: newHotel },
         };
       });
-      return { ...state, players: updatedPlayers, attackPrompt: null, attackAlert: action.payload };
+      return { ...state, players: updatedPlayers, attackPrompt: null, attackAlert: action.payload, festival: atkFestival !== undefined ? atkFestival : state.festival };
     }
 
     case 'CLEAR_ATTACK_ALERT':
@@ -757,6 +760,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_CARD': {
       // Apply deferred card effects now that card modal is dismissed
       let clearPlayers = [...state.players];
+      let stolenFestival: typeof state.festival | undefined;
       const eff = state.pendingCardEffect;
       if (eff) {
         if (eff.cardHeld) {
@@ -816,6 +820,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             }
             return p;
           });
+          // Transfer festival to new owner if stolen property hosted it
+          if (state.festival?.cellIndex === st.cellIndex && state.festival?.slot === st.fromSlot) {
+            stolenFestival = { ...state.festival, slot: st.toSlot };
+          }
         }
         if (eff.allHousesRemoved && eff.allHousesRemoved.length > 0) {
           for (const rem of eff.allHousesRemoved) {
@@ -846,12 +854,13 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           ...state,
           drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
           players: clearPlayers,
+          ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}),
           pendingMove: { slot: cm.slot, path, goBonus, passedGo: cm.passedGo, fromCard: true },
           pendingNotifs: goBonus ? queueNotifs(state.pendingNotifs, [{ slot: cm.slot, amount: goBonus }]) : state.pendingNotifs,
           displayPoints: dpCm,
         };
       }
-      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers };
+      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers, ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}) };
     }
 
     case 'HOUSE_BUILT': {
@@ -987,7 +996,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
 
     case 'BUILDINGS_SOLD': {
-      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels, properties: newProps, autoSold } = action.payload;
+      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels, properties: newProps, autoSold, festival: bsFestival } = action.payload;
       const dpBs = freezePoints(state);
       const prevPoints = state.players.find(p => p.slot === bsSlot)?.points ?? 0;
       const bsDelta = newPoints - prevPoints;
@@ -996,6 +1005,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       );
       return {
         ...state, players: updated, sellPrompt: null, displayPoints: dpBs,
+        festival: bsFestival !== undefined ? bsFestival : state.festival,
         pendingNotifs: bsDelta !== 0 ? queueNotifs(state.pendingNotifs, [{ slot: bsSlot, amount: bsDelta }]) : state.pendingNotifs,
         autoSoldAlert: autoSold?.length ? { slot: bsSlot, items: autoSold } : null,
       };

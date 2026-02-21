@@ -52,19 +52,21 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
   const groupColor = cell.group ? GROUP_COLORS[cell.group as PropertyGroup] : undefined;
   const cellRef = useRef<HTMLDivElement>(null);
 
-  // Mini fireworks on the FESTIVAL cell (index 18) — fires every few seconds
+  // Mini fireworks on the property cell hosting the festival
   useEffect(() => {
-    if (cell.type !== 'FESTIVAL') return;
+    if (!hasFestival) return;
     const fire = () => {
       if (!cellRef.current) return;
       const rect = cellRef.current.getBoundingClientRect();
+      const cellSize = Math.min(rect.width, rect.height);
+      const isMobile = cellSize < 40;
       confetti({
-        particleCount: 10,
-        spread: 50,
-        startVelocity: 15,
+        particleCount: isMobile ? 5 : 10,
+        spread: isMobile ? 30 : 50,
+        startVelocity: isMobile ? 8 : 15,
         gravity: 0.8,
-        scalar: 0.5,
-        ticks: 60,
+        scalar: isMobile ? 0.3 : 0.5,
+        ticks: isMobile ? 40 : 60,
         origin: {
           x: (rect.left + rect.width / 2) / window.innerWidth,
           y: (rect.top + rect.height / 2) / window.innerHeight,
@@ -73,11 +75,10 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
         disableForReducedMotion: true,
       });
     };
-    // Initial burst after short delay
     const initTimer = setTimeout(fire, 1500);
     const interval = setInterval(fire, FESTIVAL_FIREWORK_INTERVAL);
     return () => { clearTimeout(initTimer); clearInterval(interval); };
-  }, [cell.type]);
+  }, [hasFestival]);
 
   // 3D CSS class
   const cellClass = isCurrentCell ? 'tt-cell-active' : isCorner ? 'tt-cell-corner' : 'tt-cell-3d';

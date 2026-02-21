@@ -5,7 +5,7 @@
  */
 
 type SFXType = 'diceRoll' | 'move' | 'purchase' | 'rentPay' | 'cardDraw'
-  | 'buildHouse' | 'island' | 'victory' | 'yourTurn' | 'chat';
+  | 'buildHouse' | 'island' | 'victory' | 'yourTurn' | 'chat' | 'timerWarning';
 
 const STORAGE_KEY_VOLUME = 'tt_sound_volume';
 const STORAGE_KEY_MUTED = 'tt_sound_muted';
@@ -77,6 +77,7 @@ class TinhTuySoundManager {
         case 'victory': this.sfxVictory(ctx, vol); break;
         case 'yourTurn': this.sfxYourTurn(ctx, vol); break;
         case 'chat': this.sfxChat(ctx, vol); break;
+        case 'timerWarning': this.sfxTimerWarning(ctx, vol); break;
       }
     } catch { /* ignore audio errors */ }
   }
@@ -242,6 +243,24 @@ class TinhTuySoundManager {
     osc.start(now);
     osc.stop(now + 0.08);
     autoCleanup(osc, gain);
+  }
+
+  /** Gentle double-beep warning when turn timer is running low */
+  private sfxTimerWarning(ctx: AudioContext, vol: number): void {
+    const now = ctx.currentTime;
+    // Two soft sine beeps at A5 (880Hz), spaced 0.15s apart
+    [0, 0.15].forEach(offset => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(vol * 0.15, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.12);
+      autoCleanup(osc, gain);
+    });
   }
 
   // ─── BGM — MP3 background music ──────────────────────

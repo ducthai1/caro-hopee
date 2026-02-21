@@ -174,7 +174,7 @@ export interface TinhTuyState {
   /** Queued festival prompt — applied after movement animation finishes */
   queuedFestivalPrompt: boolean;
   /** Queued awaiting action — applied after movement animation finishes */
-  queuedAction: { cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } | null;
+  queuedAction: { slot: number; cellIndex: number; cellType?: string; price?: number; canAfford?: boolean } | null;
   /** Build prompt — shown when landing on own buildable property */
   buildPrompt: { cellIndex: number; canBuildHouse: boolean; houseCost: number; canBuildHotel: boolean; hotelCost: number; currentHouses: number; hasHotel: boolean } | null;
   /** Queued build prompt — applied after movement animation finishes */
@@ -294,7 +294,7 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_BUILD' }
   | { type: 'CLEAR_BUILD_PROMPT' }
   | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } }
-  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[]; autoSold?: Array<{ cellIndex: number; type: string; price: number }> } }
+  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[]; autoSold?: Array<{ cellIndex: number; type: string; price: number }>; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }
   | { type: 'APPLY_QUEUED_SELL' }
   | { type: 'TRAVEL_PENDING'; payload: { slot: number } }
   | { type: 'APPLY_QUEUED_TRAVEL_PENDING' }
@@ -306,7 +306,7 @@ export type TinhTuyAction =
   | { type: 'CLEAR_BANKRUPT_ALERT' }
   | { type: 'APPLY_QUEUED_GAME_FINISHED' }
   | { type: 'ATTACK_PROPERTY_PROMPT'; payload: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } }
-  | { type: 'PROPERTY_ATTACKED'; payload: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } }
+  | { type: 'PROPERTY_ATTACKED'; payload: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished' | 'shielded'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }
   | { type: 'CLEAR_ATTACK_ALERT' }
   | { type: 'BUYBACK_PROMPT'; payload: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } }
   | { type: 'APPLY_QUEUED_BUYBACK' }

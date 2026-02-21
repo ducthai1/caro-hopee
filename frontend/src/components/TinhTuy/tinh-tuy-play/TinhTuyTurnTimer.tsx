@@ -2,24 +2,35 @@
  * TinhTuyTurnTimer — Visual countdown bar for current turn.
  * Server timer is authoritative; this is cosmetic only.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, LinearProgress, Typography } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
+import { tinhTuySounds } from '../tinh-tuy-sounds';
+
+const WARNING_AT = 5; // seconds
 
 export const TinhTuyTurnTimer: React.FC = () => {
   const { state } = useTinhTuy();
   const turnDuration = state.settings?.turnDuration || 60;
   const [remaining, setRemaining] = useState(turnDuration);
+  const warnedRef = useRef(false);
 
   useEffect(() => {
     if (state.turnPhase === 'END_TURN' || !state.turnStartedAt) {
       setRemaining(turnDuration);
+      warnedRef.current = false;
       return;
     }
 
     const tick = () => {
       const elapsed = (Date.now() - state.turnStartedAt) / 1000;
-      setRemaining(Math.max(0, Math.ceil(turnDuration - elapsed)));
+      const left = Math.max(0, Math.ceil(turnDuration - elapsed));
+      setRemaining(left);
+      // Play warning sound once when crossing threshold
+      if (left <= WARNING_AT && left > 0 && !warnedRef.current) {
+        warnedRef.current = true;
+        tinhTuySounds.playSFX('timerWarning');
+      }
     };
     tick(); // immediate
     const interval = setInterval(tick, 250);

@@ -290,6 +290,11 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
       delete victim.houses[String(cellIdx)];
       delete victim.hotels[String(cellIdx)];
       thief.properties.push(cellIdx);
+      // Transfer festival to new owner if stolen property hosted it
+      if (game.festival && game.festival.cellIndex === cellIdx && game.festival.slot === effect.stolenProperty.fromSlot) {
+        game.festival = { ...game.festival, slot: effect.stolenProperty.toSlot };
+        game.markModified('festival');
+      }
     }
   }
 
@@ -335,6 +340,9 @@ async function handleCardDraw(
   const effect = executeCardEffect(game, player.slot, card);
   applyCardEffect(game, player, effect);
   game.markModified('players'); // houses/hotels/cards may have changed
+
+  // Persist deck index + card effects before any early-return paths
+  await game.save();
 
   // Broadcast card drawn
   io.to(game.roomId).emit('tinh-tuy:card-drawn', {
@@ -749,6 +757,7 @@ function applyPropertyAttack(
       victimSlot: victim.slot, cellIndex, result: 'shielded' as const,
       prevHouses: victim.houses[key] || 0, prevHotel: !!victim.hotels[key],
       newHouses: victim.houses[key] || 0, newHotel: !!victim.hotels[key],
+      festival: game.festival,
     };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
@@ -768,7 +777,7 @@ function applyPropertyAttack(
       game.festival = null;
       game.markModified('festival');
     }
-    const result = { victimSlot: victim.slot, cellIndex, result: 'destroyed' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false };
+    const result = { victimSlot: victim.slot, cellIndex, result: 'destroyed' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
   }
@@ -777,13 +786,13 @@ function applyPropertyAttack(
   if (prevHotel) {
     // Hotel → remove hotel, land only
     victim.hotels[key] = false;
-    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses, newHotel: false };
+    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
   } else if (prevHouses > 0) {
     // N houses → N-1
     victim.houses[key] = prevHouses - 1;
-    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses - 1, newHotel: false };
+    const result = { victimSlot: victim.slot, cellIndex, result: 'downgraded' as const, prevHouses, prevHotel, newHouses: prevHouses - 1, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
   } else {
@@ -795,7 +804,7 @@ function applyPropertyAttack(
       game.festival = null;
       game.markModified('festival');
     }
-    const result = { victimSlot: victim.slot, cellIndex, result: 'demolished' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false };
+    const result = { victimSlot: victim.slot, cellIndex, result: 'demolished' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
   }
@@ -1677,6 +1686,11 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         delete player.houses[key];
         delete player.hotels[key];
         player.properties = player.properties.filter(idx => idx !== sel.cellIndex);
+        // Clear festival if this property hosted it
+        if (game.festival && game.festival.cellIndex === sel.cellIndex && game.festival.slot === player.slot) {
+          game.festival = null;
+          game.markModified('festival');
+        }
       }
       player.points += totalSellValue;
 
@@ -1689,6 +1703,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         slot: player.slot, newPoints: player.points,
         houses: { ...player.houses }, hotels: { ...player.hotels },
         properties: [...player.properties],
+        festival: game.festival,
       });
 
       await advanceTurnOrDoubles(io, game, player);
