@@ -167,17 +167,42 @@ export const TinhTuyCardModal: React.FC = () => {
                   animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
                 }}>
                   <Typography variant="body2" sx={{ color: '#c0392b', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
-                    🏴‍☠️ {t('tinhTuy.cards.stoleFrom' as any)}
+                    🏴‍☠️ {t('tinhTuy.cards.stolenResult' as any)}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 0.5 }}>
-                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.stolenFromSlot) }} />
+                  {/* Property name — prominent */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1,
+                    p: 1, borderRadius: 1.5, bgcolor: 'rgba(231, 76, 60, 0.08)',
+                  }}>
+                    {BOARD_CELLS[extra.stolenCellIndex].icon && (
+                      <Box component="img" src={`/location/${BOARD_CELLS[extra.stolenCellIndex].icon}`} alt=""
+                        sx={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 0.5 }} />
+                    )}
+                    <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 800, fontSize: '1.05rem' }}>
+                      {t(BOARD_CELLS[extra.stolenCellIndex].name as any)}
+                    </Typography>
+                  </Box>
+                  {/* Thief gets property */}
+                  {extra.stolenToSlot != null && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.3 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: getPlayerColor(extra.stolenToSlot) }} />
+                      <Typography variant="body2" sx={{ color: getPlayerColor(extra.stolenToSlot), fontWeight: 700 }}>
+                        {getPlayerName(extra.stolenToSlot)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 700 }}>
+                        +📍 {t('tinhTuy.cards.stolenGained' as any)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {/* Victim loses property */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: getPlayerColor(extra.stolenFromSlot) }} />
                     <Typography variant="body2" sx={{ color: getPlayerColor(extra.stolenFromSlot), fontWeight: 700 }}>
                       {getPlayerName(extra.stolenFromSlot)}
                     </Typography>
+                    <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 700 }}>
+                      -📍 {t('tinhTuy.cards.stolenLost' as any)}
+                    </Typography>
                   </Box>
-                  <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 700 }}>
-                    📍 {t(BOARD_CELLS[extra.stolenCellIndex].name as any)}
-                  </Typography>
                 </Box>
               )}
 

@@ -213,6 +213,7 @@ export interface TinhTuyState {
     swapTargetSlot?: number;
     stolenCellIndex?: number;
     stolenFromSlot?: number;
+    stolenToSlot?: number;
     taxedSlot?: number;
     randomSteps?: number;
     gambleWon?: boolean;

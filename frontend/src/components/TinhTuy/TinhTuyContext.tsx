@@ -884,6 +884,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             swapTargetSlot: effect.swapPosition?.targetSlot,
             stolenCellIndex: effect.stolenProperty?.cellIndex,
             stolenFromSlot: effect.stolenProperty?.fromSlot,
+            stolenToSlot: effect.stolenProperty?.toSlot,
             taxedSlot: effect.taxedSlot,
             randomSteps: effect.randomSteps,
             gambleWon: effect.gambleWon,
