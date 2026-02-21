@@ -55,7 +55,8 @@ async function checkBankruptcy(
 
   // Current player can sell buildings to cover debt
   if (game.currentPlayerSlot === player.slot) {
-    const sellableValue = calculateSellableValue(player);
+    const completedRounds = Math.max((game.round || 1) - 1, 0);
+    const sellableValue = calculateSellableValue(player, completedRounds);
     const deficit = Math.abs(player.points);
     if (sellableValue >= deficit) {
       // Enter sell phase — player must sell buildings
@@ -553,6 +554,7 @@ async function handleCardDraw(
 
 /** Auto-sell cheapest assets (buildings first, then properties) until player points >= 0 */
 function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
+  const completedRounds = Math.max((game.round || 1) - 1, 0);
   // Phase 1: sell buildings (cheapest first)
   const buildings: Array<{ cellIndex: number; type: 'house' | 'hotel'; price: number }> = [];
   for (const cellIdx of player.properties) {
@@ -580,7 +582,7 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
   // Phase 2: sell properties (cheapest land first) if still in debt
   if (player.points < 0) {
     const props = player.properties
-      .map(idx => ({ cellIndex: idx, price: getSellPrice(idx, 'property') }))
+      .map(idx => ({ cellIndex: idx, price: getSellPrice(idx, 'property', completedRounds, player) }))
       .sort((a, b) => a.price - b.price);
     for (const prop of props) {
       if (player.points >= 0) break;
@@ -1442,6 +1444,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       // Validate and calculate total
+      const completedRounds = Math.max((game.round || 1) - 1, 0);
       let totalSellValue = 0;
       for (const sel of selections) {
         const { cellIndex, type, count } = sel;
@@ -1451,7 +1454,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         const key = String(cellIndex);
         if (type === 'property') {
           // Selling whole property (land + any buildings on it)
-          totalSellValue += getPropertyTotalSellValue(player, cellIndex);
+          totalSellValue += getPropertyTotalSellValue(player, cellIndex, completedRounds);
         } else if (type === 'hotel') {
           if (!player.hotels[key]) return callback({ success: false, error: 'noHotel' });
           totalSellValue += getSellPrice(cellIndex, 'hotel');

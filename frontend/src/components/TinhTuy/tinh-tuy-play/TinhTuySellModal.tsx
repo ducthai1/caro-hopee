@@ -26,11 +26,13 @@ interface SellSelection {
   count: number;
 }
 
+const SELL_RATIO = 0.8; // Sell at 80% of cost/value
+
 /** Calculate total value when selling a property (land + all buildings) */
 function calcPropertySellValue(cell: typeof BOARD_CELLS[0], houses: number, hasHotel: boolean): number {
-  let total = Math.floor((cell.price || 0) / 2);
-  if (hasHotel) total += Math.floor((cell.hotelCost || 0) / 2);
-  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) / 2);
+  let total = Math.floor((cell.price || 0) * SELL_RATIO);
+  if (hasHotel) total += Math.floor((cell.hotelCost || 0) * SELL_RATIO);
+  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) * SELL_RATIO);
   return total;
 }
 
@@ -73,14 +75,14 @@ export const TinhTuySellModal: React.FC = () => {
       if (hasHotel) {
         items.push({
           cellIndex: cellIdx, type: 'hotel', maxCount: 1,
-          priceEach: Math.floor((cell.hotelCost || 0) / 2),
+          priceEach: Math.floor((cell.hotelCost || 0) * SELL_RATIO),
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }
       if (houses > 0) {
         items.push({
           cellIndex: cellIdx, type: 'house', maxCount: houses,
-          priceEach: Math.floor((cell.houseCost || 0) / 2),
+          priceEach: Math.floor((cell.houseCost || 0) * SELL_RATIO),
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }

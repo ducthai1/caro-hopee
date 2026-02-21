@@ -283,31 +283,50 @@ export function buildHotel(game: ITinhTuyGame, playerSlot: number, cellIndex: nu
 
 // ─── Sell Building Helpers ────────────────────────────────
 
-/** Sell price = half of build cost (buildings) or half of purchase price (property) */
-export function getSellPrice(cellIndex: number, type: 'house' | 'hotel' | 'property'): number {
+const SELL_RATIO = 0.8; // Sell at 80% of cost/value
+
+/** Sell price = 80% of cost. For utilities/stations selling as 'property',
+ *  pass completedRounds/player so the scaled value is used. */
+export function getSellPrice(
+  cellIndex: number, type: 'house' | 'hotel' | 'property',
+  completedRounds?: number, player?: ITinhTuyPlayer,
+): number {
   const cell = getCell(cellIndex);
   if (!cell) return 0;
-  if (type === 'property') return Math.floor((cell.price || 0) / 2);
-  return Math.floor(((type === 'hotel' ? cell.hotelCost : cell.houseCost) || 0) / 2);
+  if (type === 'property') {
+    // Utilities: 80% of round-scaled value
+    if (cell.type === 'UTILITY' && completedRounds != null) {
+      return Math.floor(getUtilityRent(cell.price || 0, completedRounds) * SELL_RATIO);
+    }
+    // Stations: 80% of (base price + rent based on stations owned)
+    if (cell.type === 'STATION' && player) {
+      const stationsOwned = player.properties.filter(i => getCell(i)?.type === 'STATION').length;
+      return Math.floor(((cell.price || 0) + getStationRent(stationsOwned)) * SELL_RATIO);
+    }
+    return Math.floor((cell.price || 0) * SELL_RATIO);
+  }
+  return Math.floor(((type === 'hotel' ? cell.hotelCost : cell.houseCost) || 0) * SELL_RATIO);
 }
 
-/** Total sell value of a single property (land + any buildings on it) */
-export function getPropertyTotalSellValue(player: ITinhTuyPlayer, cellIndex: number): number {
+/** Total sell value of a single property (land + any buildings on it) — 80% of cost/value */
+export function getPropertyTotalSellValue(
+  player: ITinhTuyPlayer, cellIndex: number, completedRounds?: number,
+): number {
   const cell = getCell(cellIndex);
   if (!cell) return 0;
   const key = String(cellIndex);
-  let total = Math.floor((cell.price || 0) / 2);
-  if (player.hotels[key]) total += Math.floor((cell.hotelCost || 0) / 2);
+  let total = getSellPrice(cellIndex, 'property', completedRounds, player);
+  if (player.hotels[key]) total += Math.floor((cell.hotelCost || 0) * SELL_RATIO);
   const houses = player.houses[key] || 0;
-  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) / 2);
+  if (houses > 0) total += houses * Math.floor((cell.houseCost || 0) * SELL_RATIO);
   return total;
 }
 
 /** Total value of all sellable assets (buildings + properties) for a player */
-export function calculateSellableValue(player: ITinhTuyPlayer): number {
+export function calculateSellableValue(player: ITinhTuyPlayer, completedRounds?: number): number {
   let total = 0;
   for (const cellIdx of player.properties) {
-    total += getPropertyTotalSellValue(player, cellIdx);
+    total += getPropertyTotalSellValue(player, cellIdx, completedRounds);
   }
   return total;
 }
