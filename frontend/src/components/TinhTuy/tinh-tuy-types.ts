@@ -232,6 +232,8 @@ export interface TinhTuyState {
   buybackPrompt: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } | null;
   /** Queued buyback prompt — applied after animations settle */
   queuedBuybackPrompt: TinhTuyState['buybackPrompt'];
+  /** GO bonus prompt — shown when landing exactly on GO */
+  goBonusPrompt: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -289,7 +291,7 @@ export type TinhTuyAction =
   | { type: 'BUILD_PROMPT'; payload: { cellIndex: number; canBuildHouse: boolean; houseCost: number; canBuildHotel: boolean; hotelCost: number; currentHouses: number; hasHotel: boolean } }
   | { type: 'APPLY_QUEUED_BUILD' }
   | { type: 'CLEAR_BUILD_PROMPT' }
-  | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number } }
+  | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } }
   | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[] } }
   | { type: 'APPLY_QUEUED_SELL' }
   | { type: 'TRAVEL_PENDING'; payload: { slot: number } }
@@ -309,7 +311,10 @@ export type TinhTuyAction =
   | { type: 'CLEAR_BUYBACK_PROMPT' }
   | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } }
   | { type: 'FORCE_CLEAR_ANIM' }
-  | { type: 'ROOM_RESET'; payload: { game: any } };
+  | { type: 'ROOM_RESET'; payload: { game: any } }
+  | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } }
+  | { type: 'GO_BONUS_APPLIED'; payload: { slot: number; bonusType: string; cellIndex?: number; houses?: Record<string, number>; hotels?: Record<string, boolean> } }
+  | { type: 'CLEAR_GO_BONUS' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

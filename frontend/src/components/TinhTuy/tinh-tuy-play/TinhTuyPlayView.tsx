@@ -27,6 +27,7 @@ import { TinhTuyRentAlert } from './TinhTuyRentAlert';
 import { TinhTuyGoPopup } from './TinhTuyGoPopup';
 import { TinhTuyBuildPrompt } from './TinhTuyBuildPrompt';
 import { TinhTuyFreeHouseModal } from './TinhTuyFreeHouseModal';
+import { TinhTuyGoBonusModal } from './TinhTuyGoBonusModal';
 import { TinhTuySellModal } from './TinhTuySellModal';
 import { TinhTuyTravelPendingAlert } from './TinhTuyTravelPendingAlert';
 import { TinhTuyBankruptAlert } from './TinhTuyBankruptAlert';
@@ -357,6 +358,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyBuildModal open={buildOpen} onClose={() => setBuildOpen(false)} />
       <TinhTuyBuildPrompt />
       <TinhTuyFreeHouseModal />
+      <TinhTuyGoBonusModal />
       <TinhTuySellModal />
       <TinhTuyTravelPendingAlert />
       <TinhTuyGoPopup />

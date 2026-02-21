@@ -614,6 +614,99 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
   game.markModified('players');
 }
 
+// ─── GO Bonus (landing exactly on cell 0) ────────────────────
+
+const GO_BONUS_FALLBACK = 1000; // Bonus points if no buildable properties
+
+/** Handle landing exactly on GO: random 50/50 between free upgrade or bonus roll */
+async function handleGoBonus(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
+): Promise<void> {
+  const roomId = game.roomId;
+  const bonusType = crypto.randomInt(2) === 0 ? 'FREE_UPGRADE' : 'BONUS_ROLL';
+
+  if (bonusType === 'FREE_UPGRADE') {
+    // Find buildable cells (has property, not max houses, no hotel)
+    const buildableCells = player.properties.filter(idx => {
+      if (player.hotels[String(idx)]) return false;
+      const cell = getCell(idx);
+      if (!cell || cell.type !== 'PROPERTY') return false;
+      const houses = player.houses[String(idx)] || 0;
+      // Can build house (< 4) or upgrade to hotel (= 4)
+      return houses < 4 || (houses === 4 && !player.hotels[String(idx)]);
+    });
+
+    if (buildableCells.length > 0) {
+      game.turnPhase = 'AWAITING_GO_BONUS';
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:go-bonus', {
+        slot: player.slot, bonusType: 'FREE_UPGRADE', buildableCells,
+      });
+      startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || g.turnPhase !== 'AWAITING_GO_BONUS') return;
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          // Auto-pick first buildable on timeout
+          const autoPick = buildableCells[0];
+          const key = String(autoPick);
+          const houses = p.houses[key] || 0;
+          if (houses === 4) {
+            p.hotels[key] = true;
+            p.houses[key] = 0;
+          } else {
+            p.houses[key] = houses + 1;
+          }
+          g.markModified('players');
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          io.to(roomId).emit('tinh-tuy:go-bonus-applied', {
+            slot: p.slot, bonusType: 'FREE_UPGRADE', cellIndex: autoPick,
+            houses: { ...p.houses }, hotels: { ...p.hotels },
+          });
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] GO bonus timeout:', err); }
+      });
+      return;
+    }
+
+    // No buildable properties → fallback to bonus points
+    player.points += GO_BONUS_FALLBACK;
+    game.markModified('players');
+    await game.save();
+    io.to(roomId).emit('tinh-tuy:go-bonus', {
+      slot: player.slot, bonusType: 'BONUS_POINTS', amount: GO_BONUS_FALLBACK,
+    });
+  } else {
+    // BONUS_ROLL: give player an extra dice roll (similar to doubles extra turn)
+    game.turnPhase = 'ROLL_DICE';
+    game.turnStartedAt = new Date();
+    await game.save();
+    io.to(roomId).emit('tinh-tuy:go-bonus', {
+      slot: player.slot, bonusType: 'BONUS_ROLL',
+    });
+    io.to(roomId).emit('tinh-tuy:turn-changed', {
+      currentSlot: game.currentPlayerSlot,
+      turnPhase: 'ROLL_DICE', extraTurn: true,
+      buffs: getPlayerBuffs(game),
+    });
+    startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId });
+        if (!g || g.gameStatus !== 'playing') return;
+        if (g.turnPhase !== 'ROLL_DICE') return;
+        await advanceTurn(io, g);
+      } catch (err) { console.error('[tinh-tuy] GO bonus roll timeout:', err); }
+    });
+    return;
+  }
+
+  // Fallback (BONUS_POINTS path): advance turn
+  game.turnPhase = 'END_TURN';
+  await game.save();
+  await advanceTurnOrDoubles(io, game, player);
+}
+
 // ─── Property Attack Helpers ─────────────────────────────────
 
 /**
@@ -1196,6 +1289,66 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     }
   });
 
+  // ── GO Bonus: Free Upgrade Choose ────────────────────────────
+  socket.on('tinh-tuy:go-bonus-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_GO_BONUS') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const cellIndex = data?.cellIndex;
+      if (typeof cellIndex !== 'number') return callback({ success: false, error: 'invalidCell' });
+      if (!player.properties.includes(cellIndex)) return callback({ success: false, error: 'notOwned' });
+
+      const cell = getCell(cellIndex);
+      if (!cell || cell.type !== 'PROPERTY') return callback({ success: false, error: 'notBuildable' });
+
+      const key = String(cellIndex);
+      const houses = player.houses[key] || 0;
+      if (player.hotels[key]) return callback({ success: false, error: 'hasHotel' });
+
+      // Build house or upgrade to hotel (free)
+      if (houses === 4) {
+        player.hotels[key] = true;
+        player.houses[key] = 0;
+      } else if (houses < 4) {
+        player.houses[key] = houses + 1;
+      } else {
+        return callback({ success: false, error: 'maxBuildings' });
+      }
+
+      clearTurnTimer(roomId);
+      game.markModified('players');
+      game.turnPhase = 'END_TURN';
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:go-bonus-applied', {
+        slot: player.slot, bonusType: 'FREE_UPGRADE', cellIndex,
+        houses: { ...player.houses }, hotels: { ...player.hotels },
+      });
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:go-bonus-choose]', err.message);
+      callback({ success: false, error: 'goBonusFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
   // ── Skip Build ────────────────────────────────────────────────
   socket.on('tinh-tuy:skip-build', async (_data: any, callback: TinhTuyCallback) => {
     try {
@@ -1724,6 +1877,12 @@ async function resolveAndAdvance(
 ): Promise<void> {
   const cellAction = resolveCellAction(game, player.slot, cellIndex, dice.total);
   const roomId = game.roomId;
+
+  // ── GO Bonus: landing exactly on cell 0 triggers random bonus ──
+  if (cellIndex === 0) {
+    await handleGoBonus(io, game, player);
+    return;
+  }
 
   switch (cellAction.action) {
     case 'rent': {
