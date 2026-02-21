@@ -113,6 +113,7 @@ const initialState: TinhTuyState = {
   queuedBuybackPrompt: null,
   goBonusPrompt: null,
   autoSoldAlert: null as { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null,
+  forcedTradePrompt: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -405,6 +406,56 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CARD_DESTINATION_PROMPT':
       return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION' };
+
+    case 'FORCED_TRADE_PROMPT':
+      return {
+        ...state,
+        turnPhase: 'AWAITING_FORCED_TRADE',
+        forcedTradePrompt: { myCells: action.payload.myCells, opponentCells: action.payload.opponentCells },
+      };
+
+    case 'FORCED_TRADE_DONE': {
+      const { traderSlot, traderCell, victimSlot, victimCell } = action.payload;
+      let ftPlayers = [...state.players];
+      // Find traders
+      const trader = ftPlayers.find(p => p.slot === traderSlot);
+      const victim = ftPlayers.find(p => p.slot === victimSlot);
+      if (trader && victim) {
+        // Swap properties
+        const traderKey = String(traderCell);
+        const victimKey = String(victimCell);
+        const traderHouses = (trader.houses || {})[traderKey] || 0;
+        const traderHotel = !!(trader.hotels || {})[traderKey];
+        const victimHouses = (victim.houses || {})[victimKey] || 0;
+        const victimHotel = !!(victim.hotels || {})[victimKey];
+
+        ftPlayers = ftPlayers.map(p => {
+          if (p.slot === traderSlot) {
+            const newProps = p.properties.filter(ci => ci !== traderCell).concat(victimCell);
+            const newHouses = { ...p.houses };
+            const newHotels = { ...p.hotels };
+            delete newHouses[traderKey];
+            delete newHotels[traderKey];
+            if (victimHouses > 0) newHouses[victimKey] = victimHouses;
+            if (victimHotel) newHotels[victimKey] = victimHotel;
+            return { ...p, properties: newProps, houses: newHouses, hotels: newHotels };
+          }
+          if (p.slot === victimSlot) {
+            const newProps = p.properties.filter(ci => ci !== victimCell).concat(traderCell);
+            const newHouses = { ...p.houses };
+            const newHotels = { ...p.hotels };
+            delete newHouses[victimKey];
+            delete newHotels[victimKey];
+            if (traderHouses > 0) newHouses[traderKey] = traderHouses;
+            if (traderHotel) newHotels[traderKey] = traderHotel;
+            return { ...p, properties: newProps, houses: newHouses, hotels: newHotels };
+          }
+          return p;
+        });
+      }
+      const ftFestival = action.payload.festival !== undefined ? action.payload.festival : state.festival;
+      return { ...state, players: ftPlayers, forcedTradePrompt: null, festival: ftFestival };
+    }
 
     case 'PROPERTY_BOUGHT': {
       const dpBuy = freezePoints(state);
@@ -1095,6 +1146,7 @@ interface TinhTuyContextValue {
   goBonusChoose: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
   chooseDestination: (cellIndex: number) => void;
+  forcedTradeChoose: (myCellIndex: number, opponentCellIndex: number) => void;
   clearAttackAlert: () => void;
   clearAutoSold: () => void;
   clearGoBonus: () => void;
@@ -1264,6 +1316,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleCardDestinationPrompt = (data: any) => {
       dispatch({ type: 'CARD_DESTINATION_PROMPT', payload: data });
     };
+    const handleForcedTradePrompt = (data: any) => {
+      dispatch({ type: 'FORCED_TRADE_PROMPT', payload: data });
+    };
+    const handleForcedTradeDone = (data: any) => {
+      dispatch({ type: 'FORCED_TRADE_DONE', payload: data });
+    };
 
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
@@ -1334,6 +1392,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
     socket.on('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
+    socket.on('tinh-tuy:forced-trade-prompt' as any, handleForcedTradePrompt);
+    socket.on('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1375,6 +1435,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
       socket.off('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
+      socket.off('tinh-tuy:forced-trade-prompt' as any, handleForcedTradePrompt);
+      socket.off('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1651,6 +1713,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:card-choose-destination' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const forcedTradeChoose = useCallback((myCellIndex: number, opponentCellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:forced-trade-choose' as any, { myCellIndex, opponentCellIndex }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -2035,7 +2105,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
     }}>
       {children}
     </TinhTuyContext.Provider>

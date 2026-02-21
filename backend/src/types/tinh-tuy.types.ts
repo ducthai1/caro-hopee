@@ -12,7 +12,7 @@ export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', '
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_GO_BONUS' | 'AWAITING_CARD_DESTINATION' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_GO_BONUS' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -175,7 +175,8 @@ export type CardAction =
   | { type: 'EXTRA_TURN' }
   | { type: 'WEALTH_TRANSFER'; amount: number }
   | { type: 'CHOOSE_DESTINATION' }
-  | { type: 'TELEPORT_ALL' };
+  | { type: 'TELEPORT_ALL' }
+  | { type: 'FORCED_TRADE' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -195,7 +196,7 @@ export interface CardEffectResult {
   cardHeld?: { slot: number; cardId: string };
   houseRemoved?: { slot: number; cellIndex: number };
   skipTurn?: boolean;
-  requiresChoice?: 'FREE_HOUSE' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION';
+  requiresChoice?: 'FREE_HOUSE' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION' | 'FORCED_TRADE';
   goToIsland?: boolean;
   /** Target properties for attack cards — opponent cells the current player can target */
   targetableCells?: number[];

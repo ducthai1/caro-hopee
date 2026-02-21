@@ -35,6 +35,7 @@ import { TinhTuyGameOverModal } from './TinhTuyGameOverModal';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
 import { TinhTuyChat } from './TinhTuyChat';
 import { TinhTuyAttackPropertyModal } from './TinhTuyAttackPropertyModal';
+import { TinhTuyForcedTradeModal } from './TinhTuyForcedTradeModal';
 import { TinhTuyAttackAlert } from './TinhTuyAttackAlert';
 import { TinhTuyBuybackModal } from './TinhTuyBuybackModal';
 import { TinhTuyAutoSoldAlert } from './TinhTuyAutoSoldAlert';
@@ -365,6 +366,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyGoPopup />
       <TinhTuyBankruptAlert />
       <TinhTuyAttackPropertyModal />
+      <TinhTuyForcedTradeModal />
       <TinhTuyAttackAlert />
       <TinhTuyBuybackModal />
       <TinhTuyAutoSoldAlert />

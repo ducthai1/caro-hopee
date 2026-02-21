@@ -19,7 +19,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -240,6 +240,8 @@ export interface TinhTuyState {
   goBonusPrompt: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } | null;
   /** Auto-sold alert — shown when timeout auto-sells buildings/properties */
   autoSoldAlert: { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null;
+  /** Forced trade prompt — player picks own property + opponent property to swap */
+  forcedTradePrompt: { myCells: number[]; opponentCells: number[] } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -322,7 +324,9 @@ export type TinhTuyAction =
   | { type: 'GO_BONUS_APPLIED'; payload: { slot: number; bonusType: string; cellIndex?: number; houses?: Record<string, number>; hotels?: Record<string, boolean> } }
   | { type: 'CLEAR_GO_BONUS' }
   | { type: 'CLEAR_AUTO_SOLD' }
-  | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } };
+  | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } }
+  | { type: 'FORCED_TRADE_PROMPT'; payload: { slot: number; myCells: number[]; opponentCells: number[] } }
+  | { type: 'FORCED_TRADE_DONE'; payload: { traderSlot: number; traderCell: number; victimSlot: number; victimCell: number; festival?: { slot: number; cellIndex: number; multiplier: number } | null } };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

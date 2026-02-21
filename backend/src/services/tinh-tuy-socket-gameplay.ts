@@ -631,6 +631,42 @@ async function handleCardDraw(
     return; // Wait for player choice
   }
 
+  // FORCED_TRADE: player picks own property + opponent property to swap
+  if (effect.requiresChoice === 'FORCED_TRADE') {
+    // Compute tradeable cells for UI
+    const myCells = player.properties;
+    const opponentCells = game.players
+      .filter(p => !p.isBankrupt && p.slot !== player.slot)
+      .flatMap(p => p.properties.filter(ci => !p.hotels?.[String(ci)]));
+    game.turnPhase = 'AWAITING_FORCED_TRADE';
+    await game.save();
+    io.to(game.roomId).emit('tinh-tuy:forced-trade-prompt', {
+      slot: player.slot, myCells, opponentCells,
+    });
+    // Auto-pick random on timeout
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.turnPhase !== 'AWAITING_FORCED_TRADE') return;
+        const p = g.players.find(pp => pp.slot === player.slot)!;
+        const myProps = p.properties;
+        const oppProps = g.players
+          .filter(pp => !pp.isBankrupt && pp.slot !== p.slot)
+          .flatMap(pp => pp.properties.filter(ci => !pp.hotels?.[String(ci)]));
+        if (myProps.length > 0 && oppProps.length > 0) {
+          const myCell = myProps[crypto.randomInt(0, myProps.length)];
+          const oppCell = oppProps[crypto.randomInt(0, oppProps.length)];
+          applyForcedTrade(g, p.slot, myCell, oppCell, io);
+        }
+        g.turnPhase = 'END_TURN';
+        g.markModified('players');
+        await g.save();
+        await advanceTurnOrDoubles(io, g, p);
+      } catch (err) { console.error('[tinh-tuy] Forced trade timeout:', err); }
+    });
+    return; // Wait for player choice
+  }
+
   // Hold turn for ~4s so frontend card modal can display before turn advances.
   // Without this delay, the turn-changed event arrives immediately after card-drawn,
   // causing the card modal to be skipped or dismissed before players can see it.
@@ -816,6 +852,60 @@ async function handleGoBonus(
  * Apply a property attack (DESTROY_PROPERTY or DOWNGRADE_BUILDING) to a target cell.
  * Returns the result details for the notification event.
  */
+/** Swap ownership of two properties. Houses stay on cells, just change owner. */
+function applyForcedTrade(
+  game: ITinhTuyGame, mySlot: number, myCellIndex: number, oppCellIndex: number, io: SocketIOServer
+) {
+  const me = game.players.find(p => p.slot === mySlot);
+  const oppOwner = game.players.find(p => p.properties.includes(oppCellIndex) && p.slot !== mySlot);
+  if (!me || !oppOwner) return;
+
+  // Remove from original owners
+  me.properties = me.properties.filter(ci => ci !== myCellIndex);
+  oppOwner.properties = oppOwner.properties.filter(ci => ci !== oppCellIndex);
+
+  // Swap houses/hotels data
+  const myKey = String(myCellIndex);
+  const oppKey = String(oppCellIndex);
+  const myHouses = (me.houses || {})[myKey] || 0;
+  const myHotel = !!(me.hotels || {})[myKey];
+  const oppHouses = (oppOwner.houses || {})[oppKey] || 0;
+  const oppHotel = !!(oppOwner.hotels || {})[oppKey];
+
+  // Clear old owner's building data
+  delete (me.houses as any)[myKey];
+  delete (me.hotels as any)[myKey];
+  delete (oppOwner.houses as any)[oppKey];
+  delete (oppOwner.hotels as any)[oppKey];
+
+  // Add to new owners with swapped buildings
+  me.properties.push(oppCellIndex);
+  oppOwner.properties.push(myCellIndex);
+  if (oppHouses > 0) (me.houses as any)[oppKey] = oppHouses;
+  if (oppHotel) (me.hotels as any)[oppKey] = oppHotel;
+  if (myHouses > 0) (oppOwner.houses as any)[myKey] = myHouses;
+  if (myHotel) (oppOwner.hotels as any)[myKey] = myHotel;
+
+  // Transfer festival if either cell hosts it
+  if (game.festival) {
+    if (game.festival.cellIndex === myCellIndex && game.festival.slot === mySlot) {
+      game.festival = { ...game.festival, slot: oppOwner.slot };
+      game.markModified('festival');
+    } else if (game.festival.cellIndex === oppCellIndex && game.festival.slot === oppOwner.slot) {
+      game.festival = { ...game.festival, slot: mySlot };
+      game.markModified('festival');
+    }
+  }
+
+  io.to(game.roomId).emit('tinh-tuy:forced-trade-done', {
+    traderSlot: mySlot,
+    traderCell: myCellIndex,
+    victimSlot: oppOwner.slot,
+    victimCell: oppCellIndex,
+    festival: game.festival,
+  });
+}
+
 function applyPropertyAttack(
   game: ITinhTuyGame,
   attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING',
@@ -1636,6 +1726,55 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:card-choose-destination]', err.message);
       callback({ success: false, error: 'destinationFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Forced Trade (ch-23) ────────────────────────────────────
+  socket.on('tinh-tuy:forced-trade-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_FORCED_TRADE') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const { myCellIndex, opponentCellIndex } = data || {};
+      // Validate: myCellIndex belongs to current player
+      if (!player.properties.includes(myCellIndex)) {
+        return callback({ success: false, error: 'notYourProperty' });
+      }
+      // Validate: opponentCellIndex belongs to an opponent (no hotel)
+      const oppOwner = game.players.find(p => !p.isBankrupt && p.slot !== player.slot && p.properties.includes(opponentCellIndex));
+      if (!oppOwner) {
+        return callback({ success: false, error: 'invalidTarget' });
+      }
+      if (oppOwner.hotels?.[String(opponentCellIndex)]) {
+        return callback({ success: false, error: 'cannotTradeHotel' });
+      }
+
+      clearTurnTimer(roomId);
+      applyForcedTrade(game, player.slot, myCellIndex, opponentCellIndex, io);
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:forced-trade-choose]', err.message);
+      callback({ success: false, error: 'tradeFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
     }

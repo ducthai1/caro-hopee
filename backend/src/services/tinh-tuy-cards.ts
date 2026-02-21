@@ -107,6 +107,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'HOLD_CARD', cardId: 'shield' }, holdable: true },
   { id: 'ch-22', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch22.name', descriptionKey: 'tinhTuy.cards.ch22.desc',
     action: { type: 'EXTRA_TURN' } },
+  { id: 'ch-23', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch23.name', descriptionKey: 'tinhTuy.cards.ch23.desc',
+    action: { type: 'FORCED_TRADE' } },
   { id: 'ch-27', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch27.name', descriptionKey: 'tinhTuy.cards.ch27.desc',
     action: { type: 'WEALTH_TRANSFER', amount: 3000 }, minRound: 40 },
 ];
@@ -424,6 +426,18 @@ export function executeCardEffect(
       result.wealthTransfer = { richestSlot: richest.slot, poorestSlot: poorest2.slot, amount: action.amount };
       break;
     }
+
+    case 'FORCED_TRADE':
+      // Check if player has at least 1 property AND opponents have at least 1 non-hotel property
+      if (player.properties.length === 0) break; // No own properties to trade
+      {
+        const opponentNonHotel = game.players
+          .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+          .flatMap(p => p.properties.filter(ci => !p.hotels?.[String(ci)]));
+        if (opponentNonHotel.length === 0) break; // No valid opponent targets
+      }
+      result.requiresChoice = 'FORCED_TRADE';
+      break;
   }
 
   return result;
