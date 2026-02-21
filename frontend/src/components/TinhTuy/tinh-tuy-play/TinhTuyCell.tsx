@@ -20,6 +20,7 @@ interface Props {
   houseCount?: number;
   hasHotel?: boolean;
   hasFestival?: boolean;
+  isFrozen?: boolean;
   currentRent?: number;
   selectionState?: SelectionState;
   onClick?: () => void;
@@ -45,7 +46,7 @@ const FESTIVAL_COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', 
 
 export const TinhTuyCell: React.FC<Props> = React.memo(({
   cell, col, row, ownerSlot, isCurrentCell,
-  houseCount = 0, hasHotel = false, hasFestival = false, currentRent, selectionState, onClick,
+  houseCount = 0, hasHotel = false, hasFestival = false, isFrozen = false, currentRent, selectionState, onClick,
 }) => {
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
@@ -177,6 +178,29 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
               opacity: 0.85,
             }}
           />
+        )}
+
+        {/* Frozen rent overlay */}
+        {isFrozen && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              bgcolor: 'rgba(52,152,219,0.18)',
+              border: '2px solid rgba(52,152,219,0.5)',
+              borderRadius: 'inherit',
+              zIndex: 4,
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'tt-frozen-pulse 2s ease-in-out infinite',
+            }}
+          >
+            <Typography sx={{ fontSize: '0.6rem', color: '#2980b9', fontWeight: 700, opacity: 0.8 }}>
+              ❄️
+            </Typography>
+          </Box>
         )}
 
         {/* Cell icon / image */}

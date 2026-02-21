@@ -1075,7 +1075,10 @@
       "chooseDestination": "Choose a cell",
       "forcedTradeStep1": "Pick one of YOUR properties to trade",
       "forcedTradeStep2": "Pick an OPPONENT's property to swap with",
-      "forcedTradeYours": "Your property"
+      "forcedTradeYours": "Your property",
+      "ch25": { "name": "Rent Freeze", "desc": "Pick 1 opponent's property → FREEZE rent income for 2 turns!" },
+      "rentFreezeHint": "Pick an opponent's property to freeze rent (2 turns)",
+      "frozenRent": "Frozen"
     },
     "cells": {
       "go": "GO",

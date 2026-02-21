@@ -19,7 +19,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -242,6 +242,10 @@ export interface TinhTuyState {
   autoSoldAlert: { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null;
   /** Forced trade prompt — player picks own property + opponent property to swap */
   forcedTradePrompt: { myCells: number[]; opponentCells: number[] } | null;
+  /** Frozen properties — rent is 0 for these cells */
+  frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }>;
+  /** Rent freeze selection prompt — pick opponent's property to freeze */
+  rentFreezePrompt: { targetCells: number[] } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -259,7 +263,7 @@ export type TinhTuyAction =
   | { type: 'PROPERTY_BOUGHT'; payload: { slot: number; cellIndex: number; price: number; remainingPoints: number } }
   | { type: 'RENT_PAID'; payload: { fromSlot: number; toSlot: number; amount: number; cellIndex: number } }
   | { type: 'TAX_PAID'; payload: { slot: number; amount: number; cellIndex: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } }
-  | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean; buffs?: Array<{ slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean }> } }
+  | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean; buffs?: Array<{ slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean }>; frozenProperties?: Array<{ cellIndex: number; turnsRemaining: number }> } }
   | { type: 'PLAYER_BANKRUPT'; payload: { slot: number } }
   | { type: 'PLAYER_SURRENDERED'; payload: { slot: number } }
   | { type: 'PLAYER_ISLAND'; payload: { slot: number; turnsRemaining: number } }
@@ -326,7 +330,9 @@ export type TinhTuyAction =
   | { type: 'CLEAR_AUTO_SOLD' }
   | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } }
   | { type: 'FORCED_TRADE_PROMPT'; payload: { slot: number; myCells: number[]; opponentCells: number[] } }
-  | { type: 'FORCED_TRADE_DONE'; payload: { traderSlot: number; traderCell: number; victimSlot: number; victimCell: number; festival?: { slot: number; cellIndex: number; multiplier: number } | null } };
+  | { type: 'FORCED_TRADE_DONE'; payload: { traderSlot: number; traderCell: number; victimSlot: number; victimCell: number; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }
+  | { type: 'RENT_FREEZE_PROMPT'; payload: { slot: number; targetCells: number[] } }
+  | { type: 'RENT_FROZEN'; payload: { cellIndex: number; turnsRemaining: number; frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }> } };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

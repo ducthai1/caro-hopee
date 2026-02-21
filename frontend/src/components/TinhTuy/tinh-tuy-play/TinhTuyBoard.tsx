@@ -110,6 +110,10 @@ export const TinhTuyBoard: React.FC = () => {
       if (state.festival && state.festival.cellIndex === cellIdx) {
         rent = Math.floor(rent * state.festival.multiplier);
       }
+      // Frozen properties have 0 rent
+      if (state.frozenProperties?.some(fp => fp.cellIndex === cellIdx)) {
+        rent = 0;
+      }
       currentRentMap.set(cellIdx, rent);
     }
   }
@@ -158,6 +162,7 @@ export const TinhTuyBoard: React.FC = () => {
                 houseCount={building?.houses || 0}
                 hasHotel={building?.hotel || false}
                 hasFestival={festivalCell === cell.index}
+                isFrozen={state.frozenProperties?.some(fp => fp.cellIndex === cell.index) || false}
                 currentRent={currentRentMap.get(cell.index)}
                 selectionState={selectionState}
                 onClick={() =>

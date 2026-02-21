@@ -109,6 +109,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'EXTRA_TURN' } },
   { id: 'ch-23', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch23.name', descriptionKey: 'tinhTuy.cards.ch23.desc',
     action: { type: 'FORCED_TRADE' } },
+  { id: 'ch-25', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch25.name', descriptionKey: 'tinhTuy.cards.ch25.desc',
+    action: { type: 'RENT_FREEZE' } },
   { id: 'ch-27', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch27.name', descriptionKey: 'tinhTuy.cards.ch27.desc',
     action: { type: 'WEALTH_TRANSFER', amount: 3000 }, minRound: 40 },
 ];
@@ -438,6 +440,17 @@ export function executeCardEffect(
       }
       result.requiresChoice = 'FORCED_TRADE';
       break;
+
+    case 'RENT_FREEZE': {
+      // Player picks an opponent's property to freeze rent for 2 turns
+      const freezeTargets = game.players
+        .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+        .flatMap(p => p.properties);
+      if (freezeTargets.length === 0) break;
+      result.requiresChoice = 'RENT_FREEZE';
+      result.targetableCells = freezeTargets;
+      break;
+    }
   }
 
   return result;

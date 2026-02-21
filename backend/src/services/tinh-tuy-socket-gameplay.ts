@@ -196,6 +196,14 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promi
     game.round += 1;
   }
 
+  // Decrement frozen property turns
+  if (game.frozenProperties && game.frozenProperties.length > 0) {
+    game.frozenProperties = game.frozenProperties
+      .map((fp: any) => ({ ...fp, turnsRemaining: fp.turnsRemaining - 1 }))
+      .filter((fp: any) => fp.turnsRemaining > 0);
+    game.markModified('frozenProperties');
+  }
+
   game.currentPlayerSlot = nextSlot;
   game.turnStartedAt = new Date();
   game.lastDiceResult = null;
@@ -242,6 +250,7 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promi
     turnStartedAt: game.turnStartedAt,
     round: game.round,
     buffs: getPlayerBuffs(game),
+    frozenProperties: game.frozenProperties || [],
   });
 
   startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
@@ -629,6 +638,38 @@ async function handleCardDraw(
       } catch (err) { console.error('[tinh-tuy] Card destination timeout:', err); }
     });
     return; // Wait for player choice
+  }
+
+  // RENT_FREEZE: player picks an opponent's property to freeze rent for 2 rounds
+  if (effect.requiresChoice === 'RENT_FREEZE') {
+    const freezeTargets = effect.targetableCells || [];
+    game.turnPhase = 'AWAITING_RENT_FREEZE';
+    await game.save();
+    io.to(game.roomId).emit('tinh-tuy:rent-freeze-prompt', {
+      slot: player.slot, targetCells: freezeTargets,
+    });
+    // Auto-pick random on timeout
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.turnPhase !== 'AWAITING_RENT_FREEZE') return;
+        const p = g.players.find(pp => pp.slot === player.slot)!;
+        if (freezeTargets.length > 0) {
+          const target = freezeTargets[crypto.randomInt(0, freezeTargets.length)];
+          if (!g.frozenProperties) g.frozenProperties = [];
+          // Remove existing freeze on same cell, add new
+          g.frozenProperties = g.frozenProperties.filter((fp: any) => fp.cellIndex !== target);
+          g.frozenProperties.push({ cellIndex: target, turnsRemaining: 2 });
+          g.markModified('frozenProperties');
+          io.to(g.roomId).emit('tinh-tuy:rent-frozen', { cellIndex: target, turnsRemaining: 2, frozenProperties: g.frozenProperties });
+        }
+        g.turnPhase = 'END_TURN';
+        g.markModified('players');
+        await g.save();
+        await advanceTurnOrDoubles(io, g, p);
+      } catch (err) { console.error('[tinh-tuy] Rent freeze timeout:', err); }
+    });
+    return;
   }
 
   // FORCED_TRADE: player picks own property + opponent property to swap
@@ -1726,6 +1767,52 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:card-choose-destination]', err.message);
       callback({ success: false, error: 'destinationFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Rent Freeze (ch-25) ─────────────────────────────────────
+  socket.on('tinh-tuy:rent-freeze-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_RENT_FREEZE') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const { cellIndex } = data || {};
+      // Validate target is opponent's property
+      const oppOwner = game.players.find(p => !p.isBankrupt && p.slot !== player.slot && p.properties.includes(cellIndex));
+      if (!oppOwner) {
+        return callback({ success: false, error: 'invalidTarget' });
+      }
+
+      clearTurnTimer(roomId);
+      if (!game.frozenProperties) game.frozenProperties = [];
+      game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== cellIndex);
+      game.frozenProperties.push({ cellIndex, turnsRemaining: 2 });
+      game.markModified('frozenProperties');
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:rent-frozen', { cellIndex, turnsRemaining: 2, frozenProperties: game.frozenProperties });
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:rent-freeze-choose]', err.message);
+      callback({ success: false, error: 'freezeFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
     }

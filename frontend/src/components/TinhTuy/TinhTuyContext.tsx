@@ -114,6 +114,8 @@ const initialState: TinhTuyState = {
   goBonusPrompt: null,
   autoSoldAlert: null as { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null,
   forcedTradePrompt: null,
+  frozenProperties: [],
+  rentFreezePrompt: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -186,6 +188,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           lastDiceResult: g.lastDiceResult || null,
           round: g.round || 1,
           festival: g.festival || null,
+          frozenProperties: g.frozenProperties || [],
           // Restore sell prompt on reconnect with AWAITING_SELL phase
           sellPrompt: g.turnPhase === 'AWAITING_SELL'
             ? { deficit: Math.abs(mapPlayers(g.players).find((p: any) => p.slot === g.currentPlayerSlot)?.points ?? 0) }
@@ -221,6 +224,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         turnStartedAt: Date.now(),
         round: g.round || 1,
         festival: g.festival || null,
+        frozenProperties: g.frozenProperties || [],
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
         pendingCardEffect: null, gameEndReason: null,
         queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null, buybackPrompt: null, queuedBuybackPrompt: null,
@@ -414,6 +418,20 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         forcedTradePrompt: { myCells: action.payload.myCells, opponentCells: action.payload.opponentCells },
       };
 
+    case 'RENT_FREEZE_PROMPT':
+      return {
+        ...state,
+        turnPhase: 'AWAITING_RENT_FREEZE',
+        rentFreezePrompt: { targetCells: action.payload.targetCells },
+      };
+
+    case 'RENT_FROZEN':
+      return {
+        ...state,
+        frozenProperties: action.payload.frozenProperties,
+        rentFreezePrompt: null,
+      };
+
     case 'FORCED_TRADE_DONE': {
       const { traderSlot, traderCell, victimSlot, victimCell } = action.payload;
       let ftPlayers = [...state.players];
@@ -522,6 +540,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       // Queue turn change — applied after animations + modals + notifs settle
       return {
         ...state,
+        // Sync frozen properties immediately (data sync, not visual effect)
+        frozenProperties: action.payload.frozenProperties ?? state.frozenProperties,
         queuedTurnChange: {
           currentSlot: action.payload.currentSlot,
           turnPhase: action.payload.turnPhase,
@@ -1147,6 +1167,7 @@ interface TinhTuyContextValue {
   attackPropertyChoose: (cellIndex: number) => void;
   chooseDestination: (cellIndex: number) => void;
   forcedTradeChoose: (myCellIndex: number, opponentCellIndex: number) => void;
+  rentFreezeChoose: (cellIndex: number) => void;
   clearAttackAlert: () => void;
   clearAutoSold: () => void;
   clearGoBonus: () => void;
@@ -1322,6 +1343,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleForcedTradeDone = (data: any) => {
       dispatch({ type: 'FORCED_TRADE_DONE', payload: data });
     };
+    const handleRentFreezePrompt = (data: any) => {
+      dispatch({ type: 'RENT_FREEZE_PROMPT', payload: data });
+    };
+    const handleRentFrozen = (data: any) => {
+      dispatch({ type: 'RENT_FROZEN', payload: data });
+    };
 
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
@@ -1394,6 +1421,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
     socket.on('tinh-tuy:forced-trade-prompt' as any, handleForcedTradePrompt);
     socket.on('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
+    socket.on('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
+    socket.on('tinh-tuy:rent-frozen' as any, handleRentFrozen);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1437,6 +1466,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
       socket.off('tinh-tuy:forced-trade-prompt' as any, handleForcedTradePrompt);
       socket.off('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
+      socket.off('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
+      socket.off('tinh-tuy:rent-frozen' as any, handleRentFrozen);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1721,6 +1752,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:forced-trade-choose' as any, { myCellIndex, opponentCellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const rentFreezeChoose = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:rent-freeze-choose' as any, { cellIndex }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -2105,7 +2144,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
     }}>
       {children}
     </TinhTuyContext.Provider>

@@ -240,6 +240,12 @@
   100% { box-shadow: 0 0 8px rgba(46,204,113,0.5), inset 0 0 6px rgba(46,204,113,0.15); }
 }
 
+@keyframes tt-frozen-pulse {
+  0%   { background-color: rgba(52,152,219,0.12); }
+  50%  { background-color: rgba(52,152,219,0.25); }
+  100% { background-color: rgba(52,152,219,0.12); }
+}
+
 /* ─── Mobile: Flat Board + Responsive Adjustments ────────── */
 
 @media (max-width: 768px) {

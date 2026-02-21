@@ -1075,7 +1075,10 @@
       "chooseDestination": "Chọn ô để đến",
       "forcedTradeStep1": "Chọn 1 đất CỦA BẠN để trao đổi",
       "forcedTradeStep2": "Chọn 1 đất CỦA ĐỐI THỦ để đổi lấy",
-      "forcedTradeYours": "Đất của bạn"
+      "forcedTradeYours": "Đất của bạn",
+      "ch25": { "name": "Đóng Băng", "desc": "Chọn 1 đất của đối thủ → ĐÓNG BĂNG thu nhập trong 2 lượt!" },
+      "rentFreezeHint": "Chọn 1 đất đối thủ để đóng băng tiền thuê (2 lượt)",
+      "frozenRent": "Đóng băng"
     },
     "cells": {
       "go": "Xuất Phát",

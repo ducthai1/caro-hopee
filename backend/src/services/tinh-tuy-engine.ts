@@ -44,6 +44,11 @@ export function calculateRent(
   const owner = game.players.find(p => p.properties.includes(cellIndex));
   if (!owner || owner.isBankrupt) return 0;
 
+  // Frozen property — rent is 0
+  if (game.frozenProperties?.some((fp: any) => fp.cellIndex === cellIndex && fp.turnsRemaining > 0)) {
+    return 0;
+  }
+
   let rent = 0;
 
   // Station rent: 250 per station owned

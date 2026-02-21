@@ -86,6 +86,9 @@ const TinhTuyGameSchema = new Schema({
   /** Global festival — only one on the board at a time { slot, cellIndex, multiplier } */
   festival: { type: Schema.Types.Mixed, default: null },
 
+  /** Frozen properties — rent is 0 for these cells [{cellIndex, turnsRemaining}] */
+  frozenProperties: { type: [Schema.Types.Mixed], default: [] },
+
   winner: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 
