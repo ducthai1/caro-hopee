@@ -206,26 +206,9 @@ export function setupTinhTuySocketHandlers(io: SocketIOServer): void {
                 winner: g.winner, reason: 'lastStanding',
               });
             } else if (g.currentPlayerSlot === p.slot) {
-              // Skip their turn
-              const { getNextActivePlayer } = await import('./tinh-tuy-engine');
-              g.currentPlayerSlot = getNextActivePlayer(g.players, g.currentPlayerSlot);
-              g.turnPhase = 'ROLL_DICE';
-              g.turnStartedAt = new Date();
-              await g.save();
-              io.to(roomId).emit('tinh-tuy:turn-changed', {
-                currentSlot: g.currentPlayerSlot,
-                turnPhase: g.turnPhase,
-                turnStartedAt: g.turnStartedAt,
-              });
-              // Start timer for next player's turn
-              startTurnTimer(roomId, (g.settings?.turnDuration || 60) * 1000, async () => {
-                try {
-                  const g2 = await TinhTuyGame.findOne({ roomId });
-                  if (!g2 || g2.gameStatus !== 'playing') return;
-                  const { advanceTurn: advTurn } = await import('./tinh-tuy-socket-gameplay');
-                  await advTurn(io, g2);
-                } catch (e) { console.error('[tinh-tuy] Disconnect skip timer error:', e); }
-              });
+              // Disconnected player's turn — advance properly (handles frozen decrement, skip, round, etc.)
+              const { advanceTurn: advTurn } = await import('./tinh-tuy-socket-gameplay');
+              await advTurn(io, g);
             }
           } catch (err) {
             console.error('[tinh-tuy] Disconnect timer error:', err);

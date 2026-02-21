@@ -878,8 +878,11 @@ async function handleGoBonus(
     });
   } else {
     // BONUS_ROLL: give player an extra dice roll (similar to doubles extra turn)
+    // Clear card-based extraTurn to prevent stacking with bonus roll
+    player.extraTurn = false;
     game.turnPhase = 'ROLL_DICE';
     game.turnStartedAt = new Date();
+    game.markModified('players');
     await game.save();
     io.to(roomId).emit('tinh-tuy:go-bonus', {
       slot: player.slot, bonusType: 'BONUS_ROLL',
@@ -2029,25 +2032,50 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'noSelections' });
       }
 
+      // Deduplicate: aggregate house counts per cell, reject conflicting hotel+property for same cell
+      const cellPropertySells = new Set<number>();
+      const cellHotelSells = new Set<number>();
+      const cellHouseCounts = new Map<number, number>();
+      for (const sel of selections) {
+        if (sel.type === 'property') {
+          if (cellPropertySells.has(sel.cellIndex)) continue; // ignore duplicate
+          cellPropertySells.add(sel.cellIndex);
+        } else if (sel.type === 'hotel') {
+          cellHotelSells.add(sel.cellIndex);
+        } else {
+          cellHouseCounts.set(sel.cellIndex, (cellHouseCounts.get(sel.cellIndex) || 0) + (sel.count || 1));
+        }
+      }
+
       // Validate and calculate total
       const completedRounds = Math.max((game.round || 1) - 1, 0);
       let totalSellValue = 0;
       for (const sel of selections) {
-        const { cellIndex, type, count } = sel;
+        const { cellIndex, type } = sel;
         if (!player.properties.includes(cellIndex)) {
           return callback({ success: false, error: 'notOwned' });
         }
         const key = String(cellIndex);
         if (type === 'property') {
-          // Selling whole property (land + any buildings on it)
+          if (!cellPropertySells.has(cellIndex)) continue; // already processed as duplicate
+          cellPropertySells.delete(cellIndex); // process only once
+          // Selling whole property includes all buildings — reject separate hotel/house sell on same cell
+          cellHotelSells.delete(cellIndex);
+          cellHouseCounts.delete(cellIndex);
           totalSellValue += getPropertyTotalSellValue(player, cellIndex, completedRounds);
         } else if (type === 'hotel') {
+          if (!cellHotelSells.has(cellIndex)) continue; // already consumed by property sell
+          cellHotelSells.delete(cellIndex); // process only once
           if (!player.hotels[key]) return callback({ success: false, error: 'noHotel' });
           totalSellValue += getSellPrice(cellIndex, 'hotel');
         } else {
+          // House sells: use aggregated count (handles duplicate entries)
+          const totalCount = cellHouseCounts.get(cellIndex);
+          if (!totalCount) continue; // already consumed
+          cellHouseCounts.delete(cellIndex); // process only once per cell
           const available = player.houses[key] || 0;
-          if (count > available || count <= 0) return callback({ success: false, error: 'notEnoughHouses' });
-          totalSellValue += count * getSellPrice(cellIndex, 'house');
+          if (totalCount > available || totalCount <= 0) return callback({ success: false, error: 'notEnoughHouses' });
+          totalSellValue += totalCount * getSellPrice(cellIndex, 'house');
         }
       }
 
@@ -2057,30 +2085,38 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'insufficientSell' });
       }
 
-      // Apply sells — process property sells last to avoid index issues
-      const propertySells = selections.filter(s => s.type === 'property');
-      const buildingSells = selections.filter(s => s.type !== 'property');
-      for (const sel of buildingSells) {
-        const key = String(sel.cellIndex);
-        if (sel.type === 'hotel') {
-          player.hotels[key] = false;
-        } else {
-          player.houses[key] = (player.houses[key] || 0) - sel.count;
+      // Apply sells — deduplicate: aggregate houses per cell, process property sells last
+      const propertySells = new Set<number>();
+      const hotelSells = new Set<number>();
+      const houseSells = new Map<number, number>();
+      for (const sel of selections) {
+        if (sel.type === 'property') propertySells.add(sel.cellIndex);
+        else if (sel.type === 'hotel' && !propertySells.has(sel.cellIndex)) hotelSells.add(sel.cellIndex);
+        else if (sel.type === 'house' && !propertySells.has(sel.cellIndex)) {
+          houseSells.set(sel.cellIndex, (houseSells.get(sel.cellIndex) || 0) + (sel.count || 1));
         }
       }
-      for (const sel of propertySells) {
-        const key = String(sel.cellIndex);
+      // Apply building sells first
+      for (const cellIndex of hotelSells) {
+        player.hotels[String(cellIndex)] = false;
+      }
+      for (const [cellIndex, count] of houseSells) {
+        const key = String(cellIndex);
+        player.houses[key] = Math.max((player.houses[key] || 0) - count, 0);
+      }
+      for (const cellIndex of propertySells) {
+        const key = String(cellIndex);
         delete player.houses[key];
         delete player.hotels[key];
-        player.properties = player.properties.filter(idx => idx !== sel.cellIndex);
+        player.properties = player.properties.filter(idx => idx !== cellIndex);
         // Clear festival if this property hosted it
-        if (game.festival && game.festival.cellIndex === sel.cellIndex && game.festival.slot === player.slot) {
+        if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === player.slot) {
           game.festival = null;
           game.markModified('festival');
         }
         // Clear frozen rent if this property had a freeze
         if (game.frozenProperties?.length) {
-          game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== sel.cellIndex);
+          game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== cellIndex);
           game.markModified('frozenProperties');
         }
       }
