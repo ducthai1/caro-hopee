@@ -105,13 +105,13 @@ export const TinhTuyBoard: React.FC = () => {
           rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
         }
       }
+      // Festival multiplier (game-level, stacking) — applied before doubleRent to match backend
+      if (state.festival && state.festival.cellIndex === cellIdx) {
+        rent = Math.floor(rent * state.festival.multiplier);
+      }
       // Double rent buff
       if (player.doubleRentTurns > 0) {
         rent = rent * 2;
-      }
-      // Festival multiplier (game-level, stacking)
-      if (state.festival && state.festival.cellIndex === cellIdx) {
-        rent = Math.floor(rent * state.festival.multiplier);
       }
       // Frozen properties have 0 rent
       if (state.frozenProperties?.some(fp => fp.cellIndex === cellIdx)) {
