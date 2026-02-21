@@ -8,7 +8,7 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 
-const AUTO_DISMISS_MS = 3000;
+const AUTO_DISMISS_MS = 6000;
 
 export const TinhTuyGoBonusModal: React.FC = () => {
   const { t } = useLanguage();

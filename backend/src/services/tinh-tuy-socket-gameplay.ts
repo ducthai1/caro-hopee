@@ -18,8 +18,8 @@ import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyResta
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
 // Extra time (ms) added to card-choice timers to account for frontend animations
-// (dice ~2.5s + movement ~5s + card display ~3.5s + transitions ~1s ≈ 12s)
-const CARD_CHOICE_EXTRA_MS = 15_000;
+// (dice ~2.5s + movement ~5s + card display ~7s + transitions ~1s ≈ 15.5s)
+const CARD_CHOICE_EXTRA_MS = 30_000;
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -750,12 +750,12 @@ async function handleCardDraw(
 
   // Hold turn so frontend card modal can display before turn advances.
   // Cards with detailed multi-player effects (storm, teleport, steal, wealth transfer)
-  // need longer display for players to read. Frontend uses 6s for these, 3.5s for others.
+  // need longer display for players to read. Frontend uses 12s for these, 7s for others.
   // Backend delay must exceed frontend display + movement animation time.
   const hasDetailedInfo = (effect.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
     (effect.teleportAll && effect.teleportAll.length > 0) ||
     !!effect.stolenProperty || !!effect.wealthTransfer;
-  const CARD_DISPLAY_DELAY = hasDetailedInfo ? 8000 : 4000;
+  const CARD_DISPLAY_DELAY = hasDetailedInfo ? 16000 : 8000;
   game.turnPhase = 'AWAITING_CARD_DISPLAY';
   await game.save();
   startTurnTimer(game.roomId, CARD_DISPLAY_DELAY, async () => {

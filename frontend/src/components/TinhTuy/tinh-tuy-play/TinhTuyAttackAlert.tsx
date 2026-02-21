@@ -12,7 +12,7 @@ import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
 
-const ALERT_DURATION_MS = 4000;
+const ALERT_DURATION_MS = 8000;
 
 export const TinhTuyAttackAlert: React.FC = () => {
   const { t } = useLanguage();

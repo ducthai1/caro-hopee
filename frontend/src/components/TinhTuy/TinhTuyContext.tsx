@@ -1934,39 +1934,39 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.showGoPopup]);
 
-  // Island alert auto-dismiss after 4s
+  // Island alert auto-dismiss after 8s
   useEffect(() => {
     if (state.islandAlertSlot == null) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ISLAND_ALERT' }), 4000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ISLAND_ALERT' }), 8000);
     return () => clearTimeout(timer);
   }, [state.islandAlertSlot]);
 
-  // Tax alert auto-dismiss after 4s
+  // Tax alert auto-dismiss after 8s
   useEffect(() => {
     if (!state.taxAlert) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_TAX_ALERT' }), 4000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_TAX_ALERT' }), 8000);
     return () => clearTimeout(timer);
   }, [state.taxAlert]);
 
-  // Rent alert auto-dismiss after 4s
+  // Rent alert auto-dismiss after 8s
   useEffect(() => {
     if (!state.rentAlert) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_RENT_ALERT' }), 4000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_RENT_ALERT' }), 8000);
     return () => clearTimeout(timer);
   }, [state.rentAlert]);
 
-  // Attack alert auto-dismiss after 4s (safety net — component also has its own timer,
+  // Attack alert auto-dismiss after 8s (safety net — component also has its own timer,
   // but if component unmounts/remounts during timer, this context-level timer ensures cleanup)
   useEffect(() => {
     if (!state.attackAlert) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ATTACK_ALERT' }), 4000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ATTACK_ALERT' }), 8000);
     return () => clearTimeout(timer);
   }, [state.attackAlert]);
 
-  // Auto-sold alert auto-dismiss after 5s
+  // Auto-sold alert auto-dismiss after 10s
   useEffect(() => {
     if (!state.autoSoldAlert) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_AUTO_SOLD' }), 5000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_AUTO_SOLD' }), 10000);
     return () => clearTimeout(timer);
   }, [state.autoSoldAlert]);
 
@@ -2068,10 +2068,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_BANKRUPT_ALERT' });
   }, [state.queuedBankruptAlert, isAnimBusy, state.queuedRentAlert, state.rentAlert, state.queuedTaxAlert, state.taxAlert]);
 
-  // Bankrupt alert auto-dismiss after 3.5s
+  // Bankrupt alert auto-dismiss after 7s
   useEffect(() => {
     if (state.bankruptAlert == null) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BANKRUPT_ALERT' }), 3500);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BANKRUPT_ALERT' }), 7000);
     return () => clearTimeout(timer);
   }, [state.bankruptAlert]);
 
@@ -2099,10 +2099,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_TRAVEL_PENDING' });
   }, [state.queuedTravelPending, isAnimBusy]);
 
-  // Travel pending alert auto-dismiss after 4s
+  // Travel pending alert auto-dismiss after 8s
   useEffect(() => {
     if (state.travelPendingSlot == null) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_TRAVEL_PENDING' }), 4000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_TRAVEL_PENDING' }), 8000);
     return () => clearTimeout(timer);
   }, [state.travelPendingSlot]);
 
@@ -2120,10 +2120,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_BUYBACK' });
   }, [state.queuedBuybackPrompt, isTurnChangeBusy, state.queuedRentAlert, state.rentAlert]);
 
-  // Buyback prompt with canAfford=false auto-dismiss after 3s
+  // Buyback prompt with canAfford=false auto-dismiss after 6s
   useEffect(() => {
     if (!state.buybackPrompt || state.buybackPrompt.canAfford) return;
-    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BUYBACK_PROMPT' }), 3000);
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_BUYBACK_PROMPT' }), 6000);
     return () => clearTimeout(timer);
   }, [state.buybackPrompt]);
 
