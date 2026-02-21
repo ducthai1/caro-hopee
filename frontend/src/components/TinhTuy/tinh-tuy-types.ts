@@ -229,6 +229,8 @@ export interface TinhTuyState {
   queuedBankruptAlert: number | null;
   /** Active bankruptcy alert — slot of bankrupt player */
   bankruptAlert: number | null;
+  /** Monopoly completed alert — shown when a player completes a color group */
+  monopolyAlert: { slot: number; group: string; cellIndices: number[] } | null;
   /** Queued game-finished — applied after all alerts are dismissed */
   queuedGameFinished: { winner: TinhTuyWinner | null; reason: string } | null;
   /** Attack property prompt — player chooses opponent's property to attack */
@@ -317,6 +319,8 @@ export type TinhTuyAction =
   | { type: 'DICE_ANIM_DONE' }
   | { type: 'APPLY_QUEUED_BANKRUPT_ALERT' }
   | { type: 'CLEAR_BANKRUPT_ALERT' }
+  | { type: 'MONOPOLY_COMPLETED'; payload: { slot: number; group: string; cellIndices: number[] } }
+  | { type: 'CLEAR_MONOPOLY_ALERT' }
   | { type: 'APPLY_QUEUED_GAME_FINISHED' }
   | { type: 'ATTACK_PROPERTY_PROMPT'; payload: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } }
   | { type: 'PROPERTY_ATTACKED'; payload: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished' | 'shielded'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }

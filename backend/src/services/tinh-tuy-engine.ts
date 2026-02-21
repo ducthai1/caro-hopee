@@ -76,6 +76,11 @@ export function calculateRent(
     }
   }
 
+  // Monopoly bonus: +15% when owner owns full color group
+  if (cell.group && ownsFullGroup(cell.group, owner.properties)) {
+    rent = Math.floor(rent * 1.15);
+  }
+
   // Festival multiplier (game-level, stacking: 1.5x, 2x, 2.5x, ...)
   if (game.festival && game.festival.cellIndex === cellIndex) {
     rent = Math.floor(rent * game.festival.multiplier);

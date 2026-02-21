@@ -124,6 +124,22 @@ export function ownsFullGroup(group: PropertyGroup, ownedCells: number[]): boole
   return PROPERTY_GROUPS[group].every(idx => ownedCells.includes(idx));
 }
 
+/** Check if adding a cell completes a monopoly. Returns the group name if completed, null otherwise. */
+export function checkMonopolyCompleted(cellIndex: number, ownedCells: number[]): PropertyGroup | null {
+  const cell = getCell(cellIndex);
+  if (!cell || cell.type !== 'PROPERTY' || !cell.group) return null;
+  const group = cell.group as PropertyGroup;
+  if (ownsFullGroup(group, ownedCells)) {
+    // Verify this cell was the last piece (other cells were already owned before)
+    const otherCells = PROPERTY_GROUPS[group].filter(idx => idx !== cellIndex);
+    if (otherCells.every(idx => ownedCells.includes(idx))) return group;
+  }
+  return null;
+}
+
+/** Monopoly rent bonus multiplier */
+export const MONOPOLY_BONUS = 0.15;
+
 /** Count how many stations a player owns */
 export function countStationsOwned(ownedCells: number[]): number {
   return ownedCells.filter(idx => BOARD_CELLS[idx]?.type === 'STATION').length;

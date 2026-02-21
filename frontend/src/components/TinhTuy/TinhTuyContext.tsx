@@ -106,6 +106,7 @@ const initialState: TinhTuyState = {
   pendingCardEffect: null,
   queuedBankruptAlert: null,
   bankruptAlert: null,
+  monopolyAlert: null,
   queuedGameFinished: null,
   attackPrompt: null,
   attackAlert: null,
@@ -240,7 +241,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         frozenProperties: g.frozenProperties || [],
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
         pendingCardEffect: null, gameEndReason: null,
-        queuedBankruptAlert: null, bankruptAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null, buybackPrompt: null, queuedBuybackPrompt: null,
+        queuedBankruptAlert: null, bankruptAlert: null, monopolyAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null, buybackPrompt: null, queuedBuybackPrompt: null,
       };
     }
 
@@ -704,6 +705,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CLEAR_BANKRUPT_ALERT':
       return { ...state, bankruptAlert: null };
+
+    case 'MONOPOLY_COMPLETED':
+      return { ...state, monopolyAlert: action.payload };
+
+    case 'CLEAR_MONOPOLY_ALERT':
+      return { ...state, monopolyAlert: null };
 
     case 'ATTACK_PROPERTY_PROMPT':
       return { ...state, attackPrompt: action.payload, queuedTurnChange: null };
@@ -1266,6 +1273,7 @@ interface TinhTuyContextValue {
   clearAutoSold: () => void;
   clearGoBonus: () => void;
   clearBankruptAlert: () => void;
+  clearMonopolyAlert: () => void;
   buybackProperty: (cellIndex: number, accept: boolean) => void;
   selectCharacter: (character: TinhTuyCharacter) => void;
   playAgain: () => void;
@@ -1319,6 +1327,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handlePropertyBought = (data: any) => {
       dispatch({ type: 'PROPERTY_BOUGHT', payload: data });
       tinhTuySounds.playSFX('purchase');
+    };
+
+    const handleMonopolyCompleted = (data: any) => {
+      dispatch({ type: 'MONOPOLY_COMPLETED', payload: data });
     };
 
     const handleRentPaid = (data: any) => {
@@ -1483,6 +1495,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:player-moved' as any, handlePlayerMoved);
     socket.on('tinh-tuy:awaiting-action' as any, handleAwaitingAction);
     socket.on('tinh-tuy:property-bought' as any, handlePropertyBought);
+    socket.on('tinh-tuy:monopoly-completed' as any, handleMonopolyCompleted);
     socket.on('tinh-tuy:rent-paid' as any, handleRentPaid);
     socket.on('tinh-tuy:tax-paid' as any, handleTaxPaid);
     socket.on('tinh-tuy:turn-changed' as any, handleTurnChanged);
@@ -1527,6 +1540,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:player-moved' as any, handlePlayerMoved);
       socket.off('tinh-tuy:awaiting-action' as any, handleAwaitingAction);
       socket.off('tinh-tuy:property-bought' as any, handlePropertyBought);
+      socket.off('tinh-tuy:monopoly-completed' as any, handleMonopolyCompleted);
       socket.off('tinh-tuy:rent-paid' as any, handleRentPaid);
       socket.off('tinh-tuy:tax-paid' as any, handleTaxPaid);
       socket.off('tinh-tuy:turn-changed' as any, handleTurnChanged);
@@ -1909,6 +1923,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_BANKRUPT_ALERT' });
   }, []);
 
+  const clearMonopolyAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_MONOPOLY_ALERT' });
+  }, []);
+
   const buybackProperty = useCallback((cellIndex: number, accept: boolean) => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -2113,6 +2131,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.bankruptAlert]);
 
+  // Monopoly alert auto-dismiss after 7s
+  useEffect(() => {
+    if (!state.monopolyAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_MONOPOLY_ALERT' }), 7000);
+    return () => clearTimeout(timer);
+  }, [state.monopolyAlert]);
+
   // Apply queued game-finished after ALL animations + alerts (including bankruptcy) are dismissed
   useEffect(() => {
     if (!state.queuedGameFinished || isAnimBusy) return;
@@ -2228,14 +2253,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, buybackProperty, selectCharacter, playAgain,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, buybackProperty, selectCharacter, playAgain,
   ]);
 
   return (

@@ -78,6 +78,17 @@ export const TinhTuyBoard: React.FC = () => {
     }
   }
 
+  // Build monopoly set: cells that belong to a completed color group
+  const monopolyCells = new Set<number>();
+  for (const player of state.players) {
+    if (player.isBankrupt) continue;
+    for (const [group, cells] of Object.entries(PROPERTY_GROUPS)) {
+      if (cells.every(i => player.properties.includes(i))) {
+        cells.forEach(i => monopolyCells.add(i));
+      }
+    }
+  }
+
   // Compute current rent for each owned cell (mirrors backend calculateRent logic)
   const currentRentMap = new Map<number, number>();
   const completedRounds = Math.max((state.round || 1) - 1, 0);
@@ -103,6 +114,13 @@ export const TinhTuyBoard: React.FC = () => {
           const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
           const ownsFullGroup = groupCells?.every(i => player.properties.includes(i));
           rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
+        }
+      }
+      // Monopoly bonus: +15% when owner owns full color group
+      if (cell.group) {
+        const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
+        if (groupCells?.every(i => player.properties.includes(i))) {
+          rent = Math.floor(rent * 1.15);
         }
       }
       // Festival multiplier (game-level, stacking) — applied before doubleRent to match backend
@@ -166,6 +184,7 @@ export const TinhTuyBoard: React.FC = () => {
                 hasHotel={building?.hotel || false}
                 hasFestival={festivalCell === cell.index}
                 isFrozen={state.frozenProperties?.some(fp => fp.cellIndex === cell.index) || false}
+                hasMonopoly={monopolyCells.has(cell.index)}
                 currentRent={currentRentMap.get(cell.index)}
                 selectionState={selectionState}
                 onClick={() =>

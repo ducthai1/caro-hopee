@@ -892,6 +892,8 @@
       "buffImmunity": "Immune",
       "buffDoubleRent": "x2 Rent ({{turns}} round)",
       "buffSkipTurn": "Skip",
+      "monopolyTitle": "Combo Complete!",
+      "monopolyBonus": "All properties in this group get +15% rent bonus!",
       "round": "Round",
       "gameStarted": "Game started!",
       "build": "Build",

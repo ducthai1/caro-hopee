@@ -892,6 +892,8 @@
       "buffImmunity": "Miễn thuê",
       "buffDoubleRent": "x2 thuê ({{turns}} vòng)",
       "buffSkipTurn": "Bỏ lượt",
+      "monopolyTitle": "Hoàn thành Combo!",
+      "monopolyBonus": "Tất cả đất trong nhóm này được +15% tiền thuê!",
       "round": "Vòng",
       "gameStarted": "Game đã bắt đầu!",
       "build": "Xây Dựng",

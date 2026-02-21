@@ -21,6 +21,7 @@ interface Props {
   hasHotel?: boolean;
   hasFestival?: boolean;
   isFrozen?: boolean;
+  hasMonopoly?: boolean;
   currentRent?: number;
   selectionState?: SelectionState;
   onClick?: () => void;
@@ -46,7 +47,7 @@ const FESTIVAL_COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', 
 
 export const TinhTuyCell: React.FC<Props> = React.memo(({
   cell, col, row, ownerSlot, isCurrentCell,
-  houseCount = 0, hasHotel = false, hasFestival = false, isFrozen = false, currentRent, selectionState, onClick,
+  houseCount = 0, hasHotel = false, hasFestival = false, isFrozen = false, hasMonopoly = false, currentRent, selectionState, onClick,
 }) => {
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
@@ -86,7 +87,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
 
   return (
     <Tooltip
-      title={`${t(cell.name as any)} ${currentRent != null ? `- 🔮${currentRent} TT` : cell.price ? `- ${cell.price} TT` : ''}`}
+      title={`${t(cell.name as any)} ${currentRent != null ? `- 🔮${currentRent} TT` : cell.price ? `- ${cell.price} TT` : ''}${hasMonopoly ? ' 👑+15%' : ''}`}
       arrow
       placement="top"
       enterDelay={300}
@@ -98,9 +99,11 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
         sx={{
           gridColumn: col,
           gridRow: row,
-          border: selectionState === 'valid' ? '2px solid' : '1px solid',
-          borderColor: selectionState === 'valid' ? '#2ecc71' : isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.15)',
-          boxShadow: selectionState === 'valid' ? '0 0 8px rgba(46,204,113,0.5), inset 0 0 6px rgba(46,204,113,0.15)' : undefined,
+          border: selectionState === 'valid' ? '2px solid' : hasMonopoly ? '1.5px solid' : '1px solid',
+          borderColor: selectionState === 'valid' ? '#2ecc71' : hasMonopoly ? '#f39c12' : isCurrentCell ? '#9b59b6' : 'rgba(0,0,0,0.15)',
+          boxShadow: selectionState === 'valid'
+            ? '0 0 8px rgba(46,204,113,0.5), inset 0 0 6px rgba(46,204,113,0.15)'
+            : hasMonopoly ? '0 0 6px rgba(243,156,18,0.5), inset 0 0 4px rgba(243,156,18,0.1)' : undefined,
           animation: selectionState === 'valid' ? 'tt-travel-pulse 1.5s ease-in-out infinite' : undefined,
           borderRadius: isCorner ? '6px' : '3px',
           p: '2px',

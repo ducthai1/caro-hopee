@@ -13,7 +13,7 @@ import {
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
 } from './tinh-tuy-engine';
-import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent } from './tinh-tuy-board';
+import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
@@ -458,6 +458,19 @@ async function handleCardDraw(
     card: { id: card.id, type: card.type, nameKey: card.nameKey, descriptionKey: card.descriptionKey },
     effect,
   });
+
+  // Check if stolen property completes a monopoly for the thief
+  if (effect.stolenProperty) {
+    const thief = game.players.find(p => p.slot === effect.stolenProperty!.toSlot);
+    if (thief) {
+      const group = checkMonopolyCompleted(effect.stolenProperty.cellIndex, thief.properties);
+      if (group) {
+        io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
+          slot: thief.slot, group, cellIndices: PROPERTY_GROUPS[group],
+        });
+      }
+    }
+  }
 
   // Check bankruptcy for point loss
   for (const [slotStr, delta] of Object.entries(effect.pointsChanged)) {
@@ -937,6 +950,20 @@ function applyForcedTrade(
     victimCell: oppCellIndex,
     festival: game.festival,
   });
+
+  // Check if trade completes a monopoly for either party
+  const meGroup = checkMonopolyCompleted(oppCellIndex, me.properties);
+  if (meGroup) {
+    io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
+      slot: mySlot, group: meGroup, cellIndices: PROPERTY_GROUPS[meGroup],
+    });
+  }
+  const oppGroup = checkMonopolyCompleted(myCellIndex, oppOwner.properties);
+  if (oppGroup) {
+    io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
+      slot: oppOwner.slot, group: oppGroup, cellIndices: PROPERTY_GROUPS[oppGroup],
+    });
+  }
 }
 
 function applyPropertyAttack(
@@ -1269,6 +1296,15 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         slot: player.slot, cellIndex: player.position,
         price: cell.price, remainingPoints: player.points,
       });
+
+      // Check if buying this property completes a monopoly
+      const completedGroup = checkMonopolyCompleted(player.position, player.properties);
+      if (completedGroup) {
+        io.to(roomId).emit('tinh-tuy:monopoly-completed', {
+          slot: player.slot, group: completedGroup,
+          cellIndices: PROPERTY_GROUPS[completedGroup],
+        });
+      }
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
@@ -1906,6 +1942,15 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         houses: player.houses[key] || 0,
         hotel: !!player.hotels[key],
       });
+
+      // Check if buyback completes a monopoly
+      const completedGroup = checkMonopolyCompleted(cellIndex, player.properties);
+      if (completedGroup) {
+        io.to(roomId).emit('tinh-tuy:monopoly-completed', {
+          slot: player.slot, group: completedGroup,
+          cellIndices: PROPERTY_GROUPS[completedGroup],
+        });
+      }
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
