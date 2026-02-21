@@ -237,7 +237,7 @@ export interface TinhTuyState {
   /** Queued buyback prompt — applied after animations settle */
   queuedBuybackPrompt: TinhTuyState['buybackPrompt'];
   /** GO bonus prompt — shown when landing exactly on GO */
-  goBonusPrompt: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } | null;
+  goBonusPrompt: { slot: number; bonusType: 'BONUS_POINTS'; amount?: number } | null;
   /** Auto-sold alert — shown when timeout auto-sells buildings/properties */
   autoSoldAlert: { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null;
   /** Forced trade prompt — player picks own property + opponent property to swap */
@@ -324,8 +324,7 @@ export type TinhTuyAction =
   | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } }
   | { type: 'FORCE_CLEAR_ANIM' }
   | { type: 'ROOM_RESET'; payload: { game: any } }
-  | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } }
-  | { type: 'GO_BONUS_APPLIED'; payload: { slot: number; bonusType: string; cellIndex?: number; houses?: Record<string, number>; hotels?: Record<string, boolean> } }
+  | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'BONUS_POINTS'; amount?: number } }
   | { type: 'CLEAR_GO_BONUS' }
   | { type: 'CLEAR_AUTO_SOLD' }
   | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } }

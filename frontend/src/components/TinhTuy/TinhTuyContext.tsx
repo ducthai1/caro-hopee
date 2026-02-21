@@ -1110,20 +1110,19 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_FREE_HOUSE_PROMPT':
       return { ...state, freeHousePrompt: null };
 
-    case 'GO_BONUS':
-      return { ...state, goBonusPrompt: action.payload, queuedTurnChange: null };
-
-    case 'GO_BONUS_APPLIED': {
-      const gba = action.payload;
-      if (gba.bonusType === 'FREE_UPGRADE' && gba.houses && gba.hotels) {
-        return {
-          ...state, goBonusPrompt: null,
-          players: state.players.map(p =>
-            p.slot === gba.slot ? { ...p, houses: { ...gba.houses! }, hotels: { ...gba.hotels! } } : p
-          ),
-        };
-      }
-      return { ...state, goBonusPrompt: null };
+    case 'GO_BONUS': {
+      // GO bonus gives random points — update player points immediately
+      const gbSlot = action.payload.slot;
+      const gbAmt = action.payload.amount || 0;
+      const dpGb = gbAmt ? freezePoints(state) : state.displayPoints;
+      return {
+        ...state,
+        goBonusPrompt: action.payload,
+        queuedTurnChange: null,
+        players: state.players.map(p => p.slot === gbSlot ? { ...p, points: p.points + gbAmt } : p),
+        displayPoints: dpGb,
+        pendingNotifs: gbAmt ? queueNotifs(state.pendingNotifs, [{ slot: gbSlot, amount: gbAmt }]) : state.pendingNotifs,
+      };
     }
 
     case 'CLEAR_GO_BONUS':
@@ -1226,7 +1225,6 @@ interface TinhTuyContextValue {
   skipBuild: () => void;
   sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => void;
   chooseFreeHouse: (cellIndex: number) => void;
-  goBonusChoose: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
   chooseDestination: (cellIndex: number) => void;
   forcedTradeChoose: (myCellIndex: number, opponentCellIndex: number) => void;
@@ -1421,11 +1419,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'GO_BONUS', payload: data });
     };
 
-    const handleGoBonusApplied = (data: any) => {
-      dispatch({ type: 'GO_BONUS_APPLIED', payload: data });
-      tinhTuySounds.playSFX('buildHouse');
-    };
-
     const handleRoomReset = (data: any) => {
       dispatch({ type: 'ROOM_RESET', payload: data });
     };
@@ -1490,7 +1483,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
     socket.on('tinh-tuy:go-bonus' as any, handleGoBonus);
-    socket.on('tinh-tuy:go-bonus-applied' as any, handleGoBonusApplied);
     socket.on('tinh-tuy:room-created' as any, handleLobbyUpdated);
     socket.on('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
 
@@ -1535,7 +1527,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
       socket.off('tinh-tuy:go-bonus' as any, handleGoBonus);
-      socket.off('tinh-tuy:go-bonus-applied' as any, handleGoBonusApplied);
       socket.off('tinh-tuy:room-created' as any, handleLobbyUpdated);
       socket.off('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
     };
@@ -1848,15 +1839,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (!socket) return;
     dispatch({ type: 'CLEAR_FREE_HOUSE_PROMPT' });
     socket.emit('tinh-tuy:free-house-choose' as any, { cellIndex }, (res: any) => {
-      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
-    });
-  }, []);
-
-  const goBonusChoose = useCallback((cellIndex: number) => {
-    const socket = socketService.getSocket();
-    if (!socket) return;
-    dispatch({ type: 'CLEAR_GO_BONUS' });
-    socket.emit('tinh-tuy:go-bonus-choose' as any, { cellIndex }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -2208,14 +2190,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
   ]);
 
   return (
