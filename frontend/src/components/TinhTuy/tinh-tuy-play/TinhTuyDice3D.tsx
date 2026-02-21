@@ -192,7 +192,7 @@ export const TinhTuyDice3D: React.FC = () => {
       )}
 
       {/* Card destination prompt (Du Lich Xuyen Viet) */}
-      {state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn && !isAnimating && (
+      {state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn && !isAnimating && !state.drawnCard && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 1,

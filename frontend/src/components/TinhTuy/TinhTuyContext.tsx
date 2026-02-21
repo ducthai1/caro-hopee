@@ -371,8 +371,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'AWAITING_ACTION':
       // Queue — applied after movement animation finishes
+      // Clear stale queuedTurnChange to prevent it from overwriting turnPhase later
       return {
         ...state,
+        queuedTurnChange: null,
         queuedAction: {
           slot: action.payload.slot,
           cellIndex: action.payload.cellIndex,
@@ -403,19 +405,21 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'TRAVEL_PROMPT':
       // Queue — applied after movement animation finishes
-      return { ...state, queuedTravelPrompt: true };
+      // Clear stale queuedTurnChange to prevent it from overwriting turnPhase later
+      return { ...state, queuedTravelPrompt: true, queuedTurnChange: null };
 
     case 'APPLY_QUEUED_TRAVEL':
       return { ...state, turnPhase: 'AWAITING_TRAVEL', queuedTravelPrompt: false };
 
     case 'CARD_DESTINATION_PROMPT':
-      return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION' };
+      return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION', queuedTurnChange: null };
 
     case 'FORCED_TRADE_PROMPT':
       return {
         ...state,
         turnPhase: 'AWAITING_FORCED_TRADE',
         forcedTradePrompt: { myCells: action.payload.myCells, opponentCells: action.payload.opponentCells },
+        queuedTurnChange: null,
       };
 
     case 'RENT_FREEZE_PROMPT':
@@ -423,6 +427,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         ...state,
         turnPhase: 'AWAITING_RENT_FREEZE',
         rentFreezePrompt: { targetCells: action.payload.targetCells },
+        queuedTurnChange: null,
       };
 
     case 'RENT_FROZEN':
@@ -638,7 +643,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, bankruptAlert: null };
 
     case 'ATTACK_PROPERTY_PROMPT':
-      return { ...state, attackPrompt: action.payload };
+      return { ...state, attackPrompt: action.payload, queuedTurnChange: null };
 
     case 'PROPERTY_ATTACKED': {
       const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel, festival: atkFestival } = action.payload;
@@ -669,7 +674,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, autoSoldAlert: null };
 
     case 'BUYBACK_PROMPT':
-      return { ...state, queuedBuybackPrompt: action.payload };
+      return { ...state, queuedBuybackPrompt: action.payload, queuedTurnChange: null };
 
     case 'APPLY_QUEUED_BUYBACK':
       return { ...state, turnPhase: 'AWAITING_BUYBACK', buybackPrompt: state.queuedBuybackPrompt, queuedBuybackPrompt: null };
@@ -1012,7 +1017,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'FESTIVAL_PROMPT':
       // Queue — applied after movement animation finishes
-      return { ...state, queuedFestivalPrompt: true };
+      // Clear stale queuedTurnChange to prevent it from overwriting turnPhase later
+      return { ...state, queuedFestivalPrompt: true, queuedTurnChange: null };
 
     case 'FESTIVAL_APPLIED': {
       const { slot: fSlot, cellIndex: fCell, multiplier: fMult } = action.payload;
@@ -1033,7 +1039,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'BUILD_PROMPT':
       // Queue — applied after movement animation finishes
-      return { ...state, queuedBuildPrompt: action.payload };
+      // Clear stale queuedTurnChange to prevent it from overwriting turnPhase later
+      return { ...state, queuedBuildPrompt: action.payload, queuedTurnChange: null };
 
     case 'APPLY_QUEUED_BUILD':
       return { ...state, turnPhase: 'AWAITING_BUILD', buildPrompt: state.queuedBuildPrompt, queuedBuildPrompt: null };
@@ -1042,13 +1049,13 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, buildPrompt: null };
 
     case 'FREE_HOUSE_PROMPT':
-      return { ...state, freeHousePrompt: action.payload };
+      return { ...state, freeHousePrompt: action.payload, queuedTurnChange: null };
 
     case 'CLEAR_FREE_HOUSE_PROMPT':
       return { ...state, freeHousePrompt: null };
 
     case 'GO_BONUS':
-      return { ...state, goBonusPrompt: action.payload };
+      return { ...state, goBonusPrompt: action.payload, queuedTurnChange: null };
 
     case 'GO_BONUS_APPLIED': {
       const gba = action.payload;
@@ -1076,7 +1083,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, travelPendingSlot: null };
 
     case 'SELL_PROMPT':
-      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit, sellPrices: action.payload.sellPrices } };
+      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit, sellPrices: action.payload.sellPrices }, queuedTurnChange: null };
 
     case 'APPLY_QUEUED_SELL':
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
