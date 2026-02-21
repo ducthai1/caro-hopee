@@ -62,7 +62,9 @@ async function checkBankruptcy(
       // Enter sell phase — player must sell buildings
       game.turnPhase = 'AWAITING_SELL';
       await game.save();
-      io.to(game.roomId).emit('tinh-tuy:sell-prompt', { slot: player.slot, deficit });
+      // Send exact sell prices so frontend matches backend calculations
+      const sellPrices = buildSellPricesMap(player, completedRounds);
+      io.to(game.roomId).emit('tinh-tuy:sell-prompt', { slot: player.slot, deficit, sellPrices });
       // Start timer — auto-sell cheapest on timeout
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
         try {
@@ -550,6 +552,22 @@ async function handleCardDraw(
 
   game.turnPhase = 'END_TURN';
   await game.save();
+}
+
+/** Build a map of exact sell prices for each property/building the player owns.
+ *  Sent to frontend so it displays the same values the backend uses. */
+function buildSellPricesMap(
+  player: ITinhTuyPlayer, completedRounds: number,
+): Record<string, { property: number; house: number; hotel: number }> {
+  const map: Record<string, { property: number; house: number; hotel: number }> = {};
+  for (const cellIdx of player.properties) {
+    map[String(cellIdx)] = {
+      property: getPropertyTotalSellValue(player, cellIdx, completedRounds),
+      house: getSellPrice(cellIdx, 'house'),
+      hotel: getSellPrice(cellIdx, 'hotel'),
+    };
+  }
+  return map;
 }
 
 /** Auto-sell cheapest assets (buildings first, then properties) until player points >= 0 */

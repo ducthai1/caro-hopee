@@ -186,9 +186,9 @@ export interface TinhTuyState {
   /** Queued island alert — shown after movement animation finishes */
   queuedIslandAlert: number | null;
   /** Sell prompt — shown when player must sell buildings to cover debt */
-  sellPrompt: { deficit: number } | null;
+  sellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } | null;
   /** Queued sell prompt — applied after animation settles */
-  queuedSellPrompt: { deficit: number } | null;
+  queuedSellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } | null;
   /** Travel pending alert — shown when landing on Travel cell */
   travelPendingSlot: number | null;
   /** Queued travel pending — applied after movement animation finishes */

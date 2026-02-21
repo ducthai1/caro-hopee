@@ -56,9 +56,10 @@ export const TinhTuySellModal: React.FC = () => {
     [selections],
   );
 
-  // Build sellable items: buildings first, then property (land)
+  // Build sellable items using backend-provided sellPrices (exact match) with local fallback
   const sellableItems = useMemo(() => {
     if (!myPlayer) return [];
+    const prices = sp?.sellPrices;
     const items: Array<{
       cellIndex: number; type: SellType;
       maxCount: number; priceEach: number;
@@ -70,19 +71,20 @@ export const TinhTuySellModal: React.FC = () => {
       const key = String(cellIdx);
       const houses = myPlayer.houses[key] || 0;
       const hasHotel = !!myPlayer.hotels[key];
+      const sp_ = prices?.[key]; // backend-provided prices for this cell
 
       // Building items
       if (hasHotel) {
         items.push({
           cellIndex: cellIdx, type: 'hotel', maxCount: 1,
-          priceEach: Math.floor((cell.hotelCost || 0) * SELL_RATIO),
+          priceEach: sp_?.hotel ?? Math.floor((cell.hotelCost || 0) * SELL_RATIO),
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }
       if (houses > 0) {
         items.push({
           cellIndex: cellIdx, type: 'house', maxCount: houses,
-          priceEach: Math.floor((cell.houseCost || 0) * SELL_RATIO),
+          priceEach: sp_?.house ?? Math.floor((cell.houseCost || 0) * SELL_RATIO),
           cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
         });
       }
@@ -90,12 +92,12 @@ export const TinhTuySellModal: React.FC = () => {
       // Property (land) item — selling the whole property
       items.push({
         cellIndex: cellIdx, type: 'property', maxCount: 1,
-        priceEach: calcPropertySellValue(cell, houses, hasHotel),
+        priceEach: sp_?.property ?? calcPropertySellValue(cell, houses, hasHotel),
         cellName: cell.name, icon: cell.icon, group: cell.group as PropertyGroup,
       });
     }
     return items;
-  }, [myPlayer]);
+  }, [myPlayer, sp]);
 
   // Calculate total sell value
   const totalSellValue = useMemo(() => {
