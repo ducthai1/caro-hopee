@@ -191,6 +191,22 @@ export const TinhTuyDice3D: React.FC = () => {
         </Box>
       )}
 
+      {/* Card destination prompt (Du Lich Xuyen Viet) */}
+      {state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn && !isAnimating && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            bgcolor: 'rgba(155,89,182,0.12)', borderRadius: 2, px: 2, py: 1,
+            border: '1px solid rgba(155,89,182,0.3)',
+          }}>
+            <FlightTakeoffIcon sx={{ color: '#9b59b6', fontSize: '1.2rem' }} />
+            <Typography variant="body2" sx={{ color: '#8e44ad', fontWeight: 700, fontSize: '0.85rem' }}>
+              {t('tinhTuy.cards.chooseDestination' as any)}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* Festival prompt */}
       {state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn && !isAnimating && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
@@ -208,7 +224,7 @@ export const TinhTuyDice3D: React.FC = () => {
       )}
 
       {/* Status text */}
-      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && !(state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn) && !(state.turnPhase === 'AWAITING_BUILD' && isMyTurn) && (
+      {!canRoll && !isRolling && !(state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn) && !(state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn) && !(state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn) && !(state.turnPhase === 'AWAITING_BUILD' && isMyTurn) && (
         <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
           {isMyTurn
             ? state.turnPhase === 'AWAITING_ACTION'

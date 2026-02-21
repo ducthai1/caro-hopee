@@ -301,6 +301,31 @@ export const TinhTuyCardModal: React.FC = () => {
                   ))}
                 </Box>
               )}
+
+              {/* ─── Teleport all signal (Chaos) ─── */}
+              {extra?.teleportAll && extra.teleportAll.length > 0 && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(155, 89, 182, 0.12)',
+                  border: '2px solid rgba(155, 89, 182, 0.4)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#8e44ad', fontWeight: 800, fontSize: '1rem', mb: 0.5 }}>
+                    🌀 {t('tinhTuy.cards.teleportAll' as any)}
+                  </Typography>
+                  {extra.teleportAll.map((tp, i) => (
+                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.3 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: getPlayerColor(tp.slot) }} />
+                      <Typography variant="caption" sx={{ color: getPlayerColor(tp.slot), fontWeight: 700 }}>
+                        {getPlayerName(tp.slot)}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#555' }}>
+                        → {BOARD_CELLS[tp.to] ? t(BOARD_CELLS[tp.to].name as any) : `#${tp.to}`}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </div>
           </div>
         </div>

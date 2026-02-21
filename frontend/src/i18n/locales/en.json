@@ -1055,6 +1055,8 @@
       "ch21": { "name": "Shield", "desc": "Hold this card to automatically block 1 attack (Destroy or Downgrade)" },
       "ch22": { "name": "Double Energy", "desc": "Play an EXTRA turn right after this one!" },
       "ch27": { "name": "Share the Wealth", "desc": "The richest player gives 3,000 TT to the poorest player" },
+      "kv23": { "name": "Travel Across Vietnam", "desc": "Choose ANY cell on the board to move to (no GO salary)" },
+      "kv24": { "name": "Chaos", "desc": "ALL players get teleported to random positions!" },
       "kv27": { "name": "Underdog Boost", "desc": "If you're the poorest: +4,000 TT. Otherwise: -2,000 TT" },
       "swapWith": "Swap with",
       "stoleFrom": "Seized from",
@@ -1067,7 +1069,9 @@
       "underdogPenalty": "Not the poorest — Penalized!",
       "extraTurn": "Next turn is yours!",
       "wealthFrom": "Transfer from",
-      "wealthTo": "to"
+      "wealthTo": "to",
+      "teleportAll": "Everyone teleported!",
+      "chooseDestination": "Choose a cell"
     },
     "cells": {
       "go": "GO",

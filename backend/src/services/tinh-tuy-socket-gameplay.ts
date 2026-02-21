@@ -13,7 +13,7 @@ import {
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
 } from './tinh-tuy-engine';
-import { GO_SALARY, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent } from './tinh-tuy-board';
+import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
@@ -309,6 +309,18 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
     }
   }
 
+  // Teleport all players to new positions
+  if (effect.teleportAll) {
+    for (const tp of effect.teleportAll) {
+      const p = game.players.find(pp => pp.slot === tp.slot);
+      if (p) {
+        p.position = tp.to;
+        // Clear pending travel if player was waiting for travel
+        if (p.pendingTravel) p.pendingTravel = false;
+      }
+    }
+  }
+
   // Steal property — transfer ownership, strip buildings
   if (effect.stolenProperty) {
     const victim = game.players.find(p => p.slot === effect.stolenProperty!.fromSlot);
@@ -592,6 +604,31 @@ async function handleCardDraw(
       });
       return; // Wait for player choice
     }
+  }
+
+  // CHOOSE_DESTINATION: let player pick any cell on the board
+  if (effect.requiresChoice === 'CHOOSE_DESTINATION') {
+    game.turnPhase = 'AWAITING_CARD_DESTINATION';
+    await game.save();
+    io.to(game.roomId).emit('tinh-tuy:card-destination-prompt', { slot: player.slot });
+    // Auto-pick random on timeout
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.turnPhase !== 'AWAITING_CARD_DESTINATION') return;
+        const p = g.players.find(pp => pp.slot === player.slot)!;
+        const randomDest = crypto.randomInt(0, BOARD_SIZE);
+        p.position = randomDest;
+        g.turnPhase = 'END_TURN';
+        g.markModified('players');
+        await g.save();
+        io.to(g.roomId).emit('tinh-tuy:player-moved', {
+          slot: p.slot, from: p.position, to: randomDest, passedGo: false, goBonus: 0,
+        });
+        await resolveAndAdvance(io, g, p, randomDest, { dice1: 0, dice2: 0, total: 0, isDouble: false });
+      } catch (err) { console.error('[tinh-tuy] Card destination timeout:', err); }
+    });
+    return; // Wait for player choice
   }
 
   // Hold turn for ~4s so frontend card modal can display before turn advances.
@@ -1555,6 +1592,50 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:attack-property-choose]', err.message);
       callback({ success: false, error: 'attackFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Card Choose Destination (kv-23) ─────────────────────────
+  socket.on('tinh-tuy:card-choose-destination', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_CARD_DESTINATION') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+      const { cellIndex } = data || {};
+      if (typeof cellIndex !== 'number' || cellIndex < 0 || cellIndex >= BOARD_SIZE) {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+
+      clearTurnTimer(roomId);
+      const oldPos = player.position;
+      player.position = cellIndex;
+      // No GO salary for card destination
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: cellIndex, passedGo: false, goBonus: 0,
+      });
+
+      await resolveAndAdvance(io, game, player, cellIndex, { dice1: 0, dice2: 0, total: 0, isDouble: false });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:card-choose-destination]', err.message);
+      callback({ success: false, error: 'destinationFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
     }

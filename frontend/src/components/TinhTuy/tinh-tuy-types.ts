@@ -19,7 +19,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -220,6 +220,7 @@ export interface TinhTuyState {
     underdogBoosted?: boolean;
     extraTurn?: boolean;
     wealthTransfer?: { richestSlot: number; poorestSlot: number; amount: number };
+    teleportAll?: Array<{ slot: number; to: number }>;
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;
@@ -320,7 +321,8 @@ export type TinhTuyAction =
   | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } }
   | { type: 'GO_BONUS_APPLIED'; payload: { slot: number; bonusType: string; cellIndex?: number; houses?: Record<string, number>; hotels?: Record<string, boolean> } }
   | { type: 'CLEAR_GO_BONUS' }
-  | { type: 'CLEAR_AUTO_SOLD' };
+  | { type: 'CLEAR_AUTO_SOLD' }
+  | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

@@ -403,6 +403,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'APPLY_QUEUED_TRAVEL':
       return { ...state, turnPhase: 'AWAITING_TRAVEL', queuedTravelPrompt: false };
 
+    case 'CARD_DESTINATION_PROMPT':
+      return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION' };
+
     case 'PROPERTY_BOUGHT': {
       const dpBuy = freezePoints(state);
       const updated = state.players.map(p =>
@@ -735,10 +738,17 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         stolenProperty: effect.stolenProperty,
         allHousesRemoved: effect.allHousesRemoved,
       } : null;
+      // Apply teleportAll immediately (positions are visible on board, not hidden)
+      if (effect?.teleportAll && Array.isArray(effect.teleportAll)) {
+        for (const tp of effect.teleportAll) {
+          updated = updated.map(p => p.slot === tp.slot ? { ...p, position: tp.to } : p);
+        }
+      }
       // Build card extra info for visual display on card modal
       const hasExtra = effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null ||
         effect?.randomSteps != null || effect?.gambleWon != null || (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
-        effect?.underdogBoosted != null || effect?.extraTurn || effect?.wealthTransfer;
+        effect?.underdogBoosted != null || effect?.extraTurn || effect?.wealthTransfer ||
+        (effect?.teleportAll && effect.teleportAll.length > 0);
       const extraInfo: TinhTuyState['cardExtraInfo'] = hasExtra
           ? {
             swapTargetSlot: effect.swapPosition?.targetSlot,
@@ -751,6 +761,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             underdogBoosted: effect.underdogBoosted,
             extraTurn: effect.extraTurn,
             wealthTransfer: effect.wealthTransfer,
+            teleportAll: effect.teleportAll,
           } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
@@ -1083,6 +1094,7 @@ interface TinhTuyContextValue {
   chooseFreeHouse: (cellIndex: number) => void;
   goBonusChoose: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
+  chooseDestination: (cellIndex: number) => void;
   clearAttackAlert: () => void;
   clearAutoSold: () => void;
   clearGoBonus: () => void;
@@ -1249,6 +1261,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleTravelPrompt = (data: any) => {
       dispatch({ type: 'TRAVEL_PROMPT', payload: data });
     };
+    const handleCardDestinationPrompt = (data: any) => {
+      dispatch({ type: 'CARD_DESTINATION_PROMPT', payload: data });
+    };
 
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
@@ -1318,6 +1333,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:buyback-prompt' as any, handleBuybackPrompt);
     socket.on('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
     socket.on('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
+    socket.on('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1358,6 +1374,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:buyback-prompt' as any, handleBuybackPrompt);
       socket.off('tinh-tuy:buyback-completed' as any, handleBuybackCompleted);
       socket.off('tinh-tuy:travel-prompt' as any, handleTravelPrompt);
+      socket.off('tinh-tuy:card-destination-prompt' as any, handleCardDestinationPrompt);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1626,6 +1643,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:travel-to' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const chooseDestination = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:card-choose-destination' as any, { cellIndex }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -2010,7 +2035,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
     }}>
       {children}
     </TinhTuyContext.Provider>

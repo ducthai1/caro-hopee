@@ -52,6 +52,10 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'MOVE_RANDOM', min: 1, max: 12 } },
   { id: 'kv-21', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv21.name', descriptionKey: 'tinhTuy.cards.kv21.desc',
     action: { type: 'ALL_LOSE_ONE_HOUSE' } },
+  { id: 'kv-23', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv23.name', descriptionKey: 'tinhTuy.cards.kv23.desc',
+    action: { type: 'CHOOSE_DESTINATION' } },
+  { id: 'kv-24', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv24.name', descriptionKey: 'tinhTuy.cards.kv24.desc',
+    action: { type: 'TELEPORT_ALL' } },
   { id: 'kv-27', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv27.name', descriptionKey: 'tinhTuy.cards.kv27.desc',
     action: { type: 'UNDERDOG_BOOST', boostAmount: 4000, penaltyAmount: 2000 }, minRound: 30 },
 ];
@@ -361,6 +365,25 @@ export function executeCardEffect(
         }
       }
       result.allHousesRemoved = removed;
+      break;
+    }
+
+    case 'CHOOSE_DESTINATION':
+      result.requiresChoice = 'CHOOSE_DESTINATION';
+      break;
+
+    case 'TELEPORT_ALL': {
+      // Teleport all non-bankrupt players to random positions (0-35)
+      const teleports: Array<{ slot: number; to: number }> = [];
+      for (const p of game.players.filter(pp => !pp.isBankrupt)) {
+        const newPos = crypto.randomInt(0, BOARD_SIZE);
+        teleports.push({ slot: p.slot, to: newPos });
+        // Set playerMoved for the card drawer so their landing cell is resolved
+        if (p.slot === playerSlot) {
+          result.playerMoved = { slot: playerSlot, to: newPos, passedGo: false };
+        }
+      }
+      result.teleportAll = teleports;
       break;
     }
 

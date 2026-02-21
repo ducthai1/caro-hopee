@@ -26,12 +26,13 @@ function getTokenOffset(index: number, total: number): { x: number; y: number } 
 }
 
 export const TinhTuyBoard: React.FC = () => {
-  const { state, travelTo, applyFestival } = useTinhTuy();
+  const { state, travelTo, applyFestival, chooseDestination } = useTinhTuy();
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
 
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const isTravelPhase = state.turnPhase === 'AWAITING_TRAVEL' && isMyTurn;
   const isFestivalPhase = state.turnPhase === 'AWAITING_FESTIVAL' && isMyTurn;
+  const isDestinationPhase = state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const myPos = myPlayer?.position ?? -1;
   const myProperties = myPlayer?.properties ?? [];
@@ -138,10 +139,11 @@ export const TinhTuyBoard: React.FC = () => {
             const isOwnCell = isBuyableCell && ownershipMap.get(cell.index) === state.mySlot;
             const isValidTravel = isTravelPhase && cell.index !== myPos && (cell.type === 'GO' || isUnowned || isOwnCell);
             const isValidFestival = isFestivalPhase && myProperties.includes(cell.index);
-            const isSelectionMode = isTravelPhase || isFestivalPhase;
+            const isValidDestination = isDestinationPhase && cell.index !== myPos;
+            const isSelectionMode = isTravelPhase || isFestivalPhase || isDestinationPhase;
             // Selection state: valid (bright + clickable), invalid (dimmed), null (normal)
             const selectionState = isSelectionMode
-              ? ((isValidTravel || isValidFestival) ? 'valid' as const : 'invalid' as const)
+              ? ((isValidTravel || isValidFestival || isValidDestination) ? 'valid' as const : 'invalid' as const)
               : null;
             return (
               <TinhTuyCell
@@ -161,6 +163,7 @@ export const TinhTuyBoard: React.FC = () => {
                 onClick={() =>
                   isValidFestival ? applyFestival(cell.index)
                   : isValidTravel ? travelTo(cell.index)
+                  : isValidDestination ? chooseDestination(cell.index)
                   : setSelectedCell(cell.index)
                 }
               />
