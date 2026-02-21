@@ -240,6 +240,23 @@ export const TinhTuyCardModal: React.FC = () => {
                 </Box>
               )}
 
+              {/* ─── Random points signal (Luck) ─── */}
+              {extra?.randomPoints != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: extra.randomPoints > 0 ? 'rgba(46, 204, 113, 0.12)' : 'rgba(231, 76, 60, 0.12)',
+                  border: `2px solid ${extra.randomPoints > 0 ? 'rgba(46, 204, 113, 0.4)' : 'rgba(231, 76, 60, 0.4)'}`,
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{
+                    color: extra.randomPoints > 0 ? '#27ae60' : '#e74c3c',
+                    fontWeight: 800, fontSize: '1.3rem',
+                  }}>
+                    🍀 {extra.randomPoints > 0 ? `+${extra.randomPoints.toLocaleString()} TT` : t('tinhTuy.cards.randomPointsZero' as any)}
+                  </Typography>
+                </Box>
+              )}
+
               {/* ─── Gamble result signal ─── */}
               {extra?.gambleWon != null && (
                 <Box sx={{

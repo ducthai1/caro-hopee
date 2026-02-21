@@ -876,7 +876,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       }
       // Build card extra info for visual display on card modal
       const hasExtra = effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null ||
-        effect?.randomSteps != null || effect?.gambleWon != null || (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
+        effect?.randomSteps != null || effect?.randomPoints != null || effect?.gambleWon != null ||
+        (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
         effect?.underdogBoosted != null || effect?.extraTurn || effect?.wealthTransfer ||
         (effect?.teleportAll && effect.teleportAll.length > 0);
       const extraInfo: TinhTuyState['cardExtraInfo'] = hasExtra
@@ -887,6 +888,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             stolenToSlot: effect.stolenProperty?.toSlot,
             taxedSlot: effect.taxedSlot,
             randomSteps: effect.randomSteps,
+            randomPoints: effect.randomPoints,
             gambleWon: effect.gambleWon,
             allHousesRemoved: effect.allHousesRemoved,
             underdogBoosted: effect.underdogBoosted,

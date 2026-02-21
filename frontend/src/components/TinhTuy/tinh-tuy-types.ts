@@ -216,6 +216,7 @@ export interface TinhTuyState {
     stolenToSlot?: number;
     taxedSlot?: number;
     randomSteps?: number;
+    randomPoints?: number;
     gambleWon?: boolean;
     allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
     underdogBoosted?: boolean;

@@ -239,6 +239,7 @@ export function executeCardEffect(
     case 'RANDOM_POINTS': {
       const amount = crypto.randomInt(action.min, action.max + 1);
       result.pointsChanged[playerSlot] = amount;
+      result.randomPoints = amount;
       break;
     }
 

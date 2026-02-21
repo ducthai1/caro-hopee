@@ -214,6 +214,8 @@ export interface CardEffectResult {
   taxedSlot?: number;
   /** Random steps rolled (for MOVE_RANDOM — stored so frontend can display the number) */
   randomSteps?: number;
+  /** Random points won (for RANDOM_POINTS — stored so frontend can display the amount) */
+  randomPoints?: number;
   /** Gamble result (true = won, false = lost) */
   gambleWon?: boolean;
   /** All houses removed by storm card — one per player */

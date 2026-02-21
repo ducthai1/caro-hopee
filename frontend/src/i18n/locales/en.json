@@ -1057,6 +1057,7 @@
       "kv27": { "name": "Underdog Boost", "desc": "If you're the poorest: +4,000 TT. Otherwise: -2,000 TT" },
       "swapWith": "Swap with",
       "stoleFrom": "Seized from",
+      "randomPointsZero": "0 TT — Bad luck!",
       "stolenResult": "Property seized!",
       "stolenGained": "gained",
       "stolenLost": "lost",
