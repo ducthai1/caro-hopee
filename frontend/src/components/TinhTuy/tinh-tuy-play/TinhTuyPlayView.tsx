@@ -143,7 +143,7 @@ const PlayerCard: React.FC<{
           <Chip label={`🛡️ ${t('tinhTuy.game.buffImmunity')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(52,152,219,0.12)', color: '#2980b9' }} />
         )}
         {player.doubleRentTurns > 0 && (
-          <Chip label={`⚡ x2 (${player.doubleRentTurns})`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155,89,182,0.12)', color: '#8e44ad' }} />
+          <Chip label={`⚡ ${t('tinhTuy.game.buffDoubleRent' as any, { turns: player.doubleRentTurns } as any)}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155,89,182,0.12)', color: '#8e44ad' }} />
         )}
         {player.skipNextTurn && (
           <Chip label={`⏭️ ${t('tinhTuy.game.buffSkipTurn')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#e74c3c' }} />
