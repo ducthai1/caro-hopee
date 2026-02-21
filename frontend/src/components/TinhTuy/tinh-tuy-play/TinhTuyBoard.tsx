@@ -89,7 +89,7 @@ export const TinhTuyBoard: React.FC = () => {
       let rent = 0;
       if (cell.type === 'STATION') {
         const stationsOwned = player.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length;
-        rent = stationsOwned * 250;
+        rent = Math.floor(stationsOwned * 250 * (1 + 0.08 * completedRounds));
       } else if (cell.type === 'UTILITY') {
         rent = Math.floor((cell.price || 1500) * (1 + 0.08 * completedRounds));
       } else if (cell.type === 'PROPERTY' && cell.group) {

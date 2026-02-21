@@ -51,12 +51,13 @@ export function calculateRent(
 
   let rent = 0;
 
-  // Station rent: 250 per station owned
+  const completedRounds = Math.max((game.round || 1) - 1, 0);
+
+  // Station rent: 250 per station owned, scales with rounds
   if (cell.type === 'STATION') {
-    rent = getStationRent(countStationsOwned(owner.properties));
+    rent = getStationRent(countStationsOwned(owner.properties), completedRounds);
   } else if (cell.type === 'UTILITY') {
-    // Utility rent: scales with completed rounds (min rounds across active players)
-    const completedRounds = Math.max((game.round || 1) - 1, 0);
+    // Utility rent: scales with completed rounds
     rent = getUtilityRent(cell.price || 1500, completedRounds);
   } else if (cell.type === 'PROPERTY' && cell.group) {
     // Check hotel first, then houses
@@ -303,10 +304,10 @@ export function getSellPrice(
     if (cell.type === 'UTILITY' && completedRounds != null) {
       return Math.floor(getUtilityRent(cell.price || 0, completedRounds) * SELL_RATIO);
     }
-    // Stations: 80% of (base price + rent based on stations owned)
+    // Stations: 80% of (base price + rent based on stations owned, round-scaled)
     if (cell.type === 'STATION' && player) {
       const stationsOwned = player.properties.filter(i => getCell(i)?.type === 'STATION').length;
-      return Math.floor(((cell.price || 0) + getStationRent(stationsOwned)) * SELL_RATIO);
+      return Math.floor(((cell.price || 0) + getStationRent(stationsOwned, completedRounds || 0)) * SELL_RATIO);
     }
     return Math.floor((cell.price || 0) * SELL_RATIO);
   }
