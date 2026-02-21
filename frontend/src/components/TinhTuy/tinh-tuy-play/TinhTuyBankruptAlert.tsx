@@ -11,7 +11,7 @@ import { PLAYER_COLORS } from '../tinh-tuy-types';
 
 export const TinhTuyBankruptAlert: React.FC = () => {
   const { t } = useLanguage();
-  const { state } = useTinhTuy();
+  const { state, clearBankruptAlert } = useTinhTuy();
 
   const slot = state.bankruptAlert;
   if (slot == null) return null;
@@ -25,6 +25,7 @@ export const TinhTuyBankruptAlert: React.FC = () => {
   return (
     <Dialog
       open
+      onClose={clearBankruptAlert}
       maxWidth="xs"
       fullWidth
       TransitionProps={{ timeout: 400 }}

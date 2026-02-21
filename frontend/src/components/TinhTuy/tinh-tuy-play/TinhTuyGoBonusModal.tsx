@@ -31,6 +31,7 @@ export const TinhTuyGoBonusModal: React.FC = () => {
   return (
     <Dialog
       open={true}
+      onClose={clearGoBonus}
       maxWidth="sm"
       fullWidth
       TransitionProps={{ timeout: 400 }}
