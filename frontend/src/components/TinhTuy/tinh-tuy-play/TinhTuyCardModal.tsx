@@ -11,6 +11,8 @@ import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
 
 const CARD_DISPLAY_MS = 3500;
+// Cards with detailed info (multi-player effects, teleports, etc.) need more reading time
+const CARD_DISPLAY_LONG_MS = 6000;
 
 export const TinhTuyCardModal: React.FC = () => {
   const { t } = useLanguage();
@@ -21,6 +23,15 @@ export const TinhTuyCardModal: React.FC = () => {
   const dismissTimerRef = useRef<number | null>(null);
 
   const canShow = !!card && !state.pendingMove && !state.animatingToken;
+
+  // Use longer display time for cards with detailed extra info sections
+  const hasDetailedInfo = extra && (
+    (extra.allHousesRemoved && extra.allHousesRemoved.length > 0) ||
+    (extra.teleportAll && extra.teleportAll.length > 0) ||
+    extra.stolenCellIndex != null ||
+    extra.wealthTransfer != null
+  );
+  const displayMs = hasDetailedInfo ? CARD_DISPLAY_LONG_MS : CARD_DISPLAY_MS;
 
   const clearDismissTimer = useCallback(() => {
     if (dismissTimerRef.current) {
@@ -47,9 +58,9 @@ export const TinhTuyCardModal: React.FC = () => {
     dismissTimerRef.current = window.setTimeout(() => {
       clearCard();
       dismissTimerRef.current = null;
-    }, CARD_DISPLAY_MS);
+    }, displayMs);
     return clearDismissTimer;
-  }, [canShow, clearDismissTimer, clearCard]);
+  }, [canShow, clearDismissTimer, clearCard, displayMs]);
 
   // Cleanup on unmount
   useEffect(() => clearDismissTimer, [clearDismissTimer]);

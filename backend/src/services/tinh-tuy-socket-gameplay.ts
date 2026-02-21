@@ -17,6 +17,10 @@ import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, get
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
 
+// Extra time (ms) added to card-choice timers to account for frontend animations
+// (dice ~2.5s + movement ~5s + card display ~3.5s + transitions ~1s ≈ 12s)
+const CARD_CHOICE_EXTRA_MS = 15_000;
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 function findPlayerBySocket(game: ITinhTuyGame, socket: Socket): ITinhTuyPlayer | undefined {
@@ -262,13 +266,40 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
     frozenProperties: game.frozenProperties || [],
   });
 
-  startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
-    try {
-      const g = await TinhTuyGame.findOne({ roomId: game.roomId });
-      if (!g || g.gameStatus !== 'playing') return;
-      await advanceTurn(io, g);
-    } catch (err) { console.error('[tinh-tuy] Turn timeout:', err); }
-  });
+  // AWAITING_TRAVEL gets a dedicated timer with phase guard + auto-resolve
+  if (game.turnPhase === 'AWAITING_TRAVEL') {
+    const travelSlot = game.currentPlayerSlot;
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.gameStatus !== 'playing') return;
+        if (g.turnPhase !== 'AWAITING_TRAVEL') return; // phase guard
+        const p = g.players.find(pp => pp.slot === travelSlot);
+        if (!p) return;
+        // Auto-pick GO (index 0) as safe default destination
+        const dest = 0;
+        const oldPos = p.position;
+        const passedGo = dest < oldPos;
+        p.position = dest;
+        if (passedGo) p.points += GO_SALARY;
+        g.markModified('players');
+        await g.save();
+        io.to(g.roomId).emit('tinh-tuy:player-moved', {
+          slot: p.slot, from: oldPos, to: dest,
+          passedGo, goBonus: passedGo ? GO_SALARY : 0, isTravel: true,
+        });
+        await resolveAndAdvance(io, g, p, dest, { dice1: 0, dice2: 0, total: 0, isDouble: false });
+      } catch (err) { console.error('[tinh-tuy] Travel timeout:', err); }
+    });
+  } else {
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.gameStatus !== 'playing') return;
+        await advanceTurn(io, g);
+      } catch (err) { console.error('[tinh-tuy] Turn timeout:', err); }
+    });
+  }
 }
 
 /** Apply card effect results to game state */
@@ -606,8 +637,8 @@ async function handleCardDraw(
       io.to(game.roomId).emit('tinh-tuy:attack-property-prompt', {
         slot: player.slot, attackType: effect.requiresChoice, targetCells,
       });
-      // Auto-pick random on timeout
-      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      // Auto-pick random on timeout (extra time for frontend animations: dice + move + card display)
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
           if (!g || (g.turnPhase !== 'AWAITING_DESTROY_PROPERTY' && g.turnPhase !== 'AWAITING_DOWNGRADE_BUILDING')) return;
@@ -629,8 +660,8 @@ async function handleCardDraw(
     game.turnPhase = 'AWAITING_CARD_DESTINATION';
     await game.save();
     io.to(game.roomId).emit('tinh-tuy:card-destination-prompt', { slot: player.slot });
-    // Auto-pick random on timeout
-    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+    // Auto-pick random on timeout (extra time for frontend animations: dice + move + card display)
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {
         const g = await TinhTuyGame.findOne({ roomId: game.roomId });
         if (!g || g.turnPhase !== 'AWAITING_CARD_DESTINATION') return;
@@ -657,8 +688,8 @@ async function handleCardDraw(
     io.to(game.roomId).emit('tinh-tuy:rent-freeze-prompt', {
       slot: player.slot, targetCells: freezeTargets,
     });
-    // Auto-pick random on timeout
-    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+    // Auto-pick random on timeout (extra time for frontend animations)
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {
         const g = await TinhTuyGame.findOne({ roomId: game.roomId });
         if (!g || g.turnPhase !== 'AWAITING_RENT_FREEZE') return;
@@ -693,8 +724,8 @@ async function handleCardDraw(
     io.to(game.roomId).emit('tinh-tuy:forced-trade-prompt', {
       slot: player.slot, myCells, opponentCells,
     });
-    // Auto-pick random on timeout
-    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+    // Auto-pick random on timeout (extra time for frontend animations)
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {
         const g = await TinhTuyGame.findOne({ roomId: game.roomId });
         if (!g || g.turnPhase !== 'AWAITING_FORCED_TRADE') return;
@@ -717,10 +748,14 @@ async function handleCardDraw(
     return; // Wait for player choice
   }
 
-  // Hold turn for ~4s so frontend card modal can display before turn advances.
-  // Without this delay, the turn-changed event arrives immediately after card-drawn,
-  // causing the card modal to be skipped or dismissed before players can see it.
-  const CARD_DISPLAY_DELAY = 4000;
+  // Hold turn so frontend card modal can display before turn advances.
+  // Cards with detailed multi-player effects (storm, teleport, steal, wealth transfer)
+  // need longer display for players to read. Frontend uses 6s for these, 3.5s for others.
+  // Backend delay must exceed frontend display + movement animation time.
+  const hasDetailedInfo = (effect.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
+    (effect.teleportAll && effect.teleportAll.length > 0) ||
+    !!effect.stolenProperty || !!effect.wealthTransfer;
+  const CARD_DISPLAY_DELAY = hasDetailedInfo ? 8000 : 4000;
   game.turnPhase = 'AWAITING_CARD_DISPLAY';
   await game.save();
   startTurnTimer(game.roomId, CARD_DISPLAY_DELAY, async () => {

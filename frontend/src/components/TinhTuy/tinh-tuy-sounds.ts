@@ -62,7 +62,13 @@ class TinhTuySoundManager {
   }
 
   playSFX(type: SFXType): void {
-    if (this._isMuted || !this.audioCtx || this.audioCtx.state !== 'running') return;
+    if (this._isMuted || !this.audioCtx) return;
+    // Resume suspended AudioContext (can happen after tab switch on some browsers)
+    if (this.audioCtx.state === 'suspended') {
+      this.audioCtx.resume().catch(() => {});
+      return; // will play next tick
+    }
+    if (this.audioCtx.state !== 'running') return;
     try {
       const ctx = this.audioCtx;
       const vol = this._volume;
@@ -245,20 +251,20 @@ class TinhTuySoundManager {
     autoCleanup(osc, gain);
   }
 
-  /** Gentle double-beep warning when turn timer is running low */
+  /** Gentle triple-beep warning when turn timer is running low */
   private sfxTimerWarning(ctx: AudioContext, vol: number): void {
     const now = ctx.currentTime;
-    // Two soft sine beeps at A5 (880Hz), spaced 0.15s apart
-    [0, 0.15].forEach(offset => {
+    // Three soft sine beeps at B5 (988Hz), spaced 0.2s apart — audible but not harsh
+    [0, 0.2, 0.4].forEach(offset => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.value = 880;
+      osc.frequency.value = 988;
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(vol * 0.15, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.12);
+      gain.gain.setValueAtTime(vol * 0.35, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.15);
       osc.connect(gain).connect(ctx.destination);
       osc.start(now + offset);
-      osc.stop(now + offset + 0.12);
+      osc.stop(now + offset + 0.15);
       autoCleanup(osc, gain);
     });
   }
