@@ -190,14 +190,14 @@ async function advanceTurnOrDoubles(
   }
 }
 
-export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promise<void> {
+export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipRecurse = false): Promise<void> {
   const nextSlot = getNextActivePlayer(game.players, game.currentPlayerSlot);
   if (nextSlot <= game.currentPlayerSlot) {
     game.round += 1;
   }
 
-  // Decrement frozen property turns
-  if (game.frozenProperties && game.frozenProperties.length > 0) {
+  // Decrement frozen property turns only on real turn transitions (not skip recursion)
+  if (!_skipRecurse && game.frozenProperties && game.frozenProperties.length > 0) {
     game.frozenProperties = game.frozenProperties
       .map((fp: any) => ({ ...fp, turnsRemaining: fp.turnsRemaining - 1 }))
       .filter((fp: any) => fp.turnsRemaining > 0);
@@ -223,7 +223,7 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame): Promi
       turnStartedAt: game.turnStartedAt, round: game.round, skipped: true,
       buffs: getPlayerBuffs(game),
     });
-    await advanceTurn(io, game);
+    await advanceTurn(io, game, true);
     return;
   }
 
@@ -675,7 +675,7 @@ async function handleCardDraw(
   // FORCED_TRADE: player picks own property + opponent property to swap
   if (effect.requiresChoice === 'FORCED_TRADE') {
     // Compute tradeable cells for UI
-    const myCells = player.properties;
+    const myCells = player.properties.filter(ci => !player.hotels?.[String(ci)]);
     const opponentCells = game.players
       .filter(p => !p.isBankrupt && p.slot !== player.slot)
       .flatMap(p => p.properties.filter(ci => !p.hotels?.[String(ci)]));
@@ -690,7 +690,7 @@ async function handleCardDraw(
         const g = await TinhTuyGame.findOne({ roomId: game.roomId });
         if (!g || g.turnPhase !== 'AWAITING_FORCED_TRADE') return;
         const p = g.players.find(pp => pp.slot === player.slot)!;
-        const myProps = p.properties;
+        const myProps = p.properties.filter(ci => !p.hotels?.[String(ci)]);
         const oppProps = g.players
           .filter(pp => !pp.isBankrupt && pp.slot !== p.slot)
           .flatMap(pp => pp.properties.filter(ci => !pp.hotels?.[String(ci)]));
@@ -1141,6 +1141,13 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             slot: player.slot, method: 'ROLL',
             costPaid: escapeResult.costPaid || 0,
           });
+
+          // Check if forced-pay bankrupted the player before moving
+          if (escapeResult.costPaid && player.points < 0) {
+            const gameEnded = await checkBankruptcy(io, game, player);
+            if (gameEnded) { callback({ success: true }); return; }
+          }
+
           // Player is free — move with dice result
           const oldPos = player.position;
           const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
@@ -1442,7 +1449,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       const player = findPlayerBySocket(game, socket);
-      if (!player || player.isBankrupt) {
+      if (!player || player.isBankrupt || !isCurrentPlayer(game, player)) {
         return callback({ success: false, error: 'cannotBuild' });
       }
 
@@ -1492,7 +1499,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       const player = findPlayerBySocket(game, socket);
-      if (!player || player.isBankrupt) {
+      if (!player || player.isBankrupt || !isCurrentPlayer(game, player)) {
         return callback({ success: false, error: 'cannotBuild' });
       }
 
@@ -1838,9 +1845,12 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       const { myCellIndex, opponentCellIndex } = data || {};
-      // Validate: myCellIndex belongs to current player
+      // Validate: myCellIndex belongs to current player and has no hotel
       if (!player.properties.includes(myCellIndex)) {
         return callback({ success: false, error: 'notYourProperty' });
+      }
+      if (player.hotels?.[String(myCellIndex)]) {
+        return callback({ success: false, error: 'cannotTradeHotel' });
       }
       // Validate: opponentCellIndex belongs to an opponent (no hotel)
       const oppOwner = game.players.find(p => !p.isBankrupt && p.slot !== player.slot && p.properties.includes(opponentCellIndex));

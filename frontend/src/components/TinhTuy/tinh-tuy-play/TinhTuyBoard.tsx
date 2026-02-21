@@ -106,6 +106,10 @@ export const TinhTuyBoard: React.FC = () => {
           rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
         }
       }
+      // Double rent buff
+      if (player.doubleRentTurns > 0) {
+        rent = rent * 2;
+      }
       // Festival multiplier (game-level, stacking)
       if (state.festival && state.festival.cellIndex === cellIdx) {
         rent = Math.floor(rent * state.festival.multiplier);

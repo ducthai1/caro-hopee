@@ -1076,7 +1076,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, travelPendingSlot: null };
 
     case 'SELL_PROMPT':
-      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit } };
+      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit, sellPrices: action.payload.sellPrices } };
 
     case 'APPLY_QUEUED_SELL':
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
