@@ -24,7 +24,11 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
   const cell = BOARD_CELLS[cellIndex];
   if (!cell) return null;
 
-  const owner = state.players.find(p => p.properties.includes(cellIndex));
+  // Use last-match to stay consistent with ownershipMap (last player wins if duplicated)
+  let owner: typeof state.players[number] | undefined;
+  for (const p of state.players) {
+    if (p.properties.includes(cellIndex)) owner = p;
+  }
   const groupColor = cell.group ? GROUP_COLORS[cell.group as PropertyGroup] : '#9b59b6';
   const isProperty = cell.type === 'PROPERTY';
   const isStation = cell.type === 'STATION';
@@ -45,7 +49,7 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
 
   // Determine current active rent level for highlighting
   const ownsFullGroup = isProperty && owner && cell.group
-    ? PROPERTY_GROUPS[cell.group as PropertyGroup]?.every(i => owner.properties.includes(i))
+    ? PROPERTY_GROUPS[cell.group as PropertyGroup]?.every(i => owner!.properties.includes(i))
     : false;
   // activeLevel: 'base' | 'group' | 'house-N' | 'hotel' | null
   const activeLevel = !owner ? null

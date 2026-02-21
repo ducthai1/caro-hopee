@@ -149,6 +149,19 @@ function freezePoints(state: TinhTuyState): Record<number, number> {
   return dp;
 }
 
+/** Defensive: when adding a property to a player, remove it from all other players first.
+ *  Prevents stale duplicate ownership (e.g. FORCE_CLEAR_ANIM missing stolenProperty). */
+function dedupeProperty(players: TinhTuyPlayer[], cellIndex: number, newOwnerSlot: number): TinhTuyPlayer[] {
+  return players.map(p => {
+    if (p.slot === newOwnerSlot) return p; // Skip the new owner — caller handles adding
+    if (!p.properties.includes(cellIndex)) return p;
+    const key = String(cellIndex);
+    const newHouses = { ...p.houses }; delete newHouses[key];
+    const newHotels = { ...p.hotels }; delete newHotels[key];
+    return { ...p, properties: p.properties.filter(idx => idx !== cellIndex), houses: newHouses, hotels: newHotels };
+  });
+}
+
 // ─── Reducer ──────────────────────────────────────────
 function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyState {
   switch (action.type) {
@@ -282,6 +295,43 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           fcPlayers = fcPlayers.map(p =>
             p.slot === fcEff.slot ? { ...p, skipNextTurn: true } : p
           );
+        }
+        // Previously missing — must match CLEAR_CARD logic
+        if (fcEff.swapPosition) {
+          const sw = fcEff.swapPosition;
+          fcPlayers = fcPlayers.map(p => {
+            if (p.slot === sw.slot) return { ...p, position: sw.myNewPos };
+            if (p.slot === sw.targetSlot) return { ...p, position: sw.targetNewPos };
+            return p;
+          });
+        }
+        if (fcEff.stolenProperty) {
+          const st = fcEff.stolenProperty;
+          fcPlayers = dedupeProperty(fcPlayers, st.cellIndex, st.toSlot);
+          fcPlayers = fcPlayers.map(p => {
+            if (p.slot === st.fromSlot) {
+              return {
+                ...p,
+                properties: p.properties.filter(idx => idx !== st.cellIndex),
+                houses: { ...p.houses, [String(st.cellIndex)]: 0 },
+                hotels: { ...p.hotels, [String(st.cellIndex)]: false },
+              };
+            }
+            if (p.slot === st.toSlot) {
+              return { ...p, properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex] };
+            }
+            return p;
+          });
+        }
+        if (fcEff.allHousesRemoved && fcEff.allHousesRemoved.length > 0) {
+          for (const rem of fcEff.allHousesRemoved) {
+            fcPlayers = fcPlayers.map(p => {
+              if (p.slot !== rem.slot) return p;
+              const key = String(rem.cellIndex);
+              const h = p.houses || {};
+              return { ...p, houses: { ...h, [key]: Math.max((h[key] || 0) - 1, 0) } };
+            });
+          }
         }
       }
       // Apply pending card movement (teleport directly)
@@ -482,9 +532,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'PROPERTY_BOUGHT': {
       const dpBuy = freezePoints(state);
-      const updated = state.players.map(p =>
+      // Defensive: remove property from any other player first (prevents stale duplicates)
+      const dedupedBuy = dedupeProperty(state.players, action.payload.cellIndex, action.payload.slot);
+      const updated = dedupedBuy.map(p =>
         p.slot === action.payload.slot
-          ? { ...p, points: action.payload.remainingPoints, properties: [...p.properties, action.payload.cellIndex] }
+          ? { ...p, points: action.payload.remainingPoints, properties: [...p.properties.filter(idx => idx !== action.payload.cellIndex), action.payload.cellIndex] }
           : p
       );
       return {
@@ -685,13 +737,15 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'BUYBACK_COMPLETED': {
       const { buyerSlot, ownerSlot, cellIndex: bbCell, price: bbPrice, buyerPoints, ownerPoints, houses: bbHouses, hotel: bbHotel } = action.payload;
       const dpBb = freezePoints(state);
-      const updatedPlayers = state.players.map(p => {
+      // Defensive dedup: ensure no other player retains this property
+      const dedupedBb = dedupeProperty(state.players, bbCell, buyerSlot);
+      const updatedPlayers = dedupedBb.map(p => {
         if (p.slot === buyerSlot) {
           const key = String(bbCell);
           return {
             ...p,
             points: buyerPoints,
-            properties: [...p.properties, bbCell],
+            properties: [...p.properties.filter(idx => idx !== bbCell), bbCell],
             houses: { ...p.houses, [key]: bbHouses },
             hotels: { ...p.hotels, [key]: bbHotel },
           };
@@ -897,6 +951,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         if (eff.stolenProperty) {
           const st = eff.stolenProperty;
+          // Defensive: remove property from ALL other players first
+          clearPlayers = dedupeProperty(clearPlayers, st.cellIndex, st.toSlot);
           clearPlayers = clearPlayers.map(p => {
             if (p.slot === st.fromSlot) {
               return {
@@ -907,7 +963,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
               };
             }
             if (p.slot === st.toSlot) {
-              return { ...p, properties: [...p.properties, st.cellIndex] };
+              return { ...p, properties: [...p.properties.filter(idx => idx !== st.cellIndex), st.cellIndex] };
             }
             return p;
           });

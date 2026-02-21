@@ -35,7 +35,6 @@ export const TinhTuyBoard: React.FC = () => {
   const isDestinationPhase = state.turnPhase === 'AWAITING_CARD_DESTINATION' && isMyTurn;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const myPos = myPlayer?.position ?? -1;
-  const myProperties = myPlayer?.properties ?? [];
 
   // Build ownership map: cellIndex → ownerSlot
   const ownershipMap = new Map<number, number>();
@@ -146,7 +145,7 @@ export const TinhTuyBoard: React.FC = () => {
             const isUnowned = isBuyableCell && !ownershipMap.has(cell.index);
             const isOwnCell = isBuyableCell && ownershipMap.get(cell.index) === state.mySlot;
             const isValidTravel = isTravelPhase && cell.index !== myPos && (cell.type === 'GO' || isUnowned || isOwnCell);
-            const isValidFestival = isFestivalPhase && myProperties.includes(cell.index);
+            const isValidFestival = isFestivalPhase && isOwnCell;
             const isValidDestination = isDestinationPhase && cell.index !== myPos;
             const isSelectionMode = isTravelPhase || isFestivalPhase || isDestinationPhase;
             // Selection state: valid (bright + clickable), invalid (dimmed), null (normal)
