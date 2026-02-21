@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from 'react';
 import { Dialog, Typography, Box } from '@mui/material';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import ShieldIcon from '@mui/icons-material/Shield';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
@@ -32,12 +33,15 @@ export const TinhTuyAttackAlert: React.FC = () => {
   const victim = state.players.find(p => p.slot === alert.victimSlot);
   const cell = BOARD_CELLS.find(c => c.index === alert.cellIndex);
   const victimColor = PLAYER_COLORS[alert.victimSlot] || '#999';
+  const isShielded = alert.result === 'shielded';
   const isDestroy = alert.result === 'destroyed' || alert.result === 'demolished';
-  const accentColor = isDestroy ? '#e74c3c' : '#e67e22';
+  const accentColor = isShielded ? '#3498db' : isDestroy ? '#e74c3c' : '#e67e22';
 
   // Build description
   let description: string;
-  if (alert.result === 'destroyed') {
+  if (isShielded) {
+    description = t('tinhTuy.game.attackResultShielded' as any);
+  } else if (alert.result === 'destroyed') {
     description = t('tinhTuy.game.attackResultDestroyed' as any);
   } else if (alert.result === 'demolished') {
     description = t('tinhTuy.game.attackResultDemolished' as any);
@@ -67,14 +71,20 @@ export const TinhTuyAttackAlert: React.FC = () => {
     >
       <Box sx={{ p: 3, textAlign: 'center' }}>
         {/* Icon */}
-        {isDestroy
-          ? <WhatshotIcon sx={{ fontSize: 48, color: accentColor, mb: 1 }} />
-          : <TrendingDownIcon sx={{ fontSize: 48, color: accentColor, mb: 1 }} />
+        {isShielded
+          ? <ShieldIcon sx={{ fontSize: 48, color: accentColor, mb: 1 }} />
+          : isDestroy
+            ? <WhatshotIcon sx={{ fontSize: 48, color: accentColor, mb: 1 }} />
+            : <TrendingDownIcon sx={{ fontSize: 48, color: accentColor, mb: 1 }} />
         }
 
         {/* Title */}
         <Typography variant="h6" sx={{ fontWeight: 800, color: accentColor, mb: 1 }}>
-          {isDestroy ? t('tinhTuy.game.attackAlertDestroyTitle' as any) : t('tinhTuy.game.attackAlertDowngradeTitle' as any)}
+          {isShielded
+            ? t('tinhTuy.game.attackAlertShieldedTitle' as any)
+            : isDestroy
+              ? t('tinhTuy.game.attackAlertDestroyTitle' as any)
+              : t('tinhTuy.game.attackAlertDowngradeTitle' as any)}
         </Typography>
 
         {/* Victim */}

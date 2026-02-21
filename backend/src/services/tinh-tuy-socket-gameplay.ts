@@ -288,6 +288,17 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
       thief.properties.push(cellIdx);
     }
   }
+
+  // All lose one house (storm) — remove 1 random house from each player
+  if (effect.allHousesRemoved) {
+    for (const rem of effect.allHousesRemoved) {
+      const p = game.players.find(pp => pp.slot === rem.slot);
+      if (p) {
+        const key = String(rem.cellIndex);
+        p.houses[key] = Math.max((p.houses[key] || 0) - 1, 0);
+      }
+    }
+  }
 }
 
 /** Draw card and resolve — handles most card types immediately */
@@ -594,10 +605,24 @@ function applyPropertyAttack(
   attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING',
   cellIndex: number,
   io: SocketIOServer,
-): { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null {
+): { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished' | 'shielded'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null {
   // Find the owner of this cell
   const victim = game.players.find(p => p.properties.includes(cellIndex));
   if (!victim) return null;
+
+  // Shield check — if victim holds a shield card, consume it and block the attack
+  const shieldIdx = victim.cards.indexOf('shield');
+  if (shieldIdx >= 0) {
+    victim.cards.splice(shieldIdx, 1);
+    const key = String(cellIndex);
+    const result = {
+      victimSlot: victim.slot, cellIndex, result: 'shielded' as const,
+      prevHouses: victim.houses[key] || 0, prevHotel: !!victim.hotels[key],
+      newHouses: victim.houses[key] || 0, newHotel: !!victim.hotels[key],
+    };
+    io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
+    return result;
+  }
 
   const key = String(cellIndex);
   const prevHouses = victim.houses[key] || 0;

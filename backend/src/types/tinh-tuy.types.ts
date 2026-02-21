@@ -167,7 +167,9 @@ export type CardAction =
   | { type: 'SWAP_POSITION' }
   | { type: 'STEAL_PROPERTY' }
   | { type: 'TAX_RICHEST'; amount: number }
-  | { type: 'MOVE_RANDOM'; min: number; max: number };
+  | { type: 'MOVE_RANDOM'; min: number; max: number }
+  | { type: 'GAMBLE'; win: number; lose: number }
+  | { type: 'ALL_LOSE_ONE_HOUSE' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -199,4 +201,10 @@ export interface CardEffectResult {
   taxedSlot?: number;
   /** Random steps rolled (for MOVE_RANDOM — stored so frontend can display the number) */
   randomSteps?: number;
+  /** Gamble result (true = won, false = lost) */
+  gambleWon?: boolean;
+  /** All houses removed by storm card — one per player */
+  allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
+  /** Shield blocked an attack */
+  shieldUsed?: { slot: number };
 }

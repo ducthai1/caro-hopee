@@ -710,7 +710,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       // Defer buff/card/island/swap/steal effects until card modal is dismissed (prevents spoilers)
       const hasDeferrable = effect?.cardHeld || effect?.immunityNextRent || effect?.doubleRentTurns ||
         effect?.skipTurn || effect?.goToIsland || effect?.houseRemoved ||
-        effect?.swapPosition || effect?.stolenProperty;
+        effect?.swapPosition || effect?.stolenProperty ||
+        (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0);
       const pendingEff: TinhTuyState['pendingCardEffect'] = hasDeferrable ? {
         slot,
         cardHeld: effect.cardHeld,
@@ -721,16 +722,20 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         houseRemoved: effect.houseRemoved,
         swapPosition: effect.swapPosition,
         stolenProperty: effect.stolenProperty,
+        allHousesRemoved: effect.allHousesRemoved,
       } : null;
       // Build card extra info for visual display on card modal
-      const extraInfo: TinhTuyState['cardExtraInfo'] =
-        (effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null || effect?.randomSteps != null)
+      const hasExtra = effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null ||
+        effect?.randomSteps != null || effect?.gambleWon != null || (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0);
+      const extraInfo: TinhTuyState['cardExtraInfo'] = hasExtra
           ? {
             swapTargetSlot: effect.swapPosition?.targetSlot,
             stolenCellIndex: effect.stolenProperty?.cellIndex,
             stolenFromSlot: effect.stolenProperty?.fromSlot,
             taxedSlot: effect.taxedSlot,
             randomSteps: effect.randomSteps,
+            gambleWon: effect.gambleWon,
+            allHousesRemoved: effect.allHousesRemoved,
           } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
@@ -803,6 +808,16 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             }
             return p;
           });
+        }
+        if (eff.allHousesRemoved && eff.allHousesRemoved.length > 0) {
+          for (const rem of eff.allHousesRemoved) {
+            clearPlayers = clearPlayers.map(p => {
+              if (p.slot !== rem.slot) return p;
+              const key = String(rem.cellIndex);
+              const h = p.houses || {};
+              return { ...p, houses: { ...h, [key]: Math.max((h[key] || 0) - 1, 0) } };
+            });
+          }
         }
       }
 

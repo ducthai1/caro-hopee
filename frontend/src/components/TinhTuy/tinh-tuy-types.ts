@@ -206,6 +206,7 @@ export interface TinhTuyState {
     houseRemoved?: { slot: number; cellIndex: number };
     swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
     stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number };
+    allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
   } | null;
   /** Extra info shown on card modal (swap target, stolen property, taxed player, random steps) */
   cardExtraInfo: {
@@ -214,6 +215,8 @@ export interface TinhTuyState {
     stolenFromSlot?: number;
     taxedSlot?: number;
     randomSteps?: number;
+    gambleWon?: boolean;
+    allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;
@@ -224,7 +227,7 @@ export interface TinhTuyState {
   /** Attack property prompt — player chooses opponent's property to attack */
   attackPrompt: { attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING'; targetCells: number[] } | null;
   /** Attack result alert — shown to all players when property is attacked */
-  attackAlert: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null;
+  attackAlert: { victimSlot: number; cellIndex: number; result: 'destroyed' | 'downgraded' | 'demolished' | 'shielded'; prevHouses: number; prevHotel: boolean; newHouses: number; newHotel: boolean } | null;
   /** Buyback prompt — shown after paying rent on opponent's property */
   buybackPrompt: { slot: number; ownerSlot: number; cellIndex: number; price: number; canAfford: boolean } | null;
   /** Queued buyback prompt — applied after animations settle */

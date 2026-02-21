@@ -50,6 +50,8 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'SWAP_POSITION' } },
   { id: 'kv-20', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv20.name', descriptionKey: 'tinhTuy.cards.kv20.desc',
     action: { type: 'MOVE_RANDOM', min: 1, max: 12 } },
+  { id: 'kv-21', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv21.name', descriptionKey: 'tinhTuy.cards.kv21.desc',
+    action: { type: 'ALL_LOSE_ONE_HOUSE' } },
 ];
 
 // ─── 16 Co Hoi Cards ────────────────────────────────────────
@@ -93,6 +95,10 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'STEAL_PROPERTY' } },
   { id: 'ch-19', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch19.name', descriptionKey: 'tinhTuy.cards.ch19.desc',
     action: { type: 'TAX_RICHEST', amount: 3000 } },
+  { id: 'ch-20', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch20.name', descriptionKey: 'tinhTuy.cards.ch20.desc',
+    action: { type: 'GAMBLE', win: 6000, lose: 3000 } },
+  { id: 'ch-21', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch21.name', descriptionKey: 'tinhTuy.cards.ch21.desc',
+    action: { type: 'HOLD_CARD', cardId: 'shield' }, holdable: true },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -223,7 +229,10 @@ export function executeCardEffect(
     }
 
     case 'LOSE_ONE_HOUSE': {
-      const withHouses = player.properties.filter(idx => (player.houses[String(idx)] || 0) > 0);
+      // Only target properties with houses but no hotel — hotels are immune
+      const withHouses = player.properties.filter(idx =>
+        (player.houses[String(idx)] || 0) > 0 && !player.hotels[String(idx)]
+      );
       if (withHouses.length > 0) {
         const target = withHouses[crypto.randomInt(0, withHouses.length)];
         result.houseRemoved = { slot: playerSlot, cellIndex: target };
@@ -244,23 +253,22 @@ export function executeCardEffect(
       break;
 
     case 'DESTROY_PROPERTY': {
-      // Collect all opponents' properties (targetable cells)
+      // Collect all opponents' properties — hotels are immune
       const opponentProps = game.players
         .filter(p => !p.isBankrupt && p.slot !== playerSlot)
-        .flatMap(p => p.properties);
+        .flatMap(p => p.properties.filter(idx => !p.hotels[String(idx)]));
       if (opponentProps.length > 0) {
         result.requiresChoice = 'DESTROY_PROPERTY';
         result.targetableCells = opponentProps;
       }
-      // If no targets, card has no effect
       break;
     }
 
     case 'DOWNGRADE_BUILDING': {
-      // Collect all opponents' properties (targetable cells)
+      // Collect all opponents' properties — hotels are immune
       const opponentProps2 = game.players
         .filter(p => !p.isBankrupt && p.slot !== playerSlot)
-        .flatMap(p => p.properties);
+        .flatMap(p => p.properties.filter(idx => !p.hotels[String(idx)]));
       if (opponentProps2.length > 0) {
         result.requiresChoice = 'DOWNGRADE_BUILDING';
         result.targetableCells = opponentProps2;
@@ -284,11 +292,14 @@ export function executeCardEffect(
     }
 
     case 'STEAL_PROPERTY': {
-      // Pick random property from random opponent (strip houses/hotels)
-      const victims = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot && p.properties.length > 0);
+      // Pick random non-hotel property from random opponent — hotels are immune
+      const victims = game.players
+        .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+        .map(p => ({ ...p, stealable: p.properties.filter(idx => !p.hotels[String(idx)]) }))
+        .filter(p => p.stealable.length > 0);
       if (victims.length > 0) {
         const victim = victims[crypto.randomInt(0, victims.length)];
-        const cellIdx = victim.properties[crypto.randomInt(0, victim.properties.length)];
+        const cellIdx = victim.stealable[crypto.randomInt(0, victim.stealable.length)];
         result.stolenProperty = { fromSlot: victim.slot, toSlot: playerSlot, cellIndex: cellIdx };
       }
       break;
@@ -313,6 +324,30 @@ export function executeCardEffect(
       result.playerMoved = { slot: playerSlot, to: newPos, passedGo };
       if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
       result.randomSteps = steps;
+      break;
+    }
+
+    case 'GAMBLE': {
+      // 50/50 chance: win big or lose
+      const won = crypto.randomInt(0, 2) === 1;
+      result.pointsChanged[playerSlot] = won ? action.win : -action.lose;
+      result.gambleWon = won;
+      break;
+    }
+
+    case 'ALL_LOSE_ONE_HOUSE': {
+      // Each non-bankrupt player loses 1 random house — hotels are immune
+      const removed: Array<{ slot: number; cellIndex: number }> = [];
+      for (const p of game.players.filter(pp => !pp.isBankrupt)) {
+        const withHouses = p.properties.filter(idx =>
+          (p.houses[String(idx)] || 0) > 0 && !p.hotels[String(idx)]
+        );
+        if (withHouses.length > 0) {
+          const target = withHouses[crypto.randomInt(0, withHouses.length)];
+          removed.push({ slot: p.slot, cellIndex: target });
+        }
+      }
+      result.allHousesRemoved = removed;
       break;
     }
   }

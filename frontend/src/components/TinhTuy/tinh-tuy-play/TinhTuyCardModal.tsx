@@ -203,6 +203,48 @@ export const TinhTuyCardModal: React.FC = () => {
                   </Typography>
                 </Box>
               )}
+
+              {/* ─── Gamble result signal ─── */}
+              {extra?.gambleWon != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: extra.gambleWon ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.12)',
+                  border: `2px solid ${extra.gambleWon ? 'rgba(46, 204, 113, 0.5)' : 'rgba(231, 76, 60, 0.4)'}`,
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{
+                    color: extra.gambleWon ? '#27ae60' : '#e74c3c',
+                    fontWeight: 800, fontSize: '1.3rem',
+                  }}>
+                    {extra.gambleWon ? '🎉' : '💸'} {t(extra.gambleWon ? 'tinhTuy.cards.gambleWin' as any : 'tinhTuy.cards.gambleLose' as any)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* ─── Storm: all houses removed signal ─── */}
+              {extra?.allHousesRemoved && extra.allHousesRemoved.length > 0 && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(52, 73, 94, 0.1)',
+                  border: '2px solid rgba(52, 73, 94, 0.3)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#2c3e50', fontWeight: 800, fontSize: '1rem', mb: 0.5 }}>
+                    🌪️ {t('tinhTuy.cards.stormDamage' as any)}
+                  </Typography>
+                  {extra.allHousesRemoved.map((rem, i) => (
+                    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.3 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: getPlayerColor(rem.slot) }} />
+                      <Typography variant="caption" sx={{ color: getPlayerColor(rem.slot), fontWeight: 700 }}>
+                        {getPlayerName(rem.slot)}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#555' }}>
+                        — {BOARD_CELLS[rem.cellIndex] ? t(BOARD_CELLS[rem.cellIndex].name as any) : `#${rem.cellIndex}`}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </div>
           </div>
         </div>
