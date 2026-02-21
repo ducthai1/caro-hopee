@@ -886,6 +886,7 @@
       "bankruptReasonYou": "Tổng tài sản của bạn không đủ để chi trả. Bạn đã phá sản!",
       "bankruptReasonOther": "{name} không đủ tài sản để chi trả và đã phá sản!",
       "surrender": "Đầu Hàng",
+      "buffShield": "Khiên",
       "buffEscapeIsland": "Ra đảo",
       "buffImmunity": "Miễn thuê",
       "buffDoubleRent": "x2 thuê ({{turns}})",

@@ -701,6 +701,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel, festival: atkFestival } = action.payload;
       const updatedPlayers = state.players.map(p => {
         if (p.slot !== victimSlot) return p;
+        if (atkResult === 'shielded') {
+          // Shield consumed — remove from cards, property unchanged
+          const shieldIdx = p.cards.indexOf('shield');
+          return shieldIdx >= 0 ? { ...p, cards: p.cards.filter((_, i) => i !== shieldIdx) } : p;
+        }
         if (atkResult === 'destroyed' || atkResult === 'demolished') {
           // Property fully removed
           const newHousesMap = { ...p.houses };
