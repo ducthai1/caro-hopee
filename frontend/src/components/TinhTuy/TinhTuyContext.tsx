@@ -77,6 +77,7 @@ const initialState: TinhTuyState = {
   error: null,
   drawnCard: null,
   houseRemovedCell: null,
+  cardExtraInfo: null,
   chatMessages: [],
   pendingMove: null,
   animatingToken: null,
@@ -291,7 +292,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return {
         ...state, players: fcPlayers,
         diceAnimating: false, drawnCard: null, animatingToken: null,
-        houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null,
+        houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
         pendingMove: fcPendingMove,
       };
     }
@@ -706,11 +707,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           passedGo: !!effect.playerMoved.passedGo,
         };
       }
-      // Defer buff/card/island effects until card modal is dismissed (prevents spoilers in player panel)
-      const pendingEff: TinhTuyState['pendingCardEffect'] = (
-        effect?.cardHeld || effect?.immunityNextRent || effect?.doubleRentTurns ||
-        effect?.skipTurn || effect?.goToIsland || effect?.houseRemoved
-      ) ? {
+      // Defer buff/card/island/swap/steal effects until card modal is dismissed (prevents spoilers)
+      const hasDeferrable = effect?.cardHeld || effect?.immunityNextRent || effect?.doubleRentTurns ||
+        effect?.skipTurn || effect?.goToIsland || effect?.houseRemoved ||
+        effect?.swapPosition || effect?.stolenProperty;
+      const pendingEff: TinhTuyState['pendingCardEffect'] = hasDeferrable ? {
         slot,
         cardHeld: effect.cardHeld,
         immunityNextRent: effect.immunityNextRent,
@@ -718,10 +719,22 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         skipTurn: effect.skipTurn,
         goToIsland: effect.goToIsland,
         houseRemoved: effect.houseRemoved,
+        swapPosition: effect.swapPosition,
+        stolenProperty: effect.stolenProperty,
       } : null;
+      // Build card extra info for visual display on card modal
+      const extraInfo: TinhTuyState['cardExtraInfo'] =
+        (effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null || effect?.randomSteps != null)
+          ? {
+            swapTargetSlot: effect.swapPosition?.targetSlot,
+            stolenCellIndex: effect.stolenProperty?.cellIndex,
+            stolenFromSlot: effect.stolenProperty?.fromSlot,
+            taxedSlot: effect.taxedSlot,
+            randomSteps: effect.randomSteps,
+          } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
-        pendingCardEffect: pendingEff,
+        pendingCardEffect: pendingEff, cardExtraInfo: extraInfo,
         houseRemovedCell: effect?.houseRemoved ? effect.houseRemoved.cellIndex : null,
         displayPoints: dpCard,
         pendingNotifs: cardNotifs.length > 0 ? queueNotifs(state.pendingNotifs, cardNotifs) : state.pendingNotifs,
@@ -766,6 +779,31 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === eff.slot ? { ...p, skipNextTurn: true } : p
           );
         }
+        if (eff.swapPosition) {
+          const sw = eff.swapPosition;
+          clearPlayers = clearPlayers.map(p => {
+            if (p.slot === sw.slot) return { ...p, position: sw.myNewPos };
+            if (p.slot === sw.targetSlot) return { ...p, position: sw.targetNewPos };
+            return p;
+          });
+        }
+        if (eff.stolenProperty) {
+          const st = eff.stolenProperty;
+          clearPlayers = clearPlayers.map(p => {
+            if (p.slot === st.fromSlot) {
+              return {
+                ...p,
+                properties: p.properties.filter(idx => idx !== st.cellIndex),
+                houses: { ...p.houses, [String(st.cellIndex)]: 0 },
+                hotels: { ...p.hotels, [String(st.cellIndex)]: false },
+              };
+            }
+            if (p.slot === st.toSlot) {
+              return { ...p, properties: [...p.properties, st.cellIndex] };
+            }
+            return p;
+          });
+        }
       }
 
       // If card triggered a move, start movement animation now
@@ -783,14 +821,14 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         return {
           ...state,
-          drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null,
+          drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
           players: clearPlayers,
           pendingMove: { slot: cm.slot, path, goBonus, passedGo: cm.passedGo, fromCard: true },
           pendingNotifs: goBonus ? queueNotifs(state.pendingNotifs, [{ slot: cm.slot, amount: goBonus }]) : state.pendingNotifs,
           displayPoints: dpCm,
         };
       }
-      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, players: clearPlayers };
+      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers };
     }
 
     case 'HOUSE_BUILT': {

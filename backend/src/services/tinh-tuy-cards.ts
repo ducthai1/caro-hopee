@@ -44,6 +44,12 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'GAIN_POINTS', amount: 1500 } },
   { id: 'kv-17', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv17.name', descriptionKey: 'tinhTuy.cards.kv17.desc',
     action: { type: 'DESTROY_PROPERTY' } },
+  { id: 'kv-18', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv18.name', descriptionKey: 'tinhTuy.cards.kv18.desc',
+    action: { type: 'GAIN_FROM_EACH', amount: 1500 } },
+  { id: 'kv-19', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv19.name', descriptionKey: 'tinhTuy.cards.kv19.desc',
+    action: { type: 'SWAP_POSITION' } },
+  { id: 'kv-20', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv20.name', descriptionKey: 'tinhTuy.cards.kv20.desc',
+    action: { type: 'MOVE_RANDOM', min: 1, max: 12 } },
 ];
 
 // ─── 16 Co Hoi Cards ────────────────────────────────────────
@@ -83,6 +89,10 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'LOSE_TO_EACH', amount: 500 } },
   { id: 'ch-17', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch17.name', descriptionKey: 'tinhTuy.cards.ch17.desc',
     action: { type: 'DOWNGRADE_BUILDING' } },
+  { id: 'ch-18', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch18.name', descriptionKey: 'tinhTuy.cards.ch18.desc',
+    action: { type: 'STEAL_PROPERTY' } },
+  { id: 'ch-19', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch19.name', descriptionKey: 'tinhTuy.cards.ch19.desc',
+    action: { type: 'TAX_RICHEST', amount: 3000 } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -255,6 +265,54 @@ export function executeCardEffect(
         result.requiresChoice = 'DOWNGRADE_BUILDING';
         result.targetableCells = opponentProps2;
       }
+      break;
+    }
+
+    case 'SWAP_POSITION': {
+      // Pick random non-bankrupt opponent to swap positions with
+      const swapCandidates = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
+      if (swapCandidates.length > 0) {
+        const target = swapCandidates[crypto.randomInt(0, swapCandidates.length)];
+        result.swapPosition = {
+          slot: playerSlot,
+          targetSlot: target.slot,
+          myNewPos: target.position,
+          targetNewPos: player.position,
+        };
+      }
+      break;
+    }
+
+    case 'STEAL_PROPERTY': {
+      // Pick random property from random opponent (strip houses/hotels)
+      const victims = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot && p.properties.length > 0);
+      if (victims.length > 0) {
+        const victim = victims[crypto.randomInt(0, victims.length)];
+        const cellIdx = victim.properties[crypto.randomInt(0, victim.properties.length)];
+        result.stolenProperty = { fromSlot: victim.slot, toSlot: playerSlot, cellIndex: cellIdx };
+      }
+      break;
+    }
+
+    case 'TAX_RICHEST': {
+      // Find richest non-bankrupt opponent
+      const opponents = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
+      if (opponents.length > 0) {
+        const richest = opponents.reduce((a, b) => a.points > b.points ? a : b);
+        result.pointsChanged[richest.slot] = -action.amount;
+        result.pointsChanged[playerSlot] = action.amount;
+        result.taxedSlot = richest.slot;
+      }
+      break;
+    }
+
+    case 'MOVE_RANDOM': {
+      const steps = crypto.randomInt(action.min, action.max + 1);
+      const newPos = ((player.position + steps) % BOARD_SIZE + BOARD_SIZE) % BOARD_SIZE;
+      const passedGo = newPos < player.position;
+      result.playerMoved = { slot: playerSlot, to: newPos, passedGo };
+      if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
+      result.randomSteps = steps;
       break;
     }
   }

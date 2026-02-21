@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, Typography, Box } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
-import { BOARD_CELLS } from '../tinh-tuy-types';
+import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
 
 const CARD_DISPLAY_MS = 3500;
@@ -16,6 +16,7 @@ export const TinhTuyCardModal: React.FC = () => {
   const { t } = useLanguage();
   const { state, clearCard } = useTinhTuy();
   const card = state.drawnCard;
+  const extra = state.cardExtraInfo;
   const [flipped, setFlipped] = useState(false);
   const dismissTimerRef = useRef<number | null>(null);
 
@@ -63,6 +64,10 @@ export const TinhTuyCardModal: React.FC = () => {
 
   const iconSrc = isKhiVan ? '/location/khi-van.png' : '/location/co-hoi.png';
 
+  // Helper: find player display name by slot
+  const getPlayerName = (slot: number) => state.players.find(p => p.slot === slot)?.displayName || `P${slot}`;
+  const getPlayerColor = (slot: number) => PLAYER_COLORS[slot] || '#999';
+
   return (
     <Dialog
       open={true}
@@ -104,6 +109,8 @@ export const TinhTuyCardModal: React.FC = () => {
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 {t(card.descriptionKey as any)}
               </Typography>
+
+              {/* ─── House removed signal ─── */}
               {state.houseRemovedCell != null && BOARD_CELLS[state.houseRemovedCell] && (
                 <Box sx={{
                   mt: 2, px: 2, py: 1.5, borderRadius: 2,
@@ -116,6 +123,83 @@ export const TinhTuyCardModal: React.FC = () => {
                   </Typography>
                   <Typography variant="body1" sx={{ color: '#c0392b', fontWeight: 700 }}>
                     {t(BOARD_CELLS[state.houseRemovedCell].name as any)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* ─── Swap position signal ─── */}
+              {extra?.swapTargetSlot != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(155, 89, 182, 0.12)',
+                  border: '2px solid rgba(155, 89, 182, 0.4)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#8e44ad', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
+                    🔄 {t('tinhTuy.cards.swapWith' as any)}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.swapTargetSlot) }} />
+                    <Typography variant="body1" sx={{ color: getPlayerColor(extra.swapTargetSlot), fontWeight: 700 }}>
+                      {getPlayerName(extra.swapTargetSlot)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* ─── Stolen property signal ─── */}
+              {extra?.stolenCellIndex != null && extra?.stolenFromSlot != null && BOARD_CELLS[extra.stolenCellIndex] && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(231, 76, 60, 0.12)',
+                  border: '2px solid rgba(231, 76, 60, 0.4)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#c0392b', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
+                    🏴‍☠️ {t('tinhTuy.cards.stoleFrom' as any)}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 0.5 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.stolenFromSlot) }} />
+                    <Typography variant="body2" sx={{ color: getPlayerColor(extra.stolenFromSlot), fontWeight: 700 }}>
+                      {getPlayerName(extra.stolenFromSlot)}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 700 }}>
+                    📍 {t(BOARD_CELLS[extra.stolenCellIndex].name as any)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* ─── Tax richest signal ─── */}
+              {extra?.taxedSlot != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(241, 196, 15, 0.15)',
+                  border: '2px solid rgba(241, 196, 15, 0.5)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#d4a017', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
+                    💰 {t('tinhTuy.cards.taxedPlayer' as any)}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.taxedSlot) }} />
+                    <Typography variant="body1" sx={{ color: getPlayerColor(extra.taxedSlot), fontWeight: 700 }}>
+                      {getPlayerName(extra.taxedSlot)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* ─── Random steps signal (Roulette) ─── */}
+              {extra?.randomSteps != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(46, 204, 113, 0.12)',
+                  border: '2px solid rgba(46, 204, 113, 0.4)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 800, fontSize: '1.3rem' }}>
+                    🎰 +{extra.randomSteps} {t('tinhTuy.cards.steps' as any)}
                   </Typography>
                 </Box>
               )}

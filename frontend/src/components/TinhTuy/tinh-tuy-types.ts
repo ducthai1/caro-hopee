@@ -204,6 +204,16 @@ export interface TinhTuyState {
     skipTurn?: boolean;
     goToIsland?: boolean;
     houseRemoved?: { slot: number; cellIndex: number };
+    swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
+    stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number };
+  } | null;
+  /** Extra info shown on card modal (swap target, stolen property, taxed player, random steps) */
+  cardExtraInfo: {
+    swapTargetSlot?: number;
+    stolenCellIndex?: number;
+    stolenFromSlot?: number;
+    taxedSlot?: number;
+    randomSteps?: number;
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;

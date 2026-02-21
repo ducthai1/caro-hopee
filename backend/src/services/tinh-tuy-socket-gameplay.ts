@@ -265,6 +265,29 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
 
   // Immunity
   if (effect.immunityNextRent) player.immunityNextRent = true;
+
+  // Swap position — teleport both players
+  if (effect.swapPosition) {
+    const me = game.players.find(p => p.slot === effect.swapPosition!.slot);
+    const target = game.players.find(p => p.slot === effect.swapPosition!.targetSlot);
+    if (me && target) {
+      me.position = effect.swapPosition.myNewPos;
+      target.position = effect.swapPosition.targetNewPos;
+    }
+  }
+
+  // Steal property — transfer ownership, strip buildings
+  if (effect.stolenProperty) {
+    const victim = game.players.find(p => p.slot === effect.stolenProperty!.fromSlot);
+    const thief = game.players.find(p => p.slot === effect.stolenProperty!.toSlot);
+    if (victim && thief) {
+      const cellIdx = effect.stolenProperty.cellIndex;
+      victim.properties = victim.properties.filter(idx => idx !== cellIdx);
+      delete victim.houses[String(cellIdx)];
+      delete victim.hotels[String(cellIdx)];
+      thief.properties.push(cellIdx);
+    }
+  }
 }
 
 /** Draw card and resolve — handles most card types immediately */

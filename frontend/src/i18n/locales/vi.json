@@ -1032,7 +1032,16 @@
       "ch15": { "name": "Khiên Bảo Vệ", "desc": "Miễn phí thuê đất lần kế tiếp" },
       "ch16": { "name": "Từ Thiện", "desc": "Trả mỗi người chơi 500 TT" },
       "ch17": { "name": "Hạ Cấp", "desc": "Chọn 1 mảnh đất của đối phương để hạ cấp. Khách sạn bị gỡ, nhà mất 1 căn, đất trống bị tịch thu" },
-      "kv17": { "name": "Phá Hủy", "desc": "Chọn 1 mảnh đất của đối phương để phá hủy hoàn toàn. Đất và tất cả nhà cửa bị xóa sổ" }
+      "kv17": { "name": "Phá Hủy", "desc": "Chọn 1 mảnh đất của đối phương để phá hủy hoàn toàn. Đất và tất cả nhà cửa bị xóa sổ" },
+      "kv18": { "name": "Sinh Nhật", "desc": "Hôm nay là sinh nhật bạn! Mỗi người chơi trả bạn 1,500 TT" },
+      "kv19": { "name": "Hoán Đổi Vị Trí", "desc": "Đổi vị trí trên bàn cờ với 1 người chơi ngẫu nhiên" },
+      "kv20": { "name": "Roulette", "desc": "Quay roulette! Di chuyển ngẫu nhiên từ 1 đến 12 ô" },
+      "ch18": { "name": "Cướp Đất", "desc": "Cướp 1 mảnh đất ngẫu nhiên từ đối thủ (nhà cửa bị phá)" },
+      "ch19": { "name": "Đánh Thuế Người Giàu", "desc": "Người chơi giàu nhất phải nộp 3,000 TT cho bạn" },
+      "swapWith": "Đổi vị trí với",
+      "stoleFrom": "Cướp đất từ",
+      "taxedPlayer": "Bị đánh thuế",
+      "steps": "ô"
     },
     "cells": {
       "go": "Xuất Phát",

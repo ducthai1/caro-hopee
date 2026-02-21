@@ -1032,7 +1032,16 @@
       "ch15": { "name": "Shield", "desc": "Skip rent payment next time" },
       "ch16": { "name": "Charity", "desc": "Pay each player 500 TT" },
       "ch17": { "name": "Downgrade", "desc": "Choose an opponent's property to downgrade. Hotel removed, 1 house demolished, empty land seized" },
-      "kv17": { "name": "Demolish", "desc": "Choose an opponent's property to completely destroy. Land and all buildings wiped out" }
+      "kv17": { "name": "Demolish", "desc": "Choose an opponent's property to completely destroy. Land and all buildings wiped out" },
+      "kv18": { "name": "Birthday", "desc": "It's your birthday! Each player pays you 1,500 TT" },
+      "kv19": { "name": "Swap Position", "desc": "Swap your board position with a random player" },
+      "kv20": { "name": "Roulette", "desc": "Spin the roulette! Move randomly 1 to 12 spaces" },
+      "ch18": { "name": "Seize Land", "desc": "Seize a random property from an opponent (buildings removed)" },
+      "ch19": { "name": "Tax the Rich", "desc": "The richest player must pay you 3,000 TT" },
+      "swapWith": "Swap with",
+      "stoleFrom": "Seized from",
+      "taxedPlayer": "Taxed",
+      "steps": "spaces"
     },
     "cells": {
       "go": "GO",

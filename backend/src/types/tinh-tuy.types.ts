@@ -163,7 +163,11 @@ export type CardAction =
   | { type: 'ALL_LOSE_POINTS'; amount: number }
   | { type: 'IMMUNITY_NEXT_RENT' }
   | { type: 'DESTROY_PROPERTY' }
-  | { type: 'DOWNGRADE_BUILDING' };
+  | { type: 'DOWNGRADE_BUILDING' }
+  | { type: 'SWAP_POSITION' }
+  | { type: 'STEAL_PROPERTY' }
+  | { type: 'TAX_RICHEST'; amount: number }
+  | { type: 'MOVE_RANDOM'; min: number; max: number };
 
 export interface ITinhTuyCard {
   id: string;
@@ -187,4 +191,12 @@ export interface CardEffectResult {
   targetableCells?: number[];
   immunityNextRent?: boolean;
   doubleRentTurns?: number;
+  /** Swap position — both players teleport to each other's old position */
+  swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
+  /** Stolen property — transferred from opponent to current player */
+  stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number };
+  /** Slot of the player who got taxed (for TAX_RICHEST visual) */
+  taxedSlot?: number;
+  /** Random steps rolled (for MOVE_RANDOM — stored so frontend can display the number) */
+  randomSteps?: number;
 }
