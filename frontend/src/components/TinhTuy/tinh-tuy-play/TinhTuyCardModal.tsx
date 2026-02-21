@@ -72,7 +72,7 @@ export const TinhTuyCardModal: React.FC = () => {
     <Dialog
       open={true}
       onClose={clearCard}
-      maxWidth="xs"
+      maxWidth="sm"
       fullWidth
       TransitionProps={{ timeout: 400 }}
       PaperProps={{
@@ -98,7 +98,7 @@ export const TinhTuyCardModal: React.FC = () => {
                 component="img"
                 src={iconSrc}
                 alt=""
-                sx={{ width: '55%', maxWidth: 200, aspectRatio: '1', objectFit: 'contain', mb: 1.5, borderRadius: 1 }}
+                sx={{ width: '40%', maxWidth: 140, aspectRatio: '1', objectFit: 'contain', mb: 1, borderRadius: 1 }}
               />
               <Typography variant="caption" sx={{ color: isKhiVan ? '#8e44ad' : '#e67e22', fontWeight: 700, letterSpacing: 1, mb: 0.5 }}>
                 {isKhiVan ? t('tinhTuy.cards.khiVanTitle' as any) : t('tinhTuy.cards.coHoiTitle' as any)}

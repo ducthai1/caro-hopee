@@ -15,7 +15,7 @@ const AUTO_DISMISS_MS = 3000;
 
 export const TinhTuyGoBonusModal: React.FC = () => {
   const { t } = useLanguage();
-  const { state, goBonusChoose } = useTinhTuy();
+  const { state, goBonusChoose, clearGoBonus } = useTinhTuy();
   const prompt = state.goBonusPrompt;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const dismissRef = useRef<number | null>(null);
@@ -24,10 +24,10 @@ export const TinhTuyGoBonusModal: React.FC = () => {
   useEffect(() => {
     if (!prompt || prompt.bonusType === 'FREE_UPGRADE') return;
     dismissRef.current = window.setTimeout(() => {
-      // These auto-resolve on backend, just clear the prompt
+      clearGoBonus();
     }, AUTO_DISMISS_MS);
     return () => { if (dismissRef.current) clearTimeout(dismissRef.current); };
-  }, [prompt]);
+  }, [prompt, clearGoBonus]);
 
   if (!prompt) return null;
 

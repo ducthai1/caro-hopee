@@ -234,6 +234,8 @@ export interface TinhTuyState {
   queuedBuybackPrompt: TinhTuyState['buybackPrompt'];
   /** GO bonus prompt — shown when landing exactly on GO */
   goBonusPrompt: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } | null;
+  /** Auto-sold alert — shown when timeout auto-sells buildings/properties */
+  autoSoldAlert: { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -292,7 +294,7 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_BUILD' }
   | { type: 'CLEAR_BUILD_PROMPT' }
   | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } }
-  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[] } }
+  | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[]; autoSold?: Array<{ cellIndex: number; type: string; price: number }> } }
   | { type: 'APPLY_QUEUED_SELL' }
   | { type: 'TRAVEL_PENDING'; payload: { slot: number } }
   | { type: 'APPLY_QUEUED_TRAVEL_PENDING' }
@@ -314,7 +316,8 @@ export type TinhTuyAction =
   | { type: 'ROOM_RESET'; payload: { game: any } }
   | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'FREE_UPGRADE' | 'BONUS_ROLL' | 'BONUS_POINTS'; buildableCells?: number[]; amount?: number } }
   | { type: 'GO_BONUS_APPLIED'; payload: { slot: number; bonusType: string; cellIndex?: number; houses?: Record<string, number>; hotels?: Record<string, boolean> } }
-  | { type: 'CLEAR_GO_BONUS' };
+  | { type: 'CLEAR_GO_BONUS' }
+  | { type: 'CLEAR_AUTO_SOLD' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

@@ -112,6 +112,7 @@ const initialState: TinhTuyState = {
   buybackPrompt: null,
   queuedBuybackPrompt: null,
   goBonusPrompt: null,
+  autoSoldAlert: null as { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -501,7 +502,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         sellPrompt: null,
         buybackPrompt: null,
         attackPrompt: null,
-        goBonusPrompt: null,
+        // Only clear GO bonus prompt when the current player actually changes
+        // (prevents doubles extra turn from dismissing the GO bonus modal)
+        goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
         queuedTurnChange: null,
         queuedAction: null,
         queuedBuildPrompt: null,
@@ -584,6 +587,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CLEAR_ATTACK_ALERT':
       return { ...state, attackAlert: null };
+
+    case 'CLEAR_AUTO_SOLD':
+      return { ...state, autoSoldAlert: null };
 
     case 'BUYBACK_PROMPT':
       return { ...state, queuedBuybackPrompt: action.payload };
@@ -981,7 +987,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };
 
     case 'BUILDINGS_SOLD': {
-      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels, properties: newProps } = action.payload;
+      const { slot: bsSlot, newPoints, houses: newHouses, hotels: newHotels, properties: newProps, autoSold } = action.payload;
       const dpBs = freezePoints(state);
       const prevPoints = state.players.find(p => p.slot === bsSlot)?.points ?? 0;
       const bsDelta = newPoints - prevPoints;
@@ -991,6 +997,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return {
         ...state, players: updated, sellPrompt: null, displayPoints: dpBs,
         pendingNotifs: bsDelta !== 0 ? queueNotifs(state.pendingNotifs, [{ slot: bsSlot, amount: bsDelta }]) : state.pendingNotifs,
+        autoSoldAlert: autoSold?.length ? { slot: bsSlot, items: autoSold } : null,
       };
     }
 
@@ -1063,6 +1070,8 @@ interface TinhTuyContextValue {
   goBonusChoose: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
   clearAttackAlert: () => void;
+  clearAutoSold: () => void;
+  clearGoBonus: () => void;
   buybackProperty: (cellIndex: number, accept: boolean) => void;
   selectCharacter: (character: TinhTuyCharacter) => void;
   playAgain: () => void;
@@ -1661,6 +1670,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_ATTACK_ALERT' });
   }, []);
 
+  const clearAutoSold = useCallback(() => {
+    dispatch({ type: 'CLEAR_AUTO_SOLD' });
+  }, []);
+
+  const clearGoBonus = useCallback(() => {
+    dispatch({ type: 'CLEAR_GO_BONUS' });
+  }, []);
+
   const buybackProperty = useCallback((cellIndex: number, accept: boolean) => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -1752,6 +1769,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const timer = setTimeout(() => dispatch({ type: 'CLEAR_ATTACK_ALERT' }), 4000);
     return () => clearTimeout(timer);
   }, [state.attackAlert]);
+
+  // Auto-sold alert auto-dismiss after 5s
+  useEffect(() => {
+    if (!state.autoSoldAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_AUTO_SOLD' }), 5000);
+    return () => clearTimeout(timer);
+  }, [state.autoSoldAlert]);
 
   // Flush pending notifs → visible pointNotifs when animation + modals are all done
   useEffect(() => {
@@ -1972,7 +1996,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshRooms, setView, updateRoom,
       buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
       clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, clearAttackAlert, buybackProperty, selectCharacter, playAgain,
+      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
     }}>
       {children}
     </TinhTuyContext.Provider>

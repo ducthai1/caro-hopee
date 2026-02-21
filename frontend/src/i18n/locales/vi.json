@@ -979,7 +979,11 @@
       "buybackPriceDesc": "Giá trị tài sản +10%",
       "buybackAccept": "Mua lại",
       "buybackDecline": "Bỏ qua",
-      "buybackCantAfford": "Không đủ tiền mua lại!"
+      "buybackCantAfford": "Không đủ tiền mua lại!",
+      "autoSoldTitle": "Tự Động Bán",
+      "autoSoldHouse": "Nhà",
+      "autoSoldHotel": "Khách sạn",
+      "autoSoldTotal": "Tổng thu"
     },
     "property": {
       "owner": "Chủ sở hữu",

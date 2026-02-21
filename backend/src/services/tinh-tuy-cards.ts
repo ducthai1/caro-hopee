@@ -287,6 +287,13 @@ export function executeCardEffect(
           myNewPos: target.position,
           targetNewPos: player.position,
         };
+        // Also set playerMoved so the card-drawer's new cell is resolved
+        // (rent, tax, buy, etc.) — the other player is NOT affected
+        result.playerMoved = {
+          slot: playerSlot,
+          to: target.position,
+          passedGo: false, // swap doesn't pass GO
+        };
       }
       break;
     }

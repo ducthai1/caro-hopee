@@ -72,13 +72,14 @@ async function checkBankruptcy(
           if (!g || g.turnPhase !== 'AWAITING_SELL') return;
           const p = g.players.find(pp => pp.slot === player.slot);
           if (!p) return;
-          autoSellCheapest(g, p);
+          const soldItems = autoSellCheapest(g, p);
           g.turnPhase = 'END_TURN';
           await g.save();
           io.to(game.roomId).emit('tinh-tuy:buildings-sold', {
             slot: p.slot, newPoints: p.points,
             houses: { ...p.houses }, hotels: { ...p.hotels },
             properties: [...p.properties],
+            autoSold: soldItems,
           });
           await advanceTurnOrDoubles(io, g, p);
         } catch (err) { console.error('[tinh-tuy] Sell timeout:', err); }
@@ -470,14 +471,8 @@ async function handleCardDraw(
       });
       return; // Wait for player choice
     }
-    // Card moved player to another KHI_VAN/CO_HOI cell — draw again (max 3 deep)
-    if (landingAction.action === 'card' && depth < 3) {
-      const landingCell = getCell(effect.playerMoved.to);
-      if (landingCell && (landingCell.type === 'KHI_VAN' || landingCell.type === 'CO_HOI')) {
-        await handleCardDraw(io, game, player, landingCell.type, depth + 1);
-        return;
-      }
-    }
+    // Card moved player to another KHI_VAN/CO_HOI cell — skip (no chain draw)
+    // Previously drew another card recursively, but this was confusing for players
   }
 
   // If go to island from card
@@ -550,8 +545,22 @@ async function handleCardDraw(
     }
   }
 
-  game.turnPhase = 'END_TURN';
+  // Hold turn for ~4s so frontend card modal can display before turn advances.
+  // Without this delay, the turn-changed event arrives immediately after card-drawn,
+  // causing the card modal to be skipped or dismissed before players can see it.
+  const CARD_DISPLAY_DELAY = 4000;
+  game.turnPhase = 'AWAITING_CARD_DISPLAY';
   await game.save();
+  startTurnTimer(game.roomId, CARD_DISPLAY_DELAY, async () => {
+    try {
+      const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+      if (!g || g.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
+      g.turnPhase = 'END_TURN';
+      await g.save();
+      const p = g.players.find(pp => pp.slot === player.slot)!;
+      await advanceTurnOrDoubles(io, g, p);
+    } catch (err) { console.error('[tinh-tuy] Card display timeout:', err); }
+  });
 }
 
 /** Build a map of exact sell prices for each property/building the player owns.
@@ -570,9 +579,14 @@ function buildSellPricesMap(
   return map;
 }
 
-/** Auto-sell cheapest assets (buildings first, then properties) until player points >= 0 */
-function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
+/** Auto-sell cheapest assets (buildings first, then properties) until player points >= 0.
+ *  Returns list of sold items for frontend display. */
+function autoSellCheapest(
+  game: ITinhTuyGame, player: ITinhTuyPlayer,
+): Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; price: number }> {
   const completedRounds = Math.max((game.round || 1) - 1, 0);
+  const soldItems: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; price: number }> = [];
+
   // Phase 1: sell buildings (cheapest first)
   const buildings: Array<{ cellIndex: number; type: 'house' | 'hotel'; price: number }> = [];
   for (const cellIdx of player.properties) {
@@ -595,6 +609,7 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
       player.houses[key] = (player.houses[key] || 0) - 1;
     }
     player.points += item.price;
+    soldItems.push(item);
   }
 
   // Phase 2: sell properties (cheapest land first) if still in debt
@@ -609,9 +624,11 @@ function autoSellCheapest(game: ITinhTuyGame, player: ITinhTuyPlayer): void {
       delete player.hotels[key];
       player.properties = player.properties.filter(idx => idx !== prop.cellIndex);
       player.points += prop.price;
+      soldItems.push({ cellIndex: prop.cellIndex, type: 'property', price: prop.price });
     }
   }
   game.markModified('players');
+  return soldItems;
 }
 
 // ─── GO Bonus (landing exactly on cell 0) ────────────────────

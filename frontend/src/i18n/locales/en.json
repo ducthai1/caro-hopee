@@ -979,7 +979,11 @@
       "buybackPriceDesc": "Property value +10%",
       "buybackAccept": "Buy",
       "buybackDecline": "Skip",
-      "buybackCantAfford": "Can't afford to buy back!"
+      "buybackCantAfford": "Can't afford to buy back!",
+      "autoSoldTitle": "Auto Sold",
+      "autoSoldHouse": "House",
+      "autoSoldHotel": "Hotel",
+      "autoSoldTotal": "Total"
     },
     "property": {
       "owner": "Owner",
