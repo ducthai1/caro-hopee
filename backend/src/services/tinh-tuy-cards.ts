@@ -377,9 +377,10 @@ export function executeCardEffect(
       break;
 
     case 'TELEPORT_ALL': {
-      // Teleport all non-bankrupt players to random positions (0-35)
+      // Teleport all non-bankrupt, non-island players to random positions (0-35)
+      // Players on island stay put (immune to teleport)
       const teleports: Array<{ slot: number; to: number }> = [];
-      for (const p of game.players.filter(pp => !pp.isBankrupt)) {
+      for (const p of game.players.filter(pp => !pp.isBankrupt && pp.islandTurns === 0)) {
         const newPos = crypto.randomInt(0, BOARD_SIZE);
         teleports.push({ slot: p.slot, to: newPos });
         // Set playerMoved for the card drawer so their landing cell is resolved
