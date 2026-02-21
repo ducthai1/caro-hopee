@@ -2,7 +2,7 @@
  * TinhTuyContext — State management for Tinh Tuy Dai Chien.
  * Uses useReducer + socket listeners. Follows WordChainContext pattern.
  */
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { socketService } from '../../services/socketService';
 import { getToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -2137,15 +2137,26 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Sound: stop BGM on unmount only
   useEffect(() => () => tinhTuySounds.stopBGM(), []);
 
+  // Memoize context value to prevent cascading re-renders of all consumers
+  // on every provider render. Only re-creates when state or callbacks change.
+  const contextValue = useMemo<TinhTuyContextValue>(() => ({
+    state, createRoom, joinRoom, leaveRoom, startGame,
+    rollDice, buyProperty, skipBuy, surrender,
+    refreshRooms, setView, updateRoom,
+    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
+    clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+  }), [
+    state, createRoom, joinRoom, leaveRoom, startGame,
+    rollDice, buyProperty, skipBuy, surrender,
+    refreshRooms, setView, updateRoom,
+    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
+    clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
+  ]);
+
   return (
-    <TinhTuyContext.Provider value={{
-      state, createRoom, joinRoom, leaveRoom, startGame,
-      rollDice, buyProperty, skipBuy, surrender,
-      refreshRooms, setView, updateRoom,
-      buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
-      clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-      travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, goBonusChoose, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, buybackProperty, selectCharacter, playAgain,
-    }}>
+    <TinhTuyContext.Provider value={contextValue}>
       {children}
     </TinhTuyContext.Provider>
   );

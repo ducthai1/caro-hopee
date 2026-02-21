@@ -255,7 +255,7 @@ export const TinhTuyChatButton: React.FC<{ onSend: (msg: string) => void }> = ({
 interface FloatingMessageProps {
   msg: ChatMessage & { displayName?: string; isSelf?: boolean };
   msgKey: string;
-  onDismiss: () => void;
+  onDismiss: (key: string) => void;
 }
 
 const FloatingMessageInner: React.FC<FloatingMessageProps> = ({ msg, msgKey, onDismiss }) => {
@@ -269,9 +269,10 @@ const FloatingMessageInner: React.FC<FloatingMessageProps> = ({ msg, msgKey, onD
   }, [msgKey]);
 
   useEffect(() => {
-    const timer = setTimeout(() => onDismissRef.current(), FLOAT_DURATION_MS);
+    const key = msgKey; // Capture for closure
+    const timer = setTimeout(() => onDismissRef.current(key), FLOAT_DURATION_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const style: React.CSSProperties = {
     position: 'absolute',

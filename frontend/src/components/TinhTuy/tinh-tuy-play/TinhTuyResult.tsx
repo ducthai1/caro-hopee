@@ -183,7 +183,7 @@ export const TinhTuyResult: React.FC = () => {
             key={key}
             msg={msg}
             msgKey={key}
-            onDismiss={() => dismissMsg(key)}
+            onDismiss={dismissMsg}
           />
         ))}
       </TinhTuyChatOverlay>

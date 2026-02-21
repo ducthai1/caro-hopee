@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useMemo, ReactNode, useCallback } from 'react';
 import { socketService } from '../services/socketService';
 import { useAuth } from './AuthContext';
 import { logger } from '../utils/logger';
@@ -123,8 +123,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
   }, []);
 
+  const contextValue = useMemo(() => ({ isConnected, reconnect }), [isConnected, reconnect]);
+
   return (
-    <SocketContext.Provider value={{ isConnected, reconnect }}>
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );

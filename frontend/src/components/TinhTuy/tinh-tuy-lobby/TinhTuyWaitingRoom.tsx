@@ -412,7 +412,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
             key={key}
             msgKey={key}
             msg={msg}
-            onDismiss={() => dismissMsg(key)}
+            onDismiss={dismissMsg}
           />
         ))}
       </TinhTuyChatOverlay>
