@@ -52,6 +52,8 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'MOVE_RANDOM', min: 1, max: 12 } },
   { id: 'kv-21', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv21.name', descriptionKey: 'tinhTuy.cards.kv21.desc',
     action: { type: 'ALL_LOSE_ONE_HOUSE' } },
+  { id: 'kv-27', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv27.name', descriptionKey: 'tinhTuy.cards.kv27.desc',
+    action: { type: 'UNDERDOG_BOOST', boostAmount: 4000, penaltyAmount: 2000 }, minRound: 30 },
 ];
 
 // ─── 16 Co Hoi Cards ────────────────────────────────────────
@@ -99,6 +101,10 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'GAMBLE', win: 6000, lose: 3000 } },
   { id: 'ch-21', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch21.name', descriptionKey: 'tinhTuy.cards.ch21.desc',
     action: { type: 'HOLD_CARD', cardId: 'shield' }, holdable: true },
+  { id: 'ch-22', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch22.name', descriptionKey: 'tinhTuy.cards.ch22.desc',
+    action: { type: 'EXTRA_TURN' } },
+  { id: 'ch-27', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch27.name', descriptionKey: 'tinhTuy.cards.ch27.desc',
+    action: { type: 'WEALTH_TRANSFER', amount: 3000 }, minRound: 40 },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -355,6 +361,44 @@ export function executeCardEffect(
         }
       }
       result.allHousesRemoved = removed;
+      break;
+    }
+
+    case 'UNDERDOG_BOOST': {
+      // Poorest gets boost, everyone else loses penalty. Tie = not poorest.
+      const active = game.players.filter(p => !p.isBankrupt);
+      const minPoints = Math.min(...active.map(p => p.points));
+      const poorest = active.filter(p => p.points === minPoints);
+      // Only count as poorest if strictly the lowest (tie = not poorest)
+      const isPoorest = poorest.length === 1 && poorest[0].slot === playerSlot;
+      if (isPoorest) {
+        result.pointsChanged[playerSlot] = action.boostAmount;
+      } else {
+        result.pointsChanged[playerSlot] = -action.penaltyAmount;
+      }
+      result.underdogBoosted = isPoorest;
+      break;
+    }
+
+    case 'EXTRA_TURN':
+      result.extraTurn = true;
+      break;
+
+    case 'WEALTH_TRANSFER': {
+      // Richest → poorest transfer. Ties broken by random.
+      const activePlayers = game.players.filter(p => !p.isBankrupt);
+      if (activePlayers.length < 2) break;
+      const maxPts = Math.max(...activePlayers.map(p => p.points));
+      const minPts = Math.min(...activePlayers.map(p => p.points));
+      // If everyone has same points, no transfer
+      if (maxPts === minPts) break;
+      const richCandidates = activePlayers.filter(p => p.points === maxPts);
+      const poorCandidates = activePlayers.filter(p => p.points === minPts);
+      const richest = richCandidates[crypto.randomInt(0, richCandidates.length)];
+      const poorest2 = poorCandidates[crypto.randomInt(0, poorCandidates.length)];
+      result.pointsChanged[richest.slot] = (result.pointsChanged[richest.slot] || 0) - action.amount;
+      result.pointsChanged[poorest2.slot] = (result.pointsChanged[poorest2.slot] || 0) + action.amount;
+      result.wealthTransfer = { richestSlot: richest.slot, poorestSlot: poorest2.slot, amount: action.amount };
       break;
     }
   }

@@ -217,6 +217,9 @@ export interface TinhTuyState {
     randomSteps?: number;
     gambleWon?: boolean;
     allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
+    underdogBoosted?: boolean;
+    extraTurn?: boolean;
+    wealthTransfer?: { richestSlot: number; poorestSlot: number; amount: number };
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;

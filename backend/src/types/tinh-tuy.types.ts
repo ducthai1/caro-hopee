@@ -62,6 +62,7 @@ export interface ITinhTuyPlayer {
   disconnectedAt?: Date;
   consecutiveDoubles: number;
   skipNextTurn?: boolean;
+  extraTurn?: boolean;
   immunityNextRent?: boolean;
   doubleRentTurns?: number;          // remaining turns where owned rents are doubled
   pendingTravel?: boolean;           // deferred travel — next turn starts as AWAITING_TRAVEL
@@ -169,7 +170,10 @@ export type CardAction =
   | { type: 'TAX_RICHEST'; amount: number }
   | { type: 'MOVE_RANDOM'; min: number; max: number }
   | { type: 'GAMBLE'; win: number; lose: number }
-  | { type: 'ALL_LOSE_ONE_HOUSE' };
+  | { type: 'ALL_LOSE_ONE_HOUSE' }
+  | { type: 'UNDERDOG_BOOST'; boostAmount: number; penaltyAmount: number }
+  | { type: 'EXTRA_TURN' }
+  | { type: 'WEALTH_TRANSFER'; amount: number };
 
 export interface ITinhTuyCard {
   id: string;
@@ -178,6 +182,8 @@ export interface ITinhTuyCard {
   descriptionKey: string;
   action: CardAction;
   holdable?: boolean;
+  /** Card only appears in deck from this round onward (skipped if drawn earlier) */
+  minRound?: number;
 }
 
 // ─── Card Effect Result ───────────────────────────────────────
@@ -207,4 +213,10 @@ export interface CardEffectResult {
   allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
   /** Shield blocked an attack */
   shieldUsed?: { slot: number };
+  /** Player gets an extra turn after this one */
+  extraTurn?: boolean;
+  /** Wealth transfer: richest/poorest slots for UI display */
+  wealthTransfer?: { richestSlot: number; poorestSlot: number; amount: number };
+  /** Underdog boost: whether player was the poorest */
+  underdogBoosted?: boolean;
 }

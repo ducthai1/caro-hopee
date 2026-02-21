@@ -221,6 +221,62 @@ export const TinhTuyCardModal: React.FC = () => {
                 </Box>
               )}
 
+              {/* ─── Underdog boost signal ─── */}
+              {extra?.underdogBoosted != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: extra.underdogBoosted ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.12)',
+                  border: `2px solid ${extra.underdogBoosted ? 'rgba(46, 204, 113, 0.5)' : 'rgba(231, 76, 60, 0.4)'}`,
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{
+                    color: extra.underdogBoosted ? '#27ae60' : '#e74c3c',
+                    fontWeight: 800, fontSize: '1.1rem',
+                  }}>
+                    {extra.underdogBoosted ? '🍀' : '💸'} {t(extra.underdogBoosted ? 'tinhTuy.cards.underdogBoost' as any : 'tinhTuy.cards.underdogPenalty' as any)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* ─── Extra turn signal ─── */}
+              {extra?.extraTurn && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(155, 89, 182, 0.15)',
+                  border: '2px solid rgba(155, 89, 182, 0.5)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#8e44ad', fontWeight: 800, fontSize: '1.1rem' }}>
+                    ⚡ {t('tinhTuy.cards.extraTurn' as any)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* ─── Wealth transfer signal ─── */}
+              {extra?.wealthTransfer && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(241, 196, 15, 0.15)',
+                  border: '2px solid rgba(241, 196, 15, 0.5)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#d4a017', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
+                    💸 {t('tinhTuy.cards.wealthFrom' as any)}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 0.5 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.wealthTransfer.richestSlot) }} />
+                    <Typography variant="body2" sx={{ color: getPlayerColor(extra.wealthTransfer.richestSlot), fontWeight: 700 }}>
+                      {getPlayerName(extra.wealthTransfer.richestSlot)}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#555' }}>→</Typography>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: getPlayerColor(extra.wealthTransfer.poorestSlot) }} />
+                    <Typography variant="body2" sx={{ color: getPlayerColor(extra.wealthTransfer.poorestSlot), fontWeight: 700 }}>
+                      {getPlayerName(extra.wealthTransfer.poorestSlot)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
               {/* ─── Storm: all houses removed signal ─── */}
               {extra?.allHousesRemoved && extra.allHousesRemoved.length > 0 && (
                 <Box sx={{

@@ -1053,13 +1053,21 @@
       "kv21": { "name": "Bão Lớn", "desc": "Bão tàn phá! Mỗi người chơi mất 1 nhà ngẫu nhiên" },
       "ch20": { "name": "Xổ Số", "desc": "Thử vận may! 50% nhận 6,000 TT hoặc 50% mất 3,000 TT" },
       "ch21": { "name": "Khiên Bảo Hộ", "desc": "Giữ lại để tự động chặn 1 lần bị tấn công (Phá Hủy hoặc Hạ Cấp)" },
+      "ch22": { "name": "Năng Lượng Đôi", "desc": "Chơi THÊM 1 lượt ngay sau lượt này!" },
+      "ch27": { "name": "Chia Ngọt Sẻ Bùi", "desc": "Người giàu nhất chia 3,000 TT cho người nghèo nhất" },
+      "kv27": { "name": "Vận Đen Xoay Chiều", "desc": "Nếu bạn nghèo nhất: +4,000 TT. Nếu không: -2,000 TT" },
       "swapWith": "Đổi vị trí với",
       "stoleFrom": "Cướp đất từ",
       "taxedPlayer": "Bị đánh thuế",
       "steps": "ô",
       "gambleWin": "Trúng lớn!",
       "gambleLose": "Thua rồi!",
-      "stormDamage": "Thiệt hại bão"
+      "stormDamage": "Thiệt hại bão",
+      "underdogBoost": "Nghèo nhất — Nhận thưởng!",
+      "underdogPenalty": "Không phải nghèo nhất — Bị phạt!",
+      "extraTurn": "Lượt tiếp theo là của bạn!",
+      "wealthFrom": "Chuyển từ",
+      "wealthTo": "đến"
     },
     "cells": {
       "go": "Xuất Phát",

@@ -135,8 +135,34 @@ async function advanceTurnOrDoubles(
   // Skip-next-turn flag (from card)
   if (player.skipNextTurn) {
     player.skipNextTurn = false;
-    // Don't give extra turn for doubles if skip is active
+    player.extraTurn = false; // cancel extra turn if skip is active
     await advanceTurn(io, game);
+    return;
+  }
+
+  // Extra turn from card (ch-22) — give another turn, no consecutive doubles check
+  if (player.extraTurn) {
+    player.extraTurn = false;
+    player.consecutiveDoubles = 0;
+    game.lastDiceResult = null;
+    game.markModified('lastDiceResult');
+    game.turnPhase = 'ROLL_DICE';
+    game.turnStartedAt = new Date();
+    game.markModified('players');
+    await game.save();
+    io.to(game.roomId).emit('tinh-tuy:turn-changed', {
+      currentSlot: game.currentPlayerSlot,
+      turnPhase: 'ROLL_DICE', extraTurn: true,
+      buffs: getPlayerBuffs(game),
+    });
+    startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+        if (!g || g.gameStatus !== 'playing') return;
+        if (g.turnPhase !== 'ROLL_DICE') return;
+        await advanceTurn(io, g);
+      } catch (err) { console.error('[tinh-tuy] Extra turn timeout:', err); }
+    });
     return;
   }
 
@@ -270,6 +296,9 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
   // Immunity
   if (effect.immunityNextRent) player.immunityNextRent = true;
 
+  // Extra turn
+  if (effect.extraTurn) player.extraTurn = true;
+
   // Swap position — teleport both players
   if (effect.swapPosition) {
     const me = game.players.find(p => p.slot === effect.swapPosition!.slot);
@@ -332,6 +361,18 @@ async function handleCardDraw(
   const card = getCardById(cardId);
   if (!card) {
     // Safety fallback — no card found, skip
+    game.turnPhase = 'END_TURN';
+    await game.save();
+    return;
+  }
+
+  // Round-restricted card: skip and redraw (max 3 retries to avoid infinite loop)
+  if (card.minRound && game.round < card.minRound) {
+    if (depth < 3) {
+      await game.save();
+      return handleCardDraw(io, game, player, cellType, depth + 1);
+    }
+    // Exceeded retries — just advance turn
     game.turnPhase = 'END_TURN';
     await game.save();
     return;

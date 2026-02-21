@@ -1053,13 +1053,21 @@
       "kv21": { "name": "Great Storm", "desc": "A storm strikes! Each player loses 1 random house" },
       "ch20": { "name": "Lottery", "desc": "Try your luck! 50% chance to gain 6,000 TT or 50% lose 3,000 TT" },
       "ch21": { "name": "Shield", "desc": "Hold this card to automatically block 1 attack (Destroy or Downgrade)" },
+      "ch22": { "name": "Double Energy", "desc": "Play an EXTRA turn right after this one!" },
+      "ch27": { "name": "Share the Wealth", "desc": "The richest player gives 3,000 TT to the poorest player" },
+      "kv27": { "name": "Underdog Boost", "desc": "If you're the poorest: +4,000 TT. Otherwise: -2,000 TT" },
       "swapWith": "Swap with",
       "stoleFrom": "Seized from",
       "taxedPlayer": "Taxed",
       "steps": "spaces",
       "gambleWin": "Jackpot!",
       "gambleLose": "Bad luck!",
-      "stormDamage": "Storm damage"
+      "stormDamage": "Storm damage",
+      "underdogBoost": "Poorest — Boosted!",
+      "underdogPenalty": "Not the poorest — Penalized!",
+      "extraTurn": "Next turn is yours!",
+      "wealthFrom": "Transfer from",
+      "wealthTo": "to"
     },
     "cells": {
       "go": "GO",

@@ -737,7 +737,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       } : null;
       // Build card extra info for visual display on card modal
       const hasExtra = effect?.swapPosition || effect?.stolenProperty || effect?.taxedSlot != null ||
-        effect?.randomSteps != null || effect?.gambleWon != null || (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0);
+        effect?.randomSteps != null || effect?.gambleWon != null || (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
+        effect?.underdogBoosted != null || effect?.extraTurn || effect?.wealthTransfer;
       const extraInfo: TinhTuyState['cardExtraInfo'] = hasExtra
           ? {
             swapTargetSlot: effect.swapPosition?.targetSlot,
@@ -747,6 +748,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             randomSteps: effect.randomSteps,
             gambleWon: effect.gambleWon,
             allHousesRemoved: effect.allHousesRemoved,
+            underdogBoosted: effect.underdogBoosted,
+            extraTurn: effect.extraTurn,
+            wealthTransfer: effect.wealthTransfer,
           } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,
