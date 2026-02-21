@@ -80,6 +80,7 @@ async function checkBankruptcy(
             houses: { ...p.houses }, hotels: { ...p.hotels },
             properties: [...p.properties],
             autoSold: soldItems,
+            festival: g.festival,
           });
           await advanceTurnOrDoubles(io, g, p);
         } catch (err) { console.error('[tinh-tuy] Sell timeout:', err); }
@@ -98,6 +99,14 @@ async function checkBankruptcy(
   if (game.festival && game.festival.slot === player.slot) {
     game.festival = null;
     game.markModified('festival');
+  }
+  // Clear frozen properties that were on this player's cells
+  if (game.frozenProperties?.length) {
+    // The player's properties were already cleared above, so filter by checking if any freeze target is no longer owned
+    game.frozenProperties = game.frozenProperties.filter((fp: any) => {
+      return game.players.some(p => !p.isBankrupt && p.properties.includes(fp.cellIndex));
+    });
+    game.markModified('frozenProperties');
   }
   game.markModified('players');
   io.to(game.roomId).emit('tinh-tuy:player-bankrupt', { slot: player.slot });
@@ -788,6 +797,16 @@ function autoSellCheapest(
       player.properties = player.properties.filter(idx => idx !== prop.cellIndex);
       player.points += prop.price;
       soldItems.push({ cellIndex: prop.cellIndex, type: 'property', price: prop.price });
+      // Clear festival if this property hosted it
+      if (game.festival && game.festival.cellIndex === prop.cellIndex && game.festival.slot === player.slot) {
+        game.festival = null;
+        game.markModified('festival');
+      }
+      // Clear frozen rent on sold property
+      if (game.frozenProperties?.length) {
+        game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== prop.cellIndex);
+        game.markModified('frozenProperties');
+      }
     }
   }
   game.markModified('players');
@@ -986,6 +1005,11 @@ function applyPropertyAttack(
       game.festival = null;
       game.markModified('festival');
     }
+    // Clear frozen rent on destroyed property
+    if (game.frozenProperties?.length) {
+      game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== cellIndex);
+      game.markModified('frozenProperties');
+    }
     const result = { victimSlot: victim.slot, cellIndex, result: 'destroyed' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
     return result;
@@ -1012,6 +1036,11 @@ function applyPropertyAttack(
     if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === victim.slot) {
       game.festival = null;
       game.markModified('festival');
+    }
+    // Clear frozen rent on demolished property
+    if (game.frozenProperties?.length) {
+      game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== cellIndex);
+      game.markModified('frozenProperties');
     }
     const result = { victimSlot: victim.slot, cellIndex, result: 'demolished' as const, prevHouses, prevHotel, newHouses: 0, newHotel: false, festival: game.festival };
     io.to(game.roomId).emit('tinh-tuy:property-attacked', result);
@@ -2048,6 +2077,11 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         if (game.festival && game.festival.cellIndex === sel.cellIndex && game.festival.slot === player.slot) {
           game.festival = null;
           game.markModified('festival');
+        }
+        // Clear frozen rent if this property had a freeze
+        if (game.frozenProperties?.length) {
+          game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== sel.cellIndex);
+          game.markModified('frozenProperties');
         }
       }
       player.points += totalSellValue;
