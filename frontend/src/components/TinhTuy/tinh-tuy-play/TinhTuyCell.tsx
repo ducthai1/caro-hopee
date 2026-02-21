@@ -1,8 +1,9 @@
 /**
  * TinhTuyCell — Single cell on the board with house/hotel indicators.
  */
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
+import confetti from 'canvas-confetti';
 import { useLanguage } from '../../../i18n';
 import { BoardCellClient, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
@@ -38,6 +39,10 @@ const CELL_ICONS: Record<string, string> = {
   STATION: '🚂',
 };
 
+/** Mini fireworks interval for the FESTIVAL cell */
+const FESTIVAL_FIREWORK_INTERVAL = 4000;
+const FESTIVAL_COLORS = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22'];
+
 export const TinhTuyCell: React.FC<Props> = React.memo(({
   cell, col, row, ownerSlot, isCurrentCell,
   houseCount = 0, hasHotel = false, hasFestival = false, currentRent, selectionState, onClick,
@@ -45,6 +50,34 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
   const { t } = useLanguage();
   const isCorner = [0, 9, 18, 27].includes(cell.index);
   const groupColor = cell.group ? GROUP_COLORS[cell.group as PropertyGroup] : undefined;
+  const cellRef = useRef<HTMLDivElement>(null);
+
+  // Mini fireworks on the FESTIVAL cell (index 18) — fires every few seconds
+  useEffect(() => {
+    if (cell.type !== 'FESTIVAL') return;
+    const fire = () => {
+      if (!cellRef.current) return;
+      const rect = cellRef.current.getBoundingClientRect();
+      confetti({
+        particleCount: 10,
+        spread: 50,
+        startVelocity: 15,
+        gravity: 0.8,
+        scalar: 0.5,
+        ticks: 60,
+        origin: {
+          x: (rect.left + rect.width / 2) / window.innerWidth,
+          y: (rect.top + rect.height / 2) / window.innerHeight,
+        },
+        colors: FESTIVAL_COLORS,
+        disableForReducedMotion: true,
+      });
+    };
+    // Initial burst after short delay
+    const initTimer = setTimeout(fire, 1500);
+    const interval = setInterval(fire, FESTIVAL_FIREWORK_INTERVAL);
+    return () => { clearTimeout(initTimer); clearInterval(interval); };
+  }, [cell.type]);
 
   // 3D CSS class
   const cellClass = isCurrentCell ? 'tt-cell-active' : isCorner ? 'tt-cell-corner' : 'tt-cell-3d';
@@ -57,6 +90,7 @@ export const TinhTuyCell: React.FC<Props> = React.memo(({
       enterDelay={300}
     >
       <Box
+        ref={cellRef}
         className={cellClass}
         onClick={selectionState === 'invalid' ? undefined : onClick}
         sx={{
