@@ -885,6 +885,7 @@
       "bankruptTitle": "Bankrupt!",
       "bankruptReasonYou": "Your total assets are not enough to cover the debt. You are bankrupt!",
       "bankruptReasonOther": "{name} cannot afford the debt and has gone bankrupt!",
+      "land": "Empty land",
       "surrender": "Surrender",
       "buffShield": "Shield",
       "buffEscapeIsland": "Escape",

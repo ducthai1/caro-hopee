@@ -81,7 +81,11 @@ export const TinhTuyRentFreezeModal: React.FC = () => {
                         '&:hover': { bgcolor: 'rgba(52,152,219,0.08)', borderColor: accentColor },
                       }}
                     >
-                      <Box sx={{ width: 6, height: '100%', minHeight: 28, bgcolor: groupColor, borderRadius: 1, mr: 1.5, flexShrink: 0 }} />
+                      <Box sx={{ width: 6, height: '100%', minHeight: 28, bgcolor: groupColor, borderRadius: 1, mr: 1, flexShrink: 0 }} />
+                      {cell.icon && (
+                        <Box component="img" src={`/location/${cell.icon}`} alt=""
+                          sx={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 0.5, mr: 1, flexShrink: 0 }} />
+                      )}
                       <Box sx={{ flex: 1, textAlign: 'left' }}>
                         <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
                           {t(cell.name as any)}
