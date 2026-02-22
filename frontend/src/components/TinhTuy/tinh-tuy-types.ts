@@ -261,6 +261,8 @@ export interface TinhTuyState {
   frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }>;
   /** Rent freeze selection prompt — pick opponent's property to freeze */
   rentFreezePrompt: { targetCells: number[] } | null;
+  /** Near-win warning — shown when a player is 1 step from domination victory */
+  nearWinWarning: { slot: number; type: string; missingCells?: number[]; completedGroups?: number; edgeIndex?: number } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -351,7 +353,9 @@ export type TinhTuyAction =
   | { type: 'FORCED_TRADE_PROMPT'; payload: { slot: number; myCells: number[]; opponentCells: number[] } }
   | { type: 'FORCED_TRADE_DONE'; payload: { traderSlot: number; traderCell: number; victimSlot: number; victimCell: number; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }
   | { type: 'RENT_FREEZE_PROMPT'; payload: { slot: number; targetCells: number[] } }
-  | { type: 'RENT_FROZEN'; payload: { cellIndex: number; turnsRemaining: number; frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }> } };
+  | { type: 'RENT_FROZEN'; payload: { cellIndex: number; turnsRemaining: number; frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }> } }
+  | { type: 'NEAR_WIN_WARNING'; payload: { slot: number; type: string; missingCells?: number[]; completedGroups?: number; edgeIndex?: number } }
+  | { type: 'CLEAR_NEAR_WIN_WARNING' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

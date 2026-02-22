@@ -9,7 +9,7 @@ import TinhTuyGame from '../models/TinhTuyGame';
 import { TinhTuyCallback, ITinhTuyGame, ITinhTuyPlayer, CardEffectResult } from '../types/tinh-tuy.types';
 import {
   rollDice, calculateNewPosition, resolveCellAction,
-  getNextActivePlayer, checkGameEnd, sendToIsland,
+  getNextActivePlayer, checkGameEnd, checkNearWin, sendToIsland,
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
   getEffectiveGoSalary, LATE_GAME_START,
@@ -573,6 +573,7 @@ async function handleCardDraw(
           slot: thief.slot, group, cellIndices: PROPERTY_GROUPS[group],
         });
       }
+      emitNearWinWarning(io, game.roomId, thief);
     }
   }
 
@@ -1052,6 +1053,21 @@ async function handleGoBonus(
   await advanceTurnOrDoubles(io, game, player);
 }
 
+// ─── Near-Win Warning ────────────────────────────────────────
+
+/** Emit near-win warning if a player is 1 step from domination victory */
+function emitNearWinWarning(io: SocketIOServer, roomId: string, player: ITinhTuyPlayer) {
+  const warning = checkNearWin(player);
+  if (!warning) return;
+  io.to(roomId).emit('tinh-tuy:near-win-warning', {
+    slot: player.slot,
+    type: warning.type,
+    missingCells: warning.missingCells,
+    completedGroups: warning.completedGroups,
+    edgeIndex: warning.edgeIndex,
+  });
+}
+
 // ─── Property Attack Helpers ─────────────────────────────────
 
 /**
@@ -1124,6 +1140,9 @@ function applyForcedTrade(
       slot: oppOwner.slot, group: oppGroup, cellIndices: PROPERTY_GROUPS[oppGroup],
     });
   }
+
+  emitNearWinWarning(io, game.roomId, me);
+  emitNearWinWarning(io, game.roomId, oppOwner);
 }
 
 function applyPropertyAttack(
@@ -1474,6 +1493,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
       }
+
+      // Check near-win warning (1 step from domination victory)
+      emitNearWinWarning(io, roomId, player);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
@@ -2122,6 +2144,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
       }
+
+      emitNearWinWarning(io, roomId, player);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });

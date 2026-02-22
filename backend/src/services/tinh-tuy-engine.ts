@@ -153,11 +153,11 @@ export function checkGameEnd(game: ITinhTuyGame): {
   for (const p of activePlayers) {
     const completedGroups = allGroups.filter(g => ownsFullGroup(g, p.properties)).length;
     if (completedGroups >= MONOPOLY_WIN_THRESHOLD) {
-      return { ended: true, winner: p, reason: 'monopolyDomination' };
+      return { ended: true, winner: p, reason: 'monopolyGroupDomination' };
     }
     // Check full-edge ownership (all ownable cells on one board edge)
     if (EDGE_OWNABLE_CELLS.some(edge => edge.every(idx => p.properties.includes(idx)))) {
-      return { ended: true, winner: p, reason: 'monopolyDomination' };
+      return { ended: true, winner: p, reason: 'edgeDomination' };
     }
   }
 
@@ -172,6 +172,36 @@ export function checkGameEnd(game: ITinhTuyGame): {
   }
 
   return { ended: false };
+}
+
+// ─── Near-Win Warning ────────────────────────────────────────
+
+/** Check if a player is 1 step away from winning via domination.
+ *  Returns warning details or null. */
+export function checkNearWin(player: ITinhTuyPlayer): {
+  type: 'nearEdgeDomination' | 'nearMonopolyGroupDomination';
+  /** For edge: the missing cell indices. For groups: completed group count. */
+  missingCells?: number[];
+  completedGroups?: number;
+  edgeIndex?: number;
+} | null {
+  // Check edge domination: owns all but 1 cell on an edge
+  for (let i = 0; i < EDGE_OWNABLE_CELLS.length; i++) {
+    const edge = EDGE_OWNABLE_CELLS[i];
+    const missing = edge.filter(idx => !player.properties.includes(idx));
+    if (missing.length === 1) {
+      return { type: 'nearEdgeDomination', missingCells: missing, edgeIndex: i };
+    }
+  }
+
+  // Check monopoly group domination: completed 5/8 groups (one more = 6 = win)
+  const allGroups = Object.keys(PROPERTY_GROUPS) as Array<keyof typeof PROPERTY_GROUPS>;
+  const completedGroups = allGroups.filter(g => ownsFullGroup(g, player.properties)).length;
+  if (completedGroups === MONOPOLY_WIN_THRESHOLD - 1) {
+    return { type: 'nearMonopolyGroupDomination', completedGroups };
+  }
+
+  return null;
 }
 
 // ─── Net Worth ────────────────────────────────────────────────

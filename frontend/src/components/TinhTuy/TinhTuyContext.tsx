@@ -120,6 +120,7 @@ const initialState: TinhTuyState = {
   forcedTradePrompt: null,
   frozenProperties: [],
   rentFreezePrompt: null,
+  nearWinWarning: null as { slot: number; type: string; missingCells?: number[]; completedGroups?: number; edgeIndex?: number } | null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -498,6 +499,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         frozenProperties: action.payload.frozenProperties,
         rentFreezePrompt: null,
       };
+
+    case 'NEAR_WIN_WARNING':
+      return { ...state, nearWinWarning: action.payload };
+
+    case 'CLEAR_NEAR_WIN_WARNING':
+      return { ...state, nearWinWarning: null };
 
     case 'FORCED_TRADE_DONE': {
       const { traderSlot, traderCell, victimSlot, victimCell } = action.payload;
@@ -1314,6 +1321,7 @@ interface TinhTuyContextValue {
   clearGoBonus: () => void;
   clearBankruptAlert: () => void;
   clearMonopolyAlert: () => void;
+  clearNearWinWarning: () => void;
   buybackProperty: (cellIndex: number, accept: boolean) => void;
   selectCharacter: (character: TinhTuyCharacter) => void;
   playAgain: () => void;
@@ -1506,6 +1514,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'GO_BONUS', payload: data });
     };
 
+    const handleNearWinWarning = (data: any) => {
+      dispatch({ type: 'NEAR_WIN_WARNING', payload: data });
+    };
+
     const handleRoomReset = (data: any) => {
       dispatch({ type: 'ROOM_RESET', payload: data });
     };
@@ -1567,6 +1579,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
     socket.on('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
     socket.on('tinh-tuy:rent-frozen' as any, handleRentFrozen);
+    socket.on('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1613,6 +1626,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
       socket.off('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
       socket.off('tinh-tuy:rent-frozen' as any, handleRentFrozen);
+      socket.off('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
@@ -1962,6 +1976,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_GO_BONUS' });
   }, []);
 
+  const clearNearWinWarning = useCallback(() => {
+    dispatch({ type: 'CLEAR_NEAR_WIN_WARNING' });
+  }, []);
+
   const clearBankruptAlert = useCallback(() => {
     dispatch({ type: 'CLEAR_BANKRUPT_ALERT' });
   }, []);
@@ -2069,6 +2087,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const timer = setTimeout(() => dispatch({ type: 'CLEAR_AUTO_SOLD' }), 10000);
     return () => clearTimeout(timer);
   }, [state.autoSoldAlert]);
+
+  // Near-win warning auto-dismiss after 10s
+  useEffect(() => {
+    if (!state.nearWinWarning) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_NEAR_WIN_WARNING' }), 10000);
+    return () => clearTimeout(timer);
+  }, [state.nearWinWarning]);
 
   // Flush pending notifs → visible pointNotifs when animation + modals are all done
   useEffect(() => {
@@ -2315,14 +2340,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   ]);
 
   return (

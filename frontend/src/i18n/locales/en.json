@@ -1153,11 +1153,19 @@
       "gameOver": "Game Over",
       "reasonLastStanding": "Only 1 player remaining",
       "reasonRoundsComplete": "All rounds completed",
-      "reasonMonopolyDomination": "Monopoly Domination! Overwhelming property ownership",
+      "reasonEdgeDomination": "Edge Domination! Owns every property on one side of the board",
+      "reasonMonopolyGroupDomination": "Monopoly Domination! Owns 6 out of 8 color groups",
       "reasonBankrupt": "bankrupt",
       "reasonSurrender": "surrendered",
       "netWorth": "Net worth",
       "waitingHost": "Waiting for host..."
+    },
+    "nearWin": {
+      "title": "Near Victory!",
+      "edgeDesc": "Just 1 more property on edge {{edge}} to win!",
+      "groupDesc": "Owns {{count}}/6 required color groups — only 1 more needed!",
+      "missingCell": "Missing property:",
+      "groupProgress": "{{current}}/{{target}} color groups completed"
     }
   }
 }
