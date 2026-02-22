@@ -372,9 +372,11 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
   // Go to island
   if (effect.goToIsland) sendToIsland(player);
 
-  // Double rent
+  // Double rent — card specifies rounds (1 round = all players roll once),
+  // convert to turns (number of active non-bankrupt players)
   if (effect.doubleRentTurns) {
-    player.doubleRentTurns = (player.doubleRentTurns || 0) + effect.doubleRentTurns;
+    const activePlayers = game.players.filter(p => !p.isBankrupt).length;
+    player.doubleRentTurns = (player.doubleRentTurns || 0) + effect.doubleRentTurns * activePlayers;
   }
 
   // Immunity
