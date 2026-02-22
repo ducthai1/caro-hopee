@@ -8,7 +8,17 @@ import {
 } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
-import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PROPERTY_GROUPS, PropertyGroup } from '../tinh-tuy-types';
+import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PROPERTY_GROUPS, PropertyGroup, BoardCellClient } from '../tinh-tuy-types';
+
+/** Compute station rent: (stationsOwned × 250) × (1 + 0.20 × completedRounds) */
+function calcStationRent(stationsOwned: number, completedRounds: number): number {
+  return Math.floor(stationsOwned * 250 * (1 + 0.20 * completedRounds));
+}
+
+/** Compute utility rent: price × (1 + 0.08 × completedRounds) */
+function calcUtilityRent(price: number, completedRounds: number): number {
+  return Math.floor(price * (1 + 0.08 * completedRounds));
+}
 
 interface Props {
   cellIndex: number | null;
@@ -181,19 +191,77 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
           </Typography>
         )}
 
-        {/* Station description */}
-        {isStation && (
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-            {t('tinhTuy.cellDesc.STATION' as any)}
-          </Typography>
-        )}
+        {/* Station rent table + formula */}
+        {isStation && (() => {
+          const completedRounds = Math.max((state.round || 1) - 1, 0);
+          const stationsOwned = owner
+            ? owner.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length
+            : 0;
+          const currentRent = calcStationRent(stationsOwned || 1, completedRounds);
+          return (
+            <>
+              <Table size="small" sx={{ '& td': { py: 0.3, px: 1, fontSize: '0.75rem' }, mb: 1 }}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>{t('tinhTuy.property.stationBase' as any)}</TableCell>
+                    <TableCell align="right">250 TT × {t('tinhTuy.property.stationsOwned' as any)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>{t('tinhTuy.property.roundBonus' as any)}</TableCell>
+                    <TableCell align="right">+20% / {t('tinhTuy.game.round' as any)}</TableCell>
+                  </TableRow>
+                  {owner && (
+                    <TableRow sx={{ bgcolor: 'rgba(155,89,182,0.08)', fontWeight: 700 }}>
+                      <TableCell sx={{ fontWeight: 700 }}>
+                        {t('tinhTuy.property.currentRent' as any)} ({stationsOwned} {t('tinhTuy.property.stationUnit' as any)}, {t('tinhTuy.game.round' as any)} {state.round || 1})
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: '#7b2d8e' }}>
+                        {currentRent.toLocaleString()} TT
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {t('tinhTuy.cellDesc.STATION' as any)}
+              </Typography>
+            </>
+          );
+        })()}
 
-        {/* Utility description */}
-        {isUtility && (
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-            {t('tinhTuy.cellDesc.UTILITY' as any)}
-          </Typography>
-        )}
+        {/* Utility rent table + formula */}
+        {isUtility && (() => {
+          const completedRounds = Math.max((state.round || 1) - 1, 0);
+          const price = cell.price || 1500;
+          const currentRent = calcUtilityRent(price, completedRounds);
+          return (
+            <>
+              <Table size="small" sx={{ '& td': { py: 0.3, px: 1, fontSize: '0.75rem' }, mb: 1 }}>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>{t('tinhTuy.property.utilityBase' as any)}</TableCell>
+                    <TableCell align="right">{price.toLocaleString()} TT</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>{t('tinhTuy.property.roundBonus' as any)}</TableCell>
+                    <TableCell align="right">+8% / {t('tinhTuy.game.round' as any)}</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ bgcolor: 'rgba(155,89,182,0.08)', fontWeight: 700 }}>
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      {t('tinhTuy.property.currentRent' as any)} ({t('tinhTuy.game.round' as any)} {state.round || 1})
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: '#7b2d8e' }}>
+                      {currentRent.toLocaleString()} TT
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {t('tinhTuy.cellDesc.UTILITY' as any)}
+              </Typography>
+            </>
+          );
+        })()}
       </DialogContent>
 
       <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>

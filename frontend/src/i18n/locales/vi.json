@@ -1004,7 +1004,13 @@
       "house": "Nhà",
       "buildCost": "Chi phí xây",
       "festival": "Lễ hội",
-      "taxAmount": "Số thuế"
+      "taxAmount": "Số thuế",
+      "stationBase": "Thuê cơ bản",
+      "stationsOwned": "số ga",
+      "stationUnit": "ga",
+      "roundBonus": "Tăng theo vòng",
+      "currentRent": "Thuê hiện tại",
+      "utilityBase": "Giá gốc"
     },
     "cellDesc": {
       "GO": "Mỗi lần đi qua hoặc dừng tại ô Xuất Phát, bạn nhận 2,000 Tinh Túy.",
@@ -1015,8 +1021,8 @@
       "TRAVEL": "Du lịch! Chọn bất kỳ ô nào trên bàn cờ để di chuyển đến ngay lập tức.",
       "ISLAND": "Đảo — nơi nghỉ dưỡng bắt buộc. Phải tung đôi, trả 500 TT, hoặc dùng thẻ thoát để rời đi.",
       "GO_TO_ISLAND": "Bị đưa ra đảo ngay lập tức! Không nhận tiền qua Xuất Phát.",
-      "STATION": "Ga tàu — tiền thuê tăng theo số ga bạn sở hữu: 250 TT × số ga.",
-      "UTILITY": "Tiện ích — tiền thuê = tổng xúc xắc × 40 (1 tiện ích) hoặc × 100 (2 tiện ích)."
+      "STATION": "Ga tàu — Thuê = (số ga sở hữu × 250) × (1 + 20% × vòng). Càng nhiều ga và càng nhiều vòng, thuê càng cao!",
+      "UTILITY": "Tiện ích — Thuê = giá mua × (1 + 8% × vòng). Tiền thuê tự động tăng 8% sau mỗi vòng đi qua GO."
     },
     "cards": {
       "khiVanTitle": "Khí Vận",

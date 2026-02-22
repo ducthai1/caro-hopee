@@ -1004,7 +1004,13 @@
       "house": "House",
       "buildCost": "Build cost",
       "festival": "Festival",
-      "taxAmount": "Tax amount"
+      "taxAmount": "Tax amount",
+      "stationBase": "Base rent",
+      "stationsOwned": "stations",
+      "stationUnit": "station(s)",
+      "roundBonus": "Round scaling",
+      "currentRent": "Current rent",
+      "utilityBase": "Base price"
     },
     "cellDesc": {
       "GO": "Each time you pass or land on GO, you collect 2,000 Tinh Tuy.",
@@ -1015,8 +1021,8 @@
       "TRAVEL": "Travel! Choose any cell on the board to move there instantly.",
       "ISLAND": "The Island — a forced retreat. Roll doubles, pay 500 TT, or use an escape card to leave.",
       "GO_TO_ISLAND": "You are sent to the Island immediately! You do not collect GO salary.",
-      "STATION": "Station — rent increases with stations owned: 250 TT × number of stations.",
-      "UTILITY": "Utility — rent = dice total × 40 (1 utility) or × 100 (2 utilities)."
+      "STATION": "Station — Rent = (stations owned × 250) × (1 + 20% × round). More stations and rounds = higher rent!",
+      "UTILITY": "Utility — Rent = purchase price × (1 + 8% × round). Rent automatically increases 8% each round past GO."
     },
     "cards": {
       "khiVanTitle": "Luck Card",
