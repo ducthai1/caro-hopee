@@ -12,7 +12,7 @@ export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', '
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_BUY_BLOCK_TARGET' | 'AWAITING_EMINENT_DOMAIN' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -65,6 +65,7 @@ export interface ITinhTuyPlayer {
   extraTurn?: boolean;
   immunityNextRent?: boolean;
   doubleRentTurns?: number;          // remaining turns where owned rents are doubled
+  buyBlockedTurns?: number;          // remaining turns where player cannot buy properties
   pendingTravel?: boolean;           // deferred travel — next turn starts as AWAITING_TRAVEL
   deviceType?: string;
 }
@@ -182,7 +183,9 @@ export type CardAction =
   | { type: 'FORCED_TRADE' }
   | { type: 'RENT_FREEZE' }
   | { type: 'MOVE_TO_FESTIVAL' }
-  | { type: 'FREE_HOTEL' };
+  | { type: 'FREE_HOTEL' }
+  | { type: 'BUY_BLOCKED'; turns: number }
+  | { type: 'EMINENT_DOMAIN' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -202,7 +205,7 @@ export interface CardEffectResult {
   cardHeld?: { slot: number; cardId: string };
   houseRemoved?: { slot: number; cellIndex: number };
   skipTurn?: boolean;
-  requiresChoice?: 'FREE_HOUSE' | 'FREE_HOTEL' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION' | 'FORCED_TRADE' | 'RENT_FREEZE';
+  requiresChoice?: 'FREE_HOUSE' | 'FREE_HOTEL' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION' | 'FORCED_TRADE' | 'RENT_FREEZE' | 'BUY_BLOCK_TARGET' | 'EMINENT_DOMAIN';
   goToIsland?: boolean;
   /** Target properties for attack cards — opponent cells the current player can target */
   targetableCells?: number[];
@@ -234,4 +237,8 @@ export interface CardEffectResult {
   teleportAll?: Array<{ slot: number; to: number }>;
   /** Player moved to festival cell */
   movedToFestival?: boolean;
+  /** Buy block: turns to block + target slot */
+  buyBlockedTurns?: number;
+  /** Eminent domain: force-bought property transfer */
+  eminentDomain?: { fromSlot: number; toSlot: number; cellIndex: number; price: number; houses: number };
 }

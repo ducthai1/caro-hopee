@@ -445,7 +445,10 @@ export function resolveCellAction(
     case 'UTILITY': {
       const owner = game.players.find(p => p.properties.includes(cellIndex));
       if (!owner) {
-        // Unowned — player can buy
+        // Unowned — player can buy (unless buy-blocked)
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) {
+          return { action: 'none' };
+        }
         return { action: 'buy', amount: cell.price || 0 };
       }
       if (owner.isBankrupt) {

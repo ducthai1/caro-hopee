@@ -894,6 +894,7 @@
       "buffImmunity": "Immune",
       "buffDoubleRent": "x2 Rent ({{turns}} round)",
       "buffSkipTurn": "Skip",
+      "buffBuyBlocked": "No buy ({{turns}} rnd)",
       "monopolyTitle": "Combo Complete!",
       "monopolyBonus": "All properties in this group get +15% rent bonus!",
       "monopolyProgress": "Monopoly Combo: {{current}}/{{total}}",
@@ -1104,6 +1105,10 @@
       "forcedTradeYours": "Your property",
       "ch25": { "name": "Rent Freeze", "desc": "Pick 1 opponent's property → FREEZE rent income for 2 turns!" },
       "rentFreezeHint": "Pick an opponent's property to freeze rent (2 turns)",
+      "ch29": { "name": "Economic Sanction", "desc": "Pick 1 opponent → BLOCK them from buying for {{turns}} rounds!" },
+      "buyBlockHint": "Choose an opponent to block from buying ({{turns}} rounds)",
+      "ch30": { "name": "Eminent Domain", "desc": "Force-BUY 1 opponent's property (no hotel) at market price!" },
+      "eminentDomainHint": "Pick an opponent's property to force-buy at market price",
       "frozenRent": "Frozen"
     },
     "cells": {

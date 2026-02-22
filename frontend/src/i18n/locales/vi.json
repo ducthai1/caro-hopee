@@ -894,6 +894,7 @@
       "buffImmunity": "Miễn thuê",
       "buffDoubleRent": "x2 thuê ({{turns}} vòng)",
       "buffSkipTurn": "Bỏ lượt",
+      "buffBuyBlocked": "Cấm mua ({{turns}} vòng)",
       "monopolyTitle": "Hoàn thành Combo!",
       "monopolyBonus": "Tất cả đất trong nhóm này được +15% tiền thuê!",
       "monopolyProgress": "Combo Monopoly: {{current}}/{{total}}",
@@ -1104,6 +1105,10 @@
       "forcedTradeYours": "Đất của bạn",
       "ch25": { "name": "Đóng Băng", "desc": "Chọn 1 đất của đối thủ → ĐÓNG BĂNG thu nhập trong 2 lượt!" },
       "rentFreezeHint": "Chọn 1 đất đối thủ để đóng băng tiền thuê (2 lượt)",
+      "ch29": { "name": "Phong Tỏa Kinh Tế", "desc": "Chọn 1 đối thủ → CẤM MUA đất trong {{turns}} vòng!" },
+      "buyBlockHint": "Chọn đối thủ để phong tỏa mua bán ({{turns}} vòng)",
+      "ch30": { "name": "Trưng Thu", "desc": "Mua CƯỠNG CHẾ 1 đất đối thủ (không hotel) theo giá gốc!" },
+      "eminentDomainHint": "Chọn đất đối thủ để trưng thu theo giá gốc",
       "frozenRent": "Đóng băng"
     },
     "cells": {

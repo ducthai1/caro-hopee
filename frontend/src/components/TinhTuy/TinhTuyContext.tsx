@@ -45,6 +45,7 @@ function mapPlayers(players: any[]): TinhTuyPlayer[] {
     cards: p.cards || [],
     immunityNextRent: !!p.immunityNextRent,
     doubleRentTurns: p.doubleRentTurns || 0,
+    buyBlockedTurns: p.buyBlockedTurns || 0,
     skipNextTurn: !!p.skipNextTurn,
     displayName: resolveDisplayName(p),
     userId: p.userId?.toString?.() || p.userId,
@@ -123,6 +124,8 @@ const initialState: TinhTuyState = {
   frozenProperties: [],
   rentFreezePrompt: null,
   nearWinWarning: null as { slot: number; type: string; missingCells?: number[]; completedGroups?: number; edgeIndex?: number } | null,
+  buyBlockPrompt: null,
+  eminentDomainPrompt: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -508,6 +511,18 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_NEAR_WIN_WARNING':
       return { ...state, nearWinWarning: null };
 
+    case 'BUY_BLOCK_PROMPT':
+      return { ...state, turnPhase: 'AWAITING_BUY_BLOCK_TARGET', buyBlockPrompt: action.payload, queuedTurnChange: null };
+
+    case 'CLEAR_BUY_BLOCK_PROMPT':
+      return { ...state, buyBlockPrompt: null };
+
+    case 'EMINENT_DOMAIN_PROMPT':
+      return { ...state, turnPhase: 'AWAITING_EMINENT_DOMAIN', eminentDomainPrompt: action.payload, queuedTurnChange: null };
+
+    case 'CLEAR_EMINENT_DOMAIN_PROMPT':
+      return { ...state, eminentDomainPrompt: null };
+
     case 'FORCED_TRADE_DONE': {
       const { traderSlot, traderCell, victimSlot, victimCell } = action.payload;
       let ftPlayers = [...state.players];
@@ -641,7 +656,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         updatedPlayers = state.players.map(p => {
           const b = buffsMap.get(p.slot);
           if (!b) return p;
-          return { ...p, cards: b.cards, immunityNextRent: b.immunityNextRent, doubleRentTurns: b.doubleRentTurns, skipNextTurn: b.skipNextTurn };
+          return { ...p, cards: b.cards, immunityNextRent: b.immunityNextRent, doubleRentTurns: b.doubleRentTurns, buyBlockedTurns: b.buyBlockedTurns ?? p.buyBlockedTurns, skipNextTurn: b.skipNextTurn };
         });
       }
       // Don't clear rentAlert/taxAlert/islandAlertSlot — they have their own 4s auto-dismiss timers
@@ -664,6 +679,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         // from blocking the next turn's roll button (e.g. forced trade timeout with no valid trade)
         forcedTradePrompt: null,
         rentFreezePrompt: null,
+        buyBlockPrompt: null,
+        eminentDomainPrompt: null,
         // Only clear GO bonus prompt when the current player actually changes
         // (prevents doubles extra turn from dismissing the GO bonus modal)
         goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
@@ -1330,6 +1347,8 @@ interface TinhTuyContextValue {
   chooseDestination: (cellIndex: number) => void;
   forcedTradeChoose: (myCellIndex: number, opponentCellIndex: number) => void;
   rentFreezeChoose: (cellIndex: number) => void;
+  chooseBuyBlockTarget: (targetSlot: number) => void;
+  chooseEminentDomain: (cellIndex: number) => void;
   clearAttackAlert: () => void;
   clearAutoSold: () => void;
   clearGoBonus: () => void;
@@ -1524,6 +1543,51 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'RENT_FROZEN', payload: data });
     };
 
+    const handleBuyBlockPrompt = (data: any) => {
+      dispatch({ type: 'BUY_BLOCK_PROMPT', payload: data });
+    };
+    const handleBuyBlocked = (data: any) => {
+      // Update target's buyBlockedTurns locally
+      const activePlayers = stateRef.current.players.filter(p => !p.isBankrupt).length;
+      const turnsRaw = (data.turns || 2) * activePlayers;
+      const updated = stateRef.current.players.map(p =>
+        p.slot === data.targetSlot ? { ...p, buyBlockedTurns: turnsRaw } : p
+      );
+      dispatch({ type: 'ROOM_UPDATED', payload: { players: updated } });
+      dispatch({ type: 'CLEAR_BUY_BLOCK_PROMPT' });
+    };
+    const handleEminentDomainPrompt = (data: any) => {
+      dispatch({ type: 'EMINENT_DOMAIN_PROMPT', payload: data });
+    };
+    const handleEminentDomainApplied = (data: any) => {
+      // Transfer property from victim to buyer
+      const { buyerSlot, victimSlot, cellIndex, price, houses } = data;
+      const key = String(cellIndex);
+      let edPlayers = dedupeProperty(stateRef.current.players, cellIndex, buyerSlot);
+      edPlayers = edPlayers.map(p => {
+        if (p.slot === victimSlot) {
+          const newHouses = { ...p.houses }; delete newHouses[key];
+          const newHotels = { ...p.hotels }; delete newHotels[key];
+          return { ...p, properties: p.properties.filter(idx => idx !== cellIndex), points: p.points + price, houses: newHouses, hotels: newHotels };
+        }
+        if (p.slot === buyerSlot) {
+          return {
+            ...p, points: p.points - price,
+            properties: [...p.properties.filter(idx => idx !== cellIndex), cellIndex],
+            houses: houses > 0 ? { ...p.houses, [key]: houses } : p.houses,
+          };
+        }
+        return p;
+      });
+      // Transfer festival if needed
+      let newFestival = stateRef.current.festival;
+      if (newFestival && newFestival.cellIndex === cellIndex && newFestival.slot === victimSlot) {
+        newFestival = { ...newFestival, slot: buyerSlot };
+      }
+      dispatch({ type: 'ROOM_UPDATED', payload: { players: edPlayers } });
+      dispatch({ type: 'CLEAR_EMINENT_DOMAIN_PROMPT' });
+    };
+
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
     };
@@ -1598,6 +1662,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
     socket.on('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
     socket.on('tinh-tuy:rent-frozen' as any, handleRentFrozen);
+    socket.on('tinh-tuy:buy-block-prompt' as any, handleBuyBlockPrompt);
+    socket.on('tinh-tuy:buy-blocked' as any, handleBuyBlocked);
+    socket.on('tinh-tuy:eminent-domain-prompt' as any, handleEminentDomainPrompt);
+    socket.on('tinh-tuy:eminent-domain-applied' as any, handleEminentDomainApplied);
     socket.on('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1646,6 +1714,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:forced-trade-done' as any, handleForcedTradeDone);
       socket.off('tinh-tuy:rent-freeze-prompt' as any, handleRentFreezePrompt);
       socket.off('tinh-tuy:rent-frozen' as any, handleRentFrozen);
+      socket.off('tinh-tuy:buy-block-prompt' as any, handleBuyBlockPrompt);
+      socket.off('tinh-tuy:buy-blocked' as any, handleBuyBlocked);
+      socket.off('tinh-tuy:eminent-domain-prompt' as any, handleEminentDomainPrompt);
+      socket.off('tinh-tuy:eminent-domain-applied' as any, handleEminentDomainApplied);
       socket.off('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1939,6 +2011,24 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:rent-freeze-choose' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const chooseBuyBlockTarget = useCallback((targetSlot: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    dispatch({ type: 'CLEAR_BUY_BLOCK_PROMPT' });
+    socket.emit('tinh-tuy:buy-block-choose' as any, { targetSlot }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const chooseEminentDomain = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    dispatch({ type: 'CLEAR_EMINENT_DOMAIN_PROMPT' });
+    socket.emit('tinh-tuy:eminent-domain-choose' as any, { cellIndex }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
   }, []);
@@ -2376,14 +2466,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   ]);
 
   return (

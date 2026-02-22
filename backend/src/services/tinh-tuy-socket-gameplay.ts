@@ -157,13 +157,14 @@ async function checkBankruptcy(
 /** Advance to next turn, handling doubles (extra turn) and skip-turn flag */
 /** Build per-player buff snapshot for turn-changed event */
 export function getPlayerBuffs(game: ITinhTuyGame): Array<{
-  slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean;
+  slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean; buyBlockedTurns: number;
 }> {
   return game.players.filter(p => !p.isBankrupt).map(p => ({
     slot: p.slot, cards: [...p.cards],
     immunityNextRent: !!p.immunityNextRent,
     doubleRentTurns: p.doubleRentTurns || 0,
     skipNextTurn: !!p.skipNextTurn,
+    buyBlockedTurns: p.buyBlockedTurns || 0,
   }));
 }
 
@@ -257,6 +258,10 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
   // Decrement doubleRent buff when the player's own turn comes around
   if (nextPlayer?.doubleRentTurns && nextPlayer.doubleRentTurns > 0) {
     nextPlayer.doubleRentTurns--;
+  }
+  // Decrement buyBlocked buff
+  if (nextPlayer?.buyBlockedTurns && nextPlayer.buyBlockedTurns > 0) {
+    nextPlayer.buyBlockedTurns--;
   }
 
   // skipNextTurn takes priority — keep pendingTravel for next non-skipped turn
@@ -786,6 +791,70 @@ async function handleCardDraw(
     }
   }
 
+  // BUY_BLOCK_TARGET: player chooses an opponent to block from buying
+  if (effect.requiresChoice === 'BUY_BLOCK_TARGET') {
+    const opponents = game.players.filter(p => !p.isBankrupt && p.slot !== player.slot);
+    if (opponents.length > 0) {
+      game.turnPhase = 'AWAITING_BUY_BLOCK_TARGET';
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:buy-block-prompt', {
+        slot: player.slot,
+        targets: opponents.map(p => ({ slot: p.slot, displayName: p.guestName || `Player ${p.slot}` })),
+        turns: effect.buyBlockedTurns || 2,
+      });
+      const activePlayers = game.players.filter(p => !p.isBankrupt).length;
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_BUY_BLOCK_TARGET') return;
+          // Auto-pick random opponent on timeout
+          const randomTarget = opponents[crypto.randomInt(0, opponents.length)];
+          const target = g.players.find(p => p.slot === randomTarget.slot);
+          if (target) {
+            target.buyBlockedTurns = (effect.buyBlockedTurns || 2) * activePlayers;
+            g.markModified('players');
+          }
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          io.to(game.roomId).emit('tinh-tuy:buy-blocked', {
+            blockerSlot: player.slot, targetSlot: randomTarget.slot,
+            turns: effect.buyBlockedTurns || 2,
+          });
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Buy block timeout:', err); }
+      });
+      return;
+    }
+  }
+
+  // EMINENT_DOMAIN: player chooses opponent's property to force-buy at original price
+  if (effect.requiresChoice === 'EMINENT_DOMAIN') {
+    const targetCells = effect.targetableCells || [];
+    if (targetCells.length > 0) {
+      game.turnPhase = 'AWAITING_EMINENT_DOMAIN';
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:eminent-domain-prompt', {
+        slot: player.slot, targetCells,
+      });
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_EMINENT_DOMAIN') return;
+          // Auto-pick random on timeout
+          const randomCell = targetCells[crypto.randomInt(0, targetCells.length)];
+          applyEminentDomain(g, player.slot, randomCell, io);
+          g.turnPhase = 'END_TURN';
+          g.markModified('players');
+          await g.save();
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Eminent domain timeout:', err); }
+      });
+      return;
+    }
+  }
+
   // DESTROY_PROPERTY / DOWNGRADE_BUILDING: let player choose opponent's property
   if (effect.requiresChoice === 'DESTROY_PROPERTY' || effect.requiresChoice === 'DOWNGRADE_BUILDING') {
     const targetCells = effect.targetableCells || [];
@@ -1180,6 +1249,46 @@ function applyForcedTrade(
   emitNearWinWarning(io, game.roomId, oppOwner);
 }
 
+/** Eminent Domain: force-buy opponent's property at original price, transfer with houses */
+function applyEminentDomain(
+  game: ITinhTuyGame,
+  buyerSlot: number,
+  cellIndex: number,
+  io: SocketIOServer,
+): boolean {
+  const cell = getCell(cellIndex);
+  if (!cell) return false;
+  const price = cell.price || 0;
+  const buyer = game.players.find(p => p.slot === buyerSlot);
+  const victim = game.players.find(p => p.properties.includes(cellIndex));
+  if (!buyer || !victim || victim.slot === buyerSlot) return false;
+  if (buyer.points < price) return false;
+  if (victim.hotels[String(cellIndex)]) return false; // hotels immune
+
+  // Transfer money
+  buyer.points -= price;
+  victim.points += price;
+
+  // Transfer property + buildings
+  const houses = victim.houses[String(cellIndex)] || 0;
+  victim.properties = victim.properties.filter(idx => idx !== cellIndex);
+  delete victim.houses[String(cellIndex)];
+  buyer.properties.push(cellIndex);
+  buyer.houses[String(cellIndex)] = houses;
+
+  // Transfer festival if on this cell
+  if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === victim.slot) {
+    game.festival.slot = buyer.slot;
+    game.markModified('festival');
+  }
+
+  io.to(game.roomId).emit('tinh-tuy:eminent-domain-applied', {
+    buyerSlot, victimSlot: victim.slot, cellIndex, price, houses,
+  });
+
+  return true;
+}
+
 function applyPropertyAttack(
   game: ITinhTuyGame,
   attackType: 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING',
@@ -1496,6 +1605,11 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
       if (game.turnPhase !== 'AWAITING_ACTION') {
         return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      // Check buy block
+      if (player.buyBlockedTurns && player.buyBlockedTurns > 0) {
+        return callback({ success: false, error: 'buyBlocked' });
       }
 
       const cell = getCell(player.position);
@@ -1940,6 +2054,107 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:free-hotel-choose]', err.message);
       callback({ success: false, error: 'freeHotelFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Buy Block Choose (Economic Sanction — pick opponent to block) ─
+  socket.on('tinh-tuy:buy-block-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_BUY_BLOCK_TARGET') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const targetSlot = data?.targetSlot;
+      if (typeof targetSlot !== 'number') return callback({ success: false, error: 'invalidTarget' });
+
+      const target = game.players.find(p => p.slot === targetSlot && !p.isBankrupt && p.slot !== player.slot);
+      if (!target) return callback({ success: false, error: 'invalidTarget' });
+
+      clearTurnTimer(roomId);
+
+      const activePlayers = game.players.filter(p => !p.isBankrupt).length;
+      target.buyBlockedTurns = (data?.turns || 2) * activePlayers;
+      game.markModified('players');
+      game.turnPhase = 'END_TURN';
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:buy-blocked', {
+        blockerSlot: player.slot, targetSlot: target.slot,
+        turns: data?.turns || 2,
+      });
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:buy-block-choose]', err.message);
+      callback({ success: false, error: 'buyBlockFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Eminent Domain Choose (force-buy opponent's property at original price) ─
+  socket.on('tinh-tuy:eminent-domain-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_EMINENT_DOMAIN') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const cellIndex = data?.cellIndex;
+      if (typeof cellIndex !== 'number') return callback({ success: false, error: 'invalidCell' });
+
+      clearTurnTimer(roomId);
+
+      const success = applyEminentDomain(game, player.slot, cellIndex, io);
+      if (!success) return callback({ success: false, error: 'eminentDomainFailed' });
+
+      game.markModified('players');
+      game.turnPhase = 'END_TURN';
+      await game.save();
+
+      // Check monopoly + near-win after acquiring property
+      const completedGroup = checkMonopolyCompleted(cellIndex, player.properties);
+      if (completedGroup) {
+        io.to(roomId).emit('tinh-tuy:monopoly-completed', {
+          slot: player.slot, group: completedGroup,
+          cellIndices: PROPERTY_GROUPS[completedGroup],
+        });
+      }
+      emitNearWinWarning(io, roomId, player);
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:eminent-domain-choose]', err.message);
+      callback({ success: false, error: 'eminentDomainFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
     }

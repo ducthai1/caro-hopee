@@ -118,6 +118,10 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'WEALTH_TRANSFER', amount: 3000 }, minRound: 40 },
   { id: 'ch-28', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch28.name', descriptionKey: 'tinhTuy.cards.ch28.desc',
     action: { type: 'FREE_HOTEL' } },
+  { id: 'ch-29', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch29.name', descriptionKey: 'tinhTuy.cards.ch29.desc',
+    action: { type: 'BUY_BLOCKED', turns: 2 } },
+  { id: 'ch-30', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch30.name', descriptionKey: 'tinhTuy.cards.ch30.desc',
+    action: { type: 'EMINENT_DOMAIN' } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -482,6 +486,32 @@ export function executeCardEffect(
     case 'FREE_HOTEL':
       result.requiresChoice = 'FREE_HOTEL';
       break;
+
+    case 'BUY_BLOCKED': {
+      // Player chooses an opponent to block from buying for N rounds
+      const blockTargets = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
+      if (blockTargets.length > 0) {
+        result.requiresChoice = 'BUY_BLOCK_TARGET';
+        result.buyBlockedTurns = action.turns;
+      }
+      break;
+    }
+
+    case 'EMINENT_DOMAIN': {
+      // Force-buy opponent's non-hotel property at original price (must be affordable)
+      const affordableProps = game.players
+        .filter(p => !p.isBankrupt && p.slot !== playerSlot)
+        .flatMap(p => p.properties.filter(idx => {
+          if (p.hotels[String(idx)]) return false; // hotels immune
+          const c = BOARD_CELLS[idx];
+          return c && (c.price || 0) <= player.points; // must afford
+        }));
+      if (affordableProps.length > 0) {
+        result.requiresChoice = 'EMINENT_DOMAIN';
+        result.targetableCells = affordableProps;
+      }
+      break;
+    }
 
     case 'MOVE_TO_FESTIVAL': {
       // Move to the cell hosting the active festival; if no festival, stay in place
