@@ -157,10 +157,13 @@ export function countStationsOwned(ownedCells: number[]): number {
   return ownedCells.filter(idx => BOARD_CELLS[idx]?.type === 'STATION').length;
 }
 
-/** Station rent: base 250 per station owned, scales with completed rounds (same 8% as utility) */
+/** Station rent multiplier: 20% per completed round (higher than utility's 8%) */
+export const STATION_ROUND_MULTIPLIER = 0.20;
+
+/** Station rent: base 250 per station owned, scales 12% per completed round */
 export function getStationRent(stationsOwned: number, completedRounds: number = 0): number {
   const base = stationsOwned * 250;
-  return Math.floor(base * (1 + UTILITY_ROUND_MULTIPLIER * Math.max(completedRounds, 0)));
+  return Math.floor(base * (1 + STATION_ROUND_MULTIPLIER * Math.max(completedRounds, 0)));
 }
 
 /** Utility rent: price scales with completed rounds.
