@@ -21,7 +21,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_FREE_HOTEL' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -201,6 +201,10 @@ export interface TinhTuyState {
   freeHousePrompt: { slot: number; buildableCells: number[] } | null;
   /** Queued free house prompt — applied after walk + card modal + go bonus finish */
   queuedFreeHousePrompt: { slot: number; buildableCells: number[] } | null;
+  /** Free hotel prompt — player chooses which property gets instant hotel upgrade (from card) */
+  freeHotelPrompt: { slot: number; buildableCells: number[] } | null;
+  /** Queued free hotel prompt — applied after walk + card modal finish */
+  queuedFreeHotelPrompt: { slot: number; buildableCells: number[] } | null;
   /** Deferred card effects — applied only when card modal is dismissed (prevents spoilers) */
   pendingCardEffect: {
     slot: number;
@@ -330,6 +334,9 @@ export type TinhTuyAction =
   | { type: 'FREE_HOUSE_PROMPT'; payload: { slot: number; buildableCells: number[] } }
   | { type: 'APPLY_QUEUED_FREE_HOUSE_PROMPT' }
   | { type: 'CLEAR_FREE_HOUSE_PROMPT' }
+  | { type: 'FREE_HOTEL_PROMPT'; payload: { slot: number; buildableCells: number[] } }
+  | { type: 'APPLY_QUEUED_FREE_HOTEL_PROMPT' }
+  | { type: 'CLEAR_FREE_HOTEL_PROMPT' }
   | { type: 'DICE_ANIM_DONE' }
   | { type: 'APPLY_QUEUED_BANKRUPT_ALERT' }
   | { type: 'CLEAR_BANKRUPT_ALERT' }

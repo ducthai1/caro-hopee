@@ -105,6 +105,8 @@ const initialState: TinhTuyState = {
   queuedTravelPending: null,
   freeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
   queuedFreeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
+  freeHotelPrompt: null as { slot: number; buildableCells: number[] } | null,
+  queuedFreeHotelPrompt: null as { slot: number; buildableCells: number[] } | null,
   pendingCardEffect: null,
   queuedBankruptAlert: null,
   bankruptAlert: null,
@@ -667,6 +669,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
         queuedGoBonus: qtc.currentSlot !== state.currentPlayerSlot ? null : state.queuedGoBonus,
         queuedFreeHousePrompt: null,
+        queuedFreeHotelPrompt: null,
         queuedTurnChange: null,
         queuedAction: null,
         queuedBuildPrompt: null,
@@ -1193,6 +1196,16 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_FREE_HOUSE_PROMPT':
       return { ...state, freeHousePrompt: null };
 
+    case 'FREE_HOTEL_PROMPT':
+      return { ...state, queuedFreeHotelPrompt: action.payload, queuedTurnChange: null };
+
+    case 'APPLY_QUEUED_FREE_HOTEL_PROMPT':
+      if (!state.queuedFreeHotelPrompt) return state;
+      return { ...state, freeHotelPrompt: state.queuedFreeHotelPrompt, queuedFreeHotelPrompt: null };
+
+    case 'CLEAR_FREE_HOTEL_PROMPT':
+      return { ...state, freeHotelPrompt: null };
+
     case 'GO_BONUS': {
       // Queue GO bonus — show after walk animation finishes
       const gbSlot = action.payload.slot;
@@ -1312,6 +1325,7 @@ interface TinhTuyContextValue {
   skipBuild: () => void;
   sellBuildings: (selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => void;
   chooseFreeHouse: (cellIndex: number) => void;
+  chooseFreeHotel: (cellIndex: number) => void;
   attackPropertyChoose: (cellIndex: number) => void;
   chooseDestination: (cellIndex: number) => void;
   forcedTradeChoose: (myCellIndex: number, opponentCellIndex: number) => void;
@@ -1454,6 +1468,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'FREE_HOUSE_PROMPT', payload: data });
     };
 
+    const handleFreeHotelPrompt = (data: any) => {
+      dispatch({ type: 'FREE_HOTEL_PROMPT', payload: data });
+    };
+
     const handleSellPrompt = (data: any) => {
       dispatch({ type: 'SELL_PROMPT', payload: data });
     };
@@ -1566,6 +1584,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:festival-applied' as any, handleFestivalApplied);
     socket.on('tinh-tuy:build-prompt' as any, handleBuildPrompt);
     socket.on('tinh-tuy:free-house-prompt' as any, handleFreeHousePrompt);
+    socket.on('tinh-tuy:free-hotel-prompt' as any, handleFreeHotelPrompt);
     socket.on('tinh-tuy:sell-prompt' as any, handleSellPrompt);
     socket.on('tinh-tuy:travel-pending' as any, handleTravelPending);
     socket.on('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
@@ -1613,6 +1632,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:festival-applied' as any, handleFestivalApplied);
       socket.off('tinh-tuy:build-prompt' as any, handleBuildPrompt);
       socket.off('tinh-tuy:free-house-prompt' as any, handleFreeHousePrompt);
+      socket.off('tinh-tuy:free-hotel-prompt' as any, handleFreeHotelPrompt);
       socket.off('tinh-tuy:sell-prompt' as any, handleSellPrompt);
       socket.off('tinh-tuy:travel-pending' as any, handleTravelPending);
       socket.off('tinh-tuy:buildings-sold' as any, handleBuildingsSold);
@@ -1948,6 +1968,15 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const chooseFreeHotel = useCallback((cellIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    dispatch({ type: 'CLEAR_FREE_HOTEL_PROMPT' });
+    socket.emit('tinh-tuy:free-hotel-choose' as any, { cellIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   const sellBuildings = useCallback((selections: Array<{ cellIndex: number; type: 'house' | 'hotel' | 'property'; count: number }>) => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -2169,6 +2198,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'APPLY_QUEUED_FREE_HOUSE_PROMPT' });
   }, [state.queuedFreeHousePrompt, state.pendingMove, state.animatingToken, state.drawnCard, state.goBonusPrompt]);
 
+  // Apply queued free-hotel prompt after walk + card modal finish
+  useEffect(() => {
+    if (!state.queuedFreeHotelPrompt) return;
+    if (state.pendingMove || state.animatingToken || state.drawnCard || state.goBonusPrompt) return;
+    dispatch({ type: 'APPLY_QUEUED_FREE_HOTEL_PROMPT' });
+  }, [state.queuedFreeHotelPrompt, state.pendingMove, state.animatingToken, state.drawnCard, state.goBonusPrompt]);
+
   // Apply queued travel prompt after movement animation finishes
   useEffect(() => {
     if (!state.queuedTravelPrompt || isAnimBusy) return;
@@ -2340,14 +2376,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
-    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
   ]);
 
   return (

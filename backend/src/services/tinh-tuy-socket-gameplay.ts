@@ -751,6 +751,41 @@ async function handleCardDraw(
     }
   }
 
+  // FREE_HOTEL: let player choose which property to upgrade to hotel (skip 4-houses + cost)
+  if (effect.requiresChoice === 'FREE_HOTEL') {
+    const hotelCells = player.properties.filter(idx => {
+      const cell = getCell(idx);
+      if (!cell || cell.type !== 'PROPERTY' || !cell.group) return false;
+      if (player.hotels[String(idx)]) return false; // already has hotel
+      return true;
+    });
+    if (hotelCells.length > 0) {
+      game.turnPhase = 'AWAITING_FREE_HOTEL';
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:free-hotel-prompt', {
+        slot: player.slot, buildableCells: hotelCells,
+      });
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_FREE_HOTEL') return;
+          // Auto-pick first cell on timeout
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          p.houses[String(hotelCells[0])] = 0;
+          p.hotels[String(hotelCells[0])] = true;
+          g.markModified('players');
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          io.to(game.roomId).emit('tinh-tuy:hotel-built', {
+            slot: p.slot, cellIndex: hotelCells[0], free: true,
+          });
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Free hotel timeout:', err); }
+      });
+      return; // Wait for player choice
+    }
+  }
+
   // DESTROY_PROPERTY / DOWNGRADE_BUILDING: let player choose opponent's property
   if (effect.requiresChoice === 'DESTROY_PROPERTY' || effect.requiresChoice === 'DOWNGRADE_BUILDING') {
     const targetCells = effect.targetableCells || [];
@@ -1847,6 +1882,64 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:free-house-choose]', err.message);
       callback({ success: false, error: 'freeHouseFailed' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Free Hotel Choose (from Co Hoi card — instant hotel upgrade) ─
+  socket.on('tinh-tuy:free-hotel-choose', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') {
+        return callback({ success: false, error: 'gameNotActive' });
+      }
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) {
+        return callback({ success: false, error: 'notYourTurn' });
+      }
+      if (game.turnPhase !== 'AWAITING_FREE_HOTEL') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      const cellIndex = data?.cellIndex;
+      if (typeof cellIndex !== 'number') return callback({ success: false, error: 'invalidCell' });
+
+      // Validate: must be own PROPERTY, no existing hotel
+      const cell = getCell(cellIndex);
+      if (!cell || cell.type !== 'PROPERTY' || !cell.group) {
+        return callback({ success: false, error: 'notBuildable' });
+      }
+      if (!player.properties.includes(cellIndex)) {
+        return callback({ success: false, error: 'notOwned' });
+      }
+      if (player.hotels[String(cellIndex)]) {
+        return callback({ success: false, error: 'hasHotel' });
+      }
+
+      clearTurnTimer(roomId);
+
+      // Place hotel directly — remove any existing houses
+      player.houses[String(cellIndex)] = 0;
+      player.hotels[String(cellIndex)] = true;
+      game.markModified('players');
+      game.turnPhase = 'END_TURN';
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:hotel-built', {
+        slot: player.slot, cellIndex, free: true,
+      });
+
+      await advanceTurnOrDoubles(io, game, player);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:free-hotel-choose]', err.message);
+      callback({ success: false, error: 'freeHotelFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
     }

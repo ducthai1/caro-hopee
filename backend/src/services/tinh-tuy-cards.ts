@@ -116,6 +116,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'RENT_FREEZE' } },
   { id: 'ch-27', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch27.name', descriptionKey: 'tinhTuy.cards.ch27.desc',
     action: { type: 'WEALTH_TRANSFER', amount: 3000 }, minRound: 40 },
+  { id: 'ch-28', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch28.name', descriptionKey: 'tinhTuy.cards.ch28.desc',
+    action: { type: 'FREE_HOTEL' } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -476,6 +478,10 @@ export function executeCardEffect(
       result.targetableCells = freezeTargets;
       break;
     }
+
+    case 'FREE_HOTEL':
+      result.requiresChoice = 'FREE_HOTEL';
+      break;
 
     case 'MOVE_TO_FESTIVAL': {
       // Move to the cell hosting the active festival; if no festival, stay in place
