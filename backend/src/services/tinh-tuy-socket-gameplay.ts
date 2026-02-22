@@ -16,7 +16,7 @@ import {
 } from './tinh-tuy-engine';
 import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
-import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
+import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds, KHI_VAN_CARDS, CO_HOI_CARDS } from './tinh-tuy-cards';
 
 // Extra time (ms) added to card-choice timers to account for frontend animations
 // (dice ~2.5s + movement ~5s + card display ~7s + transitions ~1s ≈ 15.5s)
@@ -488,7 +488,7 @@ async function handleCardDraw(
     }
   }
 
-  const card = getCardById(cardId);
+  let card = getCardById(cardId);
   if (!card) {
     console.error(`[tinh-tuy:handleCardDraw] Card not found: "${cardId}", deck: [${deck.slice(0, 5).join(',')}...], index: ${currentIndex}, room: ${game.roomId}`);
     // Rebuild the entire deck from source and retry once (depth guard prevents infinite loop)
@@ -504,10 +504,10 @@ async function handleCardDraw(
       await game.save();
       return handleCardDraw(io, game, player, cellType, depth + 1);
     }
-    // Final fallback — skip card draw
-    game.turnPhase = 'END_TURN';
-    await game.save();
-    return;
+    // Final fallback — force pick the first unrestricted card so player always sees something
+    const sourceCards = isKhiVan ? KHI_VAN_CARDS : CO_HOI_CARDS;
+    card = sourceCards.find(c => !c.minRound || game.round >= c.minRound) || sourceCards[0];
+    console.warn(`[tinh-tuy:handleCardDraw] Forced fallback card: ${card.id} for room ${game.roomId}`);
   }
 
   // Round-restricted card: skip and redraw (max 3 retries to avoid infinite loop)
@@ -516,11 +516,19 @@ async function handleCardDraw(
       await game.save();
       return handleCardDraw(io, game, player, cellType, depth + 1);
     }
-    // Exceeded retries — just advance turn
-    console.warn(`[tinh-tuy:handleCardDraw] All drawn cards require higher round (round=${game.round}), skipping`);
-    game.turnPhase = 'END_TURN';
-    await game.save();
-    return;
+    // Exceeded retries — force pick an unrestricted card so player always sees something
+    const sourceCards = isKhiVan ? KHI_VAN_CARDS : CO_HOI_CARDS;
+    const unrestricted = sourceCards.find(c => !c.minRound || game.round >= c.minRound);
+    if (unrestricted) {
+      card = unrestricted;
+      console.warn(`[tinh-tuy:handleCardDraw] minRound retries exhausted, forced: ${card.id} for room ${game.roomId}`);
+    } else {
+      // All cards restricted (shouldn't happen) — skip silently
+      console.error(`[tinh-tuy:handleCardDraw] ALL cards restricted at round ${game.round} — skipping`);
+      game.turnPhase = 'END_TURN';
+      await game.save();
+      return;
+    }
   }
 
   const effect = executeCardEffect(game, player.slot, card);
