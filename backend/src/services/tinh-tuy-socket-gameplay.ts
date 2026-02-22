@@ -414,9 +414,9 @@ async function handleCardDraw(
   let deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
   let currentIndex = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
 
-  // Safety: rebuild deck if empty (can happen with old DB documents or corrupted state)
-  if (!deck || deck.length === 0) {
-    console.warn(`[tinh-tuy:handleCardDraw] ${cellType} deck empty for room ${game.roomId} — rebuilding`);
+  // Safety: rebuild deck if empty or index corrupted
+  if (!deck || deck.length === 0 || typeof currentIndex !== 'number' || isNaN(currentIndex)) {
+    console.warn(`[tinh-tuy:handleCardDraw] ${cellType} deck invalid for room ${game.roomId} (deckLen=${deck?.length}, idx=${currentIndex}) — rebuilding`);
     deck = shuffleDeck(isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds());
     currentIndex = 0;
     if (isKhiVan) { game.luckCardDeck = deck; game.luckCardIndex = 0; }
@@ -425,13 +425,24 @@ async function handleCardDraw(
 
   const { cardId, newIndex, reshuffle } = drawCard(deck, currentIndex, isKhiVan);
 
-  // Update deck index
+  // Safety: protect against NaN propagation
+  const safeNewIndex = (typeof newIndex === 'number' && !isNaN(newIndex)) ? newIndex : 0;
+
+  // Update deck index + explicitly mark modified so Mongoose persists changes
   if (isKhiVan) {
-    game.luckCardIndex = newIndex;
-    if (reshuffle) game.luckCardDeck = shuffleDeck([...game.luckCardDeck]);
+    game.luckCardIndex = safeNewIndex;
+    game.markModified('luckCardIndex');
+    if (reshuffle) {
+      game.luckCardDeck = shuffleDeck([...game.luckCardDeck]);
+      game.markModified('luckCardDeck');
+    }
   } else {
-    game.opportunityCardIndex = newIndex;
-    if (reshuffle) game.opportunityCardDeck = shuffleDeck([...game.opportunityCardDeck]);
+    game.opportunityCardIndex = safeNewIndex;
+    game.markModified('opportunityCardIndex');
+    if (reshuffle) {
+      game.opportunityCardDeck = shuffleDeck([...game.opportunityCardDeck]);
+      game.markModified('opportunityCardDeck');
+    }
   }
 
   const card = getCardById(cardId);
@@ -458,17 +469,33 @@ async function handleCardDraw(
 
   const effect = executeCardEffect(game, player.slot, card);
   applyCardEffect(game, player, effect);
-  game.markModified('players'); // houses/hotels/cards may have changed
+  // Mark ALL modified Mixed/nested fields so Mongoose persists every change
+  game.markModified('players');
+  if (game.festival !== undefined) game.markModified('festival');
+  if (game.frozenProperties !== undefined) game.markModified('frozenProperties');
 
-  // Persist deck index + card effects before any early-return paths
-  await game.save();
-
-  // Broadcast card drawn
-  io.to(game.roomId).emit('tinh-tuy:card-drawn', {
+  // Build card-drawn payload BEFORE save — so we can emit even if save fails
+  const cardDrawnPayload = {
     slot: player.slot,
     card: { id: card.id, type: card.type, nameKey: card.nameKey, descriptionKey: card.descriptionKey },
     effect,
-  });
+  };
+
+  // Persist deck index + card effects — emit card-drawn even if save fails
+  try {
+    await game.save();
+  } catch (saveErr: any) {
+    console.error(`[tinh-tuy:handleCardDraw] game.save() FAILED for room ${game.roomId}, card ${card.id}:`, saveErr.message);
+    // Still emit card-drawn so frontend shows the card
+    io.to(game.roomId).emit('tinh-tuy:card-drawn', cardDrawnPayload);
+    // Force-advance turn to prevent stuck game
+    game.turnPhase = 'END_TURN';
+    try { await game.save(); } catch (e) { /* last resort — safetyRestartTimer will handle */ }
+    return;
+  }
+
+  // Broadcast card drawn
+  io.to(game.roomId).emit('tinh-tuy:card-drawn', cardDrawnPayload);
 
   // Check if stolen property completes a monopoly for the thief
   if (effect.stolenProperty) {
@@ -787,11 +814,17 @@ async function handleCardDraw(
     !!effect.stolenProperty || !!effect.wealthTransfer;
   const CARD_DISPLAY_DELAY = hasDetailedInfo ? 16000 : 8000;
   game.turnPhase = 'AWAITING_CARD_DISPLAY';
-  await game.save();
+  try {
+    await game.save();
+  } catch (saveErr: any) {
+    console.error(`[tinh-tuy:handleCardDraw] AWAITING_CARD_DISPLAY save failed for room ${game.roomId}:`, saveErr.message);
+    // Fall through — timer will still fire and reload from DB
+  }
   startTurnTimer(game.roomId, CARD_DISPLAY_DELAY, async () => {
     try {
       const g = await TinhTuyGame.findOne({ roomId: game.roomId });
-      if (!g || g.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
+      if (!g || g.gameStatus !== 'playing') return;
+      if (g.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
       g.turnPhase = 'END_TURN';
       await g.save();
       const p = g.players.find(pp => pp.slot === player.slot)!;

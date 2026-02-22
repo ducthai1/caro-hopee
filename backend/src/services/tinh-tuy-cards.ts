@@ -132,16 +132,22 @@ export function shuffleDeck(cardIds: string[]): string[] {
 export function drawCard(
   deck: string[], currentIndex: number, isKhiVan?: boolean
 ): { cardId: string; newIndex: number; reshuffle: boolean } {
-  // Safety: if deck is empty or index out of range, rebuild from source
+  // Safety: if deck is empty, rebuild from source
   if (!deck || deck.length === 0) {
     console.warn('[tinh-tuy:drawCard] Empty deck detected — rebuilding');
     const rebuilt = isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds();
     const shuffled = shuffleDeck(rebuilt);
-    // Mutate caller's reference won't work — return first card from fresh deck
     return { cardId: shuffled[0], newIndex: 1, reshuffle: false };
   }
-  const safeIndex = currentIndex % deck.length;
+  // Safety: protect against NaN/undefined index — reset to 0
+  const idx = (typeof currentIndex === 'number' && !isNaN(currentIndex)) ? currentIndex : 0;
+  const safeIndex = ((idx % deck.length) + deck.length) % deck.length; // handle negative too
   const cardId = deck[safeIndex];
+  // Extra safety: if cardId is somehow undefined (shouldn't happen), use deck[0]
+  if (!cardId) {
+    console.warn(`[tinh-tuy:drawCard] undefined cardId at index ${safeIndex}, deckLen=${deck.length} — using deck[0]`);
+    return { cardId: deck[0], newIndex: 1, reshuffle: false };
+  }
   const newIndex = (safeIndex + 1) % deck.length;
   return { cardId, newIndex, reshuffle: newIndex === 0 };
 }
