@@ -896,6 +896,8 @@
       "buffSkipTurn": "Bỏ lượt",
       "monopolyTitle": "Hoàn thành Combo!",
       "monopolyBonus": "Tất cả đất trong nhóm này được +15% tiền thuê!",
+      "monopolyProgress": "Combo Monopoly: {{current}}/{{total}}",
+      "monopolyVictoryHint": "Đạt 6/8 combo → Chiến thắng! Hoặc sở hữu toàn bộ 1 cạnh bàn cờ → Chiến thắng!",
       "round": "Vòng",
       "gameStarted": "Game đã bắt đầu!",
       "build": "Xây Dựng",

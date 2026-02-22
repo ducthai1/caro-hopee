@@ -7,7 +7,9 @@ import React from 'react';
 import { Dialog, DialogContent, Typography, Box } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
-import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PropertyGroup } from '../tinh-tuy-types';
+import { BOARD_CELLS, GROUP_COLORS, PLAYER_COLORS, PROPERTY_GROUPS, PropertyGroup } from '../tinh-tuy-types';
+
+const ALL_GROUPS = Object.keys(PROPERTY_GROUPS) as PropertyGroup[];
 
 export const TinhTuyMonopolyAlert: React.FC = () => {
   const { t } = useLanguage();
@@ -21,6 +23,11 @@ export const TinhTuyMonopolyAlert: React.FC = () => {
 
   const playerColor = PLAYER_COLORS[alert.slot] || '#f39c12';
   const groupColor = GROUP_COLORS[alert.group as PropertyGroup] || '#f39c12';
+
+  // Count how many groups this player has completed
+  const completedGroups = ALL_GROUPS.filter(g =>
+    PROPERTY_GROUPS[g].every(idx => player.properties.includes(idx))
+  ).length;
 
   return (
     <Dialog
@@ -90,11 +97,24 @@ export const TinhTuyMonopolyAlert: React.FC = () => {
 
         {/* Bonus info */}
         <Box sx={{
-          p: 1, borderRadius: 1.5,
+          p: 1, borderRadius: 1.5, mb: 1.5,
           bgcolor: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)',
         }}>
           <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 700 }}>
             ⚡ {t('tinhTuy.game.monopolyBonus' as any)}
+          </Typography>
+        </Box>
+
+        {/* Victory progress */}
+        <Box sx={{
+          p: 1, borderRadius: 1.5,
+          bgcolor: 'rgba(155,89,182,0.08)', border: '1px solid rgba(155,89,182,0.2)',
+        }}>
+          <Typography variant="body2" sx={{ color: '#7b2d8e', fontWeight: 700, mb: 0.3 }}>
+            🏆 {t('tinhTuy.game.monopolyProgress' as any, { current: String(completedGroups), total: '8' } as any)}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#888' }}>
+            {t('tinhTuy.game.monopolyVictoryHint' as any)}
           </Typography>
         </Box>
       </DialogContent>

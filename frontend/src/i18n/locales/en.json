@@ -896,6 +896,8 @@
       "buffSkipTurn": "Skip",
       "monopolyTitle": "Combo Complete!",
       "monopolyBonus": "All properties in this group get +15% rent bonus!",
+      "monopolyProgress": "Monopoly Combo: {{current}}/{{total}}",
+      "monopolyVictoryHint": "Reach 6/8 combos → Victory! Or own all properties on 1 board edge → Victory!",
       "round": "Round",
       "gameStarted": "Game started!",
       "build": "Build",
