@@ -126,7 +126,7 @@ async function checkBankruptcy(
 
 /** Advance to next turn, handling doubles (extra turn) and skip-turn flag */
 /** Build per-player buff snapshot for turn-changed event */
-function getPlayerBuffs(game: ITinhTuyGame): Array<{
+export function getPlayerBuffs(game: ITinhTuyGame): Array<{
   slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean;
 }> {
   return game.players.filter(p => !p.isBankrupt).map(p => ({

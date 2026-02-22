@@ -10,7 +10,7 @@ import { TinhTuyCallback, TinhTuyCharacter, VALID_CHARACTERS, ITinhTuyPlayer } f
 import { generateUniqueRoomCode } from './tinh-tuy-engine';
 import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
 import {
-  activePlayerSockets, disconnectTimers, roomPlayerNames,
+  activePlayerSockets, disconnectTimers, roomPlayerNames, activeTimers,
   resolvePlayerName, cachePlayerName, cachePlayerDevice,
   getDeviceType, cleanupRoom, startTurnTimer, RECONNECT_WINDOW_MS,
 } from './tinh-tuy-socket';
@@ -152,6 +152,55 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
           success: true, roomId: game.roomId, roomCode: game.roomCode,
           reconnected: true, game: game.toObject(),
         });
+
+        // ── Timer recovery after server restart ──
+        // If game is playing but no turn timer exists (lost on restart), restart it
+        if (game.gameStatus === 'playing' && !activeTimers.has(game.roomId)) {
+          console.warn(`[tinh-tuy:join-room] Recovering lost turn timer for room ${game.roomId} (phase=${game.turnPhase})`);
+          // Short delay to let all clients reconnect before advancing
+          const roomId = game.roomId;
+          const currentSlot = game.currentPlayerSlot;
+          startTurnTimer(roomId, 3000, async () => {
+            try {
+              const { advanceTurn } = await import('./tinh-tuy-socket-gameplay');
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.gameStatus !== 'playing') return;
+              const phase = g.turnPhase;
+              // For waiting phases (AWAITING_*), the player's choice timed out during restart — auto-advance
+              // For ROLL_DICE/ISLAND_TURN, just restart the normal turn timer
+              if (phase === 'ROLL_DICE' || phase === 'ISLAND_TURN') {
+                // Re-emit turn-changed so frontend restarts its timer
+                const { getPlayerBuffs } = await import('./tinh-tuy-socket-gameplay');
+                io.to(roomId).emit('tinh-tuy:turn-changed', {
+                  currentSlot: g.currentPlayerSlot,
+                  turnPhase: g.turnPhase,
+                  turnStartedAt: new Date(),
+                  round: g.round,
+                  buffs: getPlayerBuffs(g),
+                  frozenProperties: g.frozenProperties || [],
+                });
+                // Start normal turn timer
+                startTurnTimer(roomId, g.settings.turnDuration * 1000, async () => {
+                  try {
+                    const gg = await TinhTuyGame.findOne({ roomId });
+                    if (!gg || gg.gameStatus !== 'playing') return;
+                    await advanceTurn(io, gg);
+                  } catch (err) { console.error('[tinh-tuy] Recovered turn timeout:', err); }
+                });
+              } else {
+                // Any AWAITING_* phase — auto-advance since timers were lost
+                g.turnPhase = 'END_TURN';
+                await g.save();
+                const p = g.players.find(pp => pp.slot === currentSlot);
+                if (p) {
+                  await advanceTurn(io, g);
+                } else {
+                  await advanceTurn(io, g);
+                }
+              }
+            } catch (err) { console.error('[tinh-tuy] Timer recovery error:', err); }
+          });
+        }
         return;
       }
 
