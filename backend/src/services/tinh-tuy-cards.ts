@@ -52,6 +52,8 @@ export const KHI_VAN_CARDS: ITinhTuyCard[] = [
     action: { type: 'MOVE_RANDOM', min: 1, max: 12 } },
   { id: 'kv-21', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv21.name', descriptionKey: 'tinhTuy.cards.kv21.desc',
     action: { type: 'ALL_LOSE_ONE_HOUSE' } },
+  { id: 'kv-22', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv22.name', descriptionKey: 'tinhTuy.cards.kv22.desc',
+    action: { type: 'MOVE_TO_FESTIVAL' } },
   { id: 'kv-23', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv23.name', descriptionKey: 'tinhTuy.cards.kv23.desc',
     action: { type: 'CHOOSE_DESTINATION' } },
   { id: 'kv-24', type: 'KHI_VAN', nameKey: 'tinhTuy.cards.kv24.name', descriptionKey: 'tinhTuy.cards.kv24.desc',
@@ -468,6 +470,19 @@ export function executeCardEffect(
       if (freezeTargets.length === 0) break;
       result.requiresChoice = 'RENT_FREEZE';
       result.targetableCells = freezeTargets;
+      break;
+    }
+
+    case 'MOVE_TO_FESTIVAL': {
+      // Move to the cell hosting the active festival; if no festival, stay in place
+      if (game.festival && typeof game.festival.cellIndex === 'number') {
+        const dest = game.festival.cellIndex;
+        const passedGo = dest < player.position && dest !== player.position;
+        result.playerMoved = { slot: playerSlot, to: dest, passedGo };
+        if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
+        result.movedToFestival = true;
+      }
+      // No festival → no movement, card has no effect
       break;
     }
   }

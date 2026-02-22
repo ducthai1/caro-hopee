@@ -180,7 +180,8 @@ export type CardAction =
   | { type: 'CHOOSE_DESTINATION' }
   | { type: 'TELEPORT_ALL' }
   | { type: 'FORCED_TRADE' }
-  | { type: 'RENT_FREEZE' };
+  | { type: 'RENT_FREEZE' }
+  | { type: 'MOVE_TO_FESTIVAL' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -230,4 +231,6 @@ export interface CardEffectResult {
   underdogBoosted?: boolean;
   /** Teleport all: new positions for all players */
   teleportAll?: Array<{ slot: number; to: number }>;
+  /** Player moved to festival cell */
+  movedToFestival?: boolean;
 }

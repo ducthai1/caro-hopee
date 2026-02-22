@@ -303,6 +303,34 @@ export const TinhTuyCardModal: React.FC = () => {
                 </Box>
               )}
 
+              {/* ─── Festival rush signal ─── */}
+              {extra?.movedToFestival && extra?.festivalCellIndex != null && BOARD_CELLS[extra.festivalCellIndex] && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(241, 196, 15, 0.15)',
+                  border: '2px solid rgba(241, 196, 15, 0.5)',
+                  animation: 'tt-travel-pulse 1.5s ease-in-out infinite',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#d4a017', fontWeight: 800, fontSize: '1.1rem', mb: 0.5 }}>
+                    🎪 {t('tinhTuy.cards.festivalRush' as any)}
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: '#2c3e50', fontWeight: 700 }}>
+                    {t(BOARD_CELLS[extra.festivalCellIndex].name as any)}
+                  </Typography>
+                </Box>
+              )}
+              {card.id === 'kv-22' && !extra?.movedToFestival && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: 'rgba(149, 165, 166, 0.15)',
+                  border: '2px solid rgba(149, 165, 166, 0.4)',
+                }}>
+                  <Typography variant="body2" sx={{ color: '#7f8c8d', fontWeight: 700, fontSize: '1rem' }}>
+                    😴 {t('tinhTuy.cards.noFestival' as any)}
+                  </Typography>
+                </Box>
+              )}
+
               {/* ─── Extra turn signal ─── */}
               {extra?.extraTurn && (
                 <Box sx={{

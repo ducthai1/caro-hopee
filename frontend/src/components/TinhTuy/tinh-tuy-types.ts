@@ -224,6 +224,8 @@ export interface TinhTuyState {
     extraTurn?: boolean;
     wealthTransfer?: { richestSlot: number; poorestSlot: number; amount: number };
     teleportAll?: Array<{ slot: number; to: number }>;
+    movedToFestival?: boolean;
+    festivalCellIndex?: number;
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;
