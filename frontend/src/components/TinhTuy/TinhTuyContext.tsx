@@ -1374,6 +1374,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const handleCardDrawn = (data: any) => {
+      console.log('[TinhTuy] card-drawn received:', data?.card?.id, 'slot:', data?.slot);
       dispatch({ type: 'CARD_DRAWN', payload: data });
       tinhTuySounds.playSFX('cardDraw');
       // Auto-dismiss moved to TinhTuyCardModal — starts when card is actually visible

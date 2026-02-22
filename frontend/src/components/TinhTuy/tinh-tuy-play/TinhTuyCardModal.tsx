@@ -24,6 +24,13 @@ export const TinhTuyCardModal: React.FC = () => {
 
   const canShow = !!card && !state.pendingMove && !state.animatingToken;
 
+  // Debug: log card visibility state changes
+  useEffect(() => {
+    if (card) {
+      console.log('[TinhTuyCardModal] card:', card.id, 'canShow:', canShow, 'pendingMove:', !!state.pendingMove, 'animatingToken:', !!state.animatingToken);
+    }
+  }, [card, canShow, state.pendingMove, state.animatingToken]);
+
   // Use longer display time for cards with detailed extra info sections
   const hasDetailedInfo = extra && (
     (extra.allHousesRemoved && extra.allHousesRemoved.length > 0) ||

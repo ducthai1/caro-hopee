@@ -127,12 +127,22 @@ export function shuffleDeck(cardIds: string[]): string[] {
   return shuffled;
 }
 
-/** Draw next card from deck. Returns cardId, newIndex, and whether deck needs reshuffle. */
+/** Draw next card from deck. Returns cardId, newIndex, and whether deck needs reshuffle.
+ *  If deck is empty or index out of range, re-initializes from full deck IDs. */
 export function drawCard(
-  deck: string[], currentIndex: number
+  deck: string[], currentIndex: number, isKhiVan?: boolean
 ): { cardId: string; newIndex: number; reshuffle: boolean } {
-  const cardId = deck[currentIndex];
-  const newIndex = (currentIndex + 1) % deck.length;
+  // Safety: if deck is empty or index out of range, rebuild from source
+  if (!deck || deck.length === 0) {
+    console.warn('[tinh-tuy:drawCard] Empty deck detected — rebuilding');
+    const rebuilt = isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds();
+    const shuffled = shuffleDeck(rebuilt);
+    // Mutate caller's reference won't work — return first card from fresh deck
+    return { cardId: shuffled[0], newIndex: 1, reshuffle: false };
+  }
+  const safeIndex = currentIndex % deck.length;
+  const cardId = deck[safeIndex];
+  const newIndex = (safeIndex + 1) % deck.length;
   return { cardId, newIndex, reshuffle: newIndex === 0 };
 }
 

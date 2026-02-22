@@ -513,6 +513,7 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
         p.isBankrupt = false;
         p.consecutiveDoubles = 0;
         p.skipNextTurn = false;
+        p.extraTurn = false;
         p.immunityNextRent = false;
         p.doubleRentTurns = 0;
         p.pendingTravel = false;

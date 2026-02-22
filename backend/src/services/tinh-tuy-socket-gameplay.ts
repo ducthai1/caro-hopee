@@ -15,7 +15,7 @@ import {
 } from './tinh-tuy-engine';
 import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
-import { drawCard, getCardById, shuffleDeck, executeCardEffect } from './tinh-tuy-cards';
+import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
 
 // Extra time (ms) added to card-choice timers to account for frontend animations
 // (dice ~2.5s + movement ~5s + card display ~7s + transitions ~1s ≈ 15.5s)
@@ -411,10 +411,19 @@ async function handleCardDraw(
   io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, cellType: 'KHI_VAN' | 'CO_HOI', depth = 0
 ): Promise<void> {
   const isKhiVan = cellType === 'KHI_VAN';
-  const deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
-  const currentIndex = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
+  let deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
+  let currentIndex = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
 
-  const { cardId, newIndex, reshuffle } = drawCard(deck, currentIndex);
+  // Safety: rebuild deck if empty (can happen with old DB documents or corrupted state)
+  if (!deck || deck.length === 0) {
+    console.warn(`[tinh-tuy:handleCardDraw] ${cellType} deck empty for room ${game.roomId} — rebuilding`);
+    deck = shuffleDeck(isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds());
+    currentIndex = 0;
+    if (isKhiVan) { game.luckCardDeck = deck; game.luckCardIndex = 0; }
+    else { game.opportunityCardDeck = deck; game.opportunityCardIndex = 0; }
+  }
+
+  const { cardId, newIndex, reshuffle } = drawCard(deck, currentIndex, isKhiVan);
 
   // Update deck index
   if (isKhiVan) {
@@ -428,6 +437,7 @@ async function handleCardDraw(
   const card = getCardById(cardId);
   if (!card) {
     // Safety fallback — no card found, skip
+    console.error(`[tinh-tuy:handleCardDraw] Card not found: ${cardId}, deck: [${deck.slice(0, 5).join(',')}...], index: ${currentIndex}, room: ${game.roomId}`);
     game.turnPhase = 'END_TURN';
     await game.save();
     return;
@@ -440,6 +450,7 @@ async function handleCardDraw(
       return handleCardDraw(io, game, player, cellType, depth + 1);
     }
     // Exceeded retries — just advance turn
+    console.warn(`[tinh-tuy:handleCardDraw] All drawn cards require higher round (round=${game.round}), skipping`);
     game.turnPhase = 'END_TURN';
     await game.save();
     return;

@@ -26,6 +26,7 @@ const TinhTuyPlayerSchema = new Schema({
   disconnectedAt: { type: Date, default: null },
   consecutiveDoubles: { type: Number, default: 0 },
   skipNextTurn: { type: Boolean, default: false },
+  extraTurn: { type: Boolean, default: false },
   immunityNextRent: { type: Boolean, default: false },
   doubleRentTurns: { type: Number, default: 0 },
   pendingTravel: { type: Boolean, default: false },
