@@ -445,9 +445,12 @@ export function executeCardEffect(
       const poorCandidates = activePlayers.filter(p => p.points === minPts);
       const richest = richCandidates[crypto.randomInt(0, richCandidates.length)];
       const poorest2 = poorCandidates[crypto.randomInt(0, poorCandidates.length)];
-      result.pointsChanged[richest.slot] = (result.pointsChanged[richest.slot] || 0) - action.amount;
-      result.pointsChanged[poorest2.slot] = (result.pointsChanged[poorest2.slot] || 0) + action.amount;
-      result.wealthTransfer = { richestSlot: richest.slot, poorestSlot: poorest2.slot, amount: action.amount };
+      // Cap transfer so richest can't go negative (non-current player has no sell phase → instant bankruptcy)
+      const transferAmount = Math.min(action.amount, richest.points);
+      if (transferAmount <= 0) break;
+      result.pointsChanged[richest.slot] = (result.pointsChanged[richest.slot] || 0) - transferAmount;
+      result.pointsChanged[poorest2.slot] = (result.pointsChanged[poorest2.slot] || 0) + transferAmount;
+      result.wealthTransfer = { richestSlot: richest.slot, poorestSlot: poorest2.slot, amount: transferAmount };
       break;
     }
 

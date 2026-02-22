@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { DiceResult, ITinhTuyGame, ITinhTuyPlayer } from '../types/tinh-tuy.types';
 import {
   BOARD_CELLS, BOARD_SIZE, GO_SALARY, ISLAND_ESCAPE_COST, MAX_ISLAND_TURNS, PROPERTY_GROUPS,
+  EDGE_OWNABLE_CELLS, MONOPOLY_WIN_THRESHOLD,
   getCell, ownsFullGroup, countStationsOwned, getStationRent, getUtilityRent,
 } from './tinh-tuy-board';
 
@@ -145,6 +146,19 @@ export function checkGameEnd(game: ITinhTuyGame): {
   // Classic: last player standing
   if (activePlayers.length <= 1) {
     return { ended: true, winner: activePlayers[0], reason: 'lastStanding' };
+  }
+
+  // Monopoly domination: 6/8 completed color groups OR all ownable cells on one edge
+  const allGroups = Object.keys(PROPERTY_GROUPS) as Array<keyof typeof PROPERTY_GROUPS>;
+  for (const p of activePlayers) {
+    const completedGroups = allGroups.filter(g => ownsFullGroup(g, p.properties)).length;
+    if (completedGroups >= MONOPOLY_WIN_THRESHOLD) {
+      return { ended: true, winner: p, reason: 'monopolyDomination' };
+    }
+    // Check full-edge ownership (all ownable cells on one board edge)
+    if (EDGE_OWNABLE_CELLS.some(edge => edge.every(idx => p.properties.includes(idx)))) {
+      return { ended: true, winner: p, reason: 'monopolyDomination' };
+    }
   }
 
   // Rounds mode: check if round limit reached

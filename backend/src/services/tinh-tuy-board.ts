@@ -23,6 +23,18 @@ export const PROPERTY_GROUPS: Record<PropertyGroup, number[]> = {
   dark_blue: [31, 33, 35],
 };
 
+// All ownable cells per board edge (PROPERTY + STATION + UTILITY)
+// Used for edge-domination victory condition
+export const EDGE_OWNABLE_CELLS: number[][] = [
+  [1, 2, 3, 5, 6, 7],        // TOP: brown + station + light_blue + utility
+  [10, 11, 13, 15, 17],       // RIGHT: purple + orange + red
+  [19, 21, 22, 23, 25, 26],   // BOTTOM: red + yellow + utility + green
+  [29, 30, 31, 33, 35],       // LEFT: green + dark_blue
+];
+
+// Minimum completed monopoly groups for monopoly-domination victory
+export const MONOPOLY_WIN_THRESHOLD = 6;
+
 // ─── 36-Cell Board ────────────────────────────────────────────
 // Pricing curve: brown (cheapest) → dark_blue (most expensive)
 export const BOARD_CELLS: IBoardCell[] = [

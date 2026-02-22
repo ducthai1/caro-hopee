@@ -788,12 +788,13 @@ async function handleCardDraw(
         if (!g || g.turnPhase !== 'AWAITING_CARD_DESTINATION') return;
         const p = g.players.find(pp => pp.slot === player.slot)!;
         const randomDest = crypto.randomInt(0, BOARD_SIZE);
+        const oldPos = p.position;
         p.position = randomDest;
         g.turnPhase = 'END_TURN';
         g.markModified('players');
         await g.save();
         io.to(g.roomId).emit('tinh-tuy:player-moved', {
-          slot: p.slot, from: p.position, to: randomDest, passedGo: false, goBonus: 0,
+          slot: p.slot, from: oldPos, to: randomDest, passedGo: false, goBonus: 0, isTravel: true,
         });
         await resolveAndAdvance(io, g, p, randomDest, { dice1: 0, dice2: 0, total: 0, isDouble: false });
       } catch (err) { console.error('[tinh-tuy] Card destination timeout:', err); }
@@ -986,14 +987,54 @@ function autoSellCheapest(
 const GO_BONUS_MIN = 3000;
 const GO_BONUS_MAX = 5000;
 
-/** Handle landing exactly on GO: random 3000-5000 TT bonus (multiples of 500), decayed in late-game */
+/** Handle landing exactly on GO: 70% random 3000-5000 TT bonus, 30% free house upgrade */
 async function handleGoBonus(
   io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
 ): Promise<void> {
   const roomId = game.roomId;
+
+  // Check if player has any buildable properties (houses < 4, no hotel)
+  const buildableCells = player.properties.filter(idx => {
+    const cell = getCell(idx);
+    if (!cell || cell.type !== 'PROPERTY' || !cell.group) return false;
+    if ((player.houses[String(idx)] || 0) >= 4) return false;
+    if (player.hotels[String(idx)]) return false;
+    return true;
+  });
+
+  // 30% chance FREE_HOUSE if player has buildable properties
+  const isFreeHouse = buildableCells.length > 0 && crypto.randomInt(100) < 30;
+
+  if (isFreeHouse) {
+    game.turnPhase = 'AWAITING_FREE_HOUSE';
+    await game.save();
+
+    io.to(roomId).emit('tinh-tuy:go-bonus', { slot: player.slot, bonusType: 'FREE_HOUSE' });
+    io.to(roomId).emit('tinh-tuy:free-house-prompt', { slot: player.slot, buildableCells });
+
+    // Auto-pick first buildable on timeout
+    startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+      try {
+        const g = await TinhTuyGame.findOne({ roomId });
+        if (!g || g.turnPhase !== 'AWAITING_FREE_HOUSE') return;
+        const p = g.players.find(pp => pp.slot === player.slot)!;
+        p.houses[String(buildableCells[0])] = (p.houses[String(buildableCells[0])] || 0) + 1;
+        g.markModified('players');
+        g.turnPhase = 'END_TURN';
+        await g.save();
+        io.to(roomId).emit('tinh-tuy:house-built', {
+          slot: p.slot, cellIndex: buildableCells[0],
+          houseCount: p.houses[String(buildableCells[0])], free: true,
+        });
+        await advanceTurnOrDoubles(io, g, p);
+      } catch (err) { console.error('[tinh-tuy] GO free house timeout:', err); }
+    });
+    return; // Wait for player choice
+  }
+
+  // Regular BONUS_POINTS flow
   const steps = Math.floor((GO_BONUS_MAX - GO_BONUS_MIN) / 500) + 1; // 3000,3500,4000,4500,5000
   const baseAmount = GO_BONUS_MIN + crypto.randomInt(steps) * 500;
-  // Apply same GO salary decay to bonus
   const decayFactor = getEffectiveGoSalary(game.round || 1) / GO_SALARY;
   const amount = Math.floor(baseAmount * decayFactor);
 
@@ -1292,6 +1333,13 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           if (escapeResult.costPaid && player.points < 0) {
             const gameEnded = await checkBankruptcy(io, game, player);
             if (gameEnded) { callback({ success: true }); return; }
+            // Player went bankrupt (no sellable assets) but game continues — skip move
+            if (player.isBankrupt) {
+              await game.save();
+              await advanceTurn(io, game);
+              callback({ success: true });
+              return;
+            }
           }
 
           // Player is free — move with dice result
@@ -1864,7 +1912,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:player-moved', {
-        slot: player.slot, from: oldPos, to: cellIndex, passedGo: false, goBonus: 0,
+        slot: player.slot, from: oldPos, to: cellIndex, passedGo: false, goBonus: 0, isTravel: true,
       });
 
       await resolveAndAdvance(io, game, player, cellIndex, { dice1: 0, dice2: 0, total: 0, isDouble: false });

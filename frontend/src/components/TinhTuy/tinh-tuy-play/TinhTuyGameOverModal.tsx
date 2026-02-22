@@ -54,7 +54,9 @@ export const TinhTuyGameOverModal: React.FC = () => {
 
   const reasonText = reason === 'roundsComplete'
     ? t('tinhTuy.result.reasonRoundsComplete' as any)
-    : t('tinhTuy.result.reasonLastStanding' as any);
+    : reason === 'monopolyDomination'
+      ? t('tinhTuy.result.reasonMonopolyDomination' as any)
+      : t('tinhTuy.result.reasonLastStanding' as any);
 
   return (
     <Dialog

@@ -1,7 +1,8 @@
 /**
  * TinhTuyAttackAlert — Alert shown to all players when a property is attacked.
- * Shows victim name, property name, and what happened (destroyed/downgraded).
- * Auto-dismisses after 4 seconds.
+ * Shows victim name, property name, and what happened (destroyed/downgraded/shielded).
+ * Waits until card modal is dismissed before rendering to avoid z-index/overlap issues.
+ * Auto-dismisses after 8 seconds (timer starts when actually visible).
  */
 import React, { useEffect, useRef } from 'react';
 import { Dialog, Typography, Box } from '@mui/material';
@@ -21,14 +22,18 @@ export const TinhTuyAttackAlert: React.FC = () => {
   clearRef.current = clearAttackAlert;
 
   const alert = state.attackAlert;
+  // Gate: don't show while card modal or movement animation is still active
+  const canShow = !!alert && !state.drawnCard && !state.pendingMove && !state.animatingToken;
 
+  // Auto-dismiss timer starts when alert becomes VISIBLE (canShow), not when attackAlert is set.
+  // This ensures full 8s display time even if the alert was set while card modal was still open.
   useEffect(() => {
-    if (!alert) return;
+    if (!canShow) return;
     const timer = setTimeout(() => clearRef.current(), ALERT_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [alert]);
+  }, [canShow]);
 
-  if (!alert) return null;
+  if (!canShow) return null;
 
   const victim = state.players.find(p => p.slot === alert.victimSlot);
   const cell = BOARD_CELLS.find(c => c.index === alert.cellIndex);

@@ -289,11 +289,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === fcEff.slot ? { ...p, immunityNextRent: true } : p
           );
         }
-        if (fcEff.doubleRentTurns) {
-          fcPlayers = fcPlayers.map(p =>
-            p.slot === fcEff.slot ? { ...p, doubleRentTurns: p.doubleRentTurns + fcEff.doubleRentTurns! } : p
-          );
-        }
+        // doubleRentTurns applied immediately in CARD_DRAWN — no deferred action needed
         if (fcEff.skipTurn) {
           fcPlayers = fcPlayers.map(p =>
             p.slot === fcEff.slot ? { ...p, skipNextTurn: true } : p
@@ -671,13 +667,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     }
 
     case 'PLAYER_BANKRUPT': {
-      const bSlot = action.payload.slot;
-      const updated = state.players.map(p =>
-        p.slot === bSlot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {} } : p
-      );
-      // Clear game-level festival if bankrupt player owned it
-      const newFestival = state.festival?.slot === bSlot ? null : state.festival;
-      return { ...state, players: updated, festival: newFestival, queuedBankruptAlert: bSlot };
+      // Don't wipe player data immediately — queue it so token + properties remain
+      // visible during walk animation + rent/tax alerts.
+      // Data change applied later in APPLY_QUEUED_BANKRUPT_ALERT.
+      return { ...state, queuedBankruptAlert: action.payload.slot };
     }
 
     case 'PLAYER_SURRENDERED': {
@@ -709,8 +702,16 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_ISLAND_ALERT':
       return { ...state, islandAlertSlot: null };
 
-    case 'APPLY_QUEUED_BANKRUPT_ALERT':
-      return { ...state, bankruptAlert: state.queuedBankruptAlert, queuedBankruptAlert: null };
+    case 'APPLY_QUEUED_BANKRUPT_ALERT': {
+      const bSlot = state.queuedBankruptAlert;
+      if (bSlot == null) return state;
+      // NOW wipe player data (deferred from PLAYER_BANKRUPT so walk animation could finish)
+      const bUpdated = state.players.map(p =>
+        p.slot === bSlot ? { ...p, isBankrupt: true, points: 0, properties: [], houses: {}, hotels: {} } : p
+      );
+      const bFestival = state.festival?.slot === bSlot ? null : state.festival;
+      return { ...state, players: bUpdated, festival: bFestival, bankruptAlert: bSlot, queuedBankruptAlert: null };
+    }
 
     case 'CLEAR_BANKRUPT_ALERT':
       return { ...state, bankruptAlert: null };
@@ -875,8 +876,14 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       }
       // Freeze display points before real update
       const dpCard = cardNotifs.length > 0 ? freezePoints(state) : state.displayPoints;
-      // Defer movement to after card modal dismiss (animate instead of teleport)
-      if (effect?.playerMoved && !effect?.goToIsland) {
+      // Apply doubleRentTurns immediately (visible on board, no spoiler concern)
+      if (effect?.doubleRentTurns) {
+        updated = updated.map(p =>
+          p.slot === slot ? { ...p, doubleRentTurns: p.doubleRentTurns + effect.doubleRentTurns! } : p
+        );
+      }
+      // Defer movement to after card modal dismiss — skip for swap (swap handles position directly)
+      if (effect?.playerMoved && !effect?.goToIsland && !effect?.swapPosition) {
         cardMove = {
           slot: effect.playerMoved.slot,
           to: effect.playerMoved.to,
@@ -884,7 +891,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         };
       }
       // Defer buff/card/island/swap/steal effects until card modal is dismissed (prevents spoilers)
-      const hasDeferrable = effect?.cardHeld || effect?.immunityNextRent || effect?.doubleRentTurns ||
+      const hasDeferrable = effect?.cardHeld || effect?.immunityNextRent ||
         effect?.skipTurn || effect?.goToIsland || effect?.houseRemoved ||
         effect?.swapPosition || effect?.stolenProperty ||
         (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0);
@@ -892,7 +899,6 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         slot,
         cardHeld: effect.cardHeld,
         immunityNextRent: effect.immunityNextRent,
-        doubleRentTurns: effect.doubleRentTurns,
         skipTurn: effect.skipTurn,
         goToIsland: effect.goToIsland,
         houseRemoved: effect.houseRemoved,
@@ -944,6 +950,19 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       // Apply deferred card effects now that card modal is dismissed
       let clearPlayers = [...state.players];
       let stolenFestival: typeof state.festival | undefined;
+      // Force-complete in-progress walk animation before applying deferred effects
+      // (prevents swap/move from teleporting tokens before walk finishes)
+      if (state.animatingToken) {
+        const finalPos = state.animatingToken.path[state.animatingToken.path.length - 1];
+        clearPlayers = clearPlayers.map(p =>
+          p.slot === state.animatingToken!.slot ? { ...p, position: finalPos } : p
+        );
+      } else if (state.pendingMove) {
+        const finalPos = state.pendingMove.path[state.pendingMove.path.length - 1];
+        clearPlayers = clearPlayers.map(p =>
+          p.slot === state.pendingMove!.slot ? { ...p, position: finalPos } : p
+        );
+      }
       const eff = state.pendingCardEffect;
       if (eff) {
         if (eff.cardHeld) {
@@ -969,11 +988,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === eff.slot ? { ...p, immunityNextRent: true } : p
           );
         }
-        if (eff.doubleRentTurns) {
-          clearPlayers = clearPlayers.map(p =>
-            p.slot === eff.slot ? { ...p, doubleRentTurns: p.doubleRentTurns + eff.doubleRentTurns! } : p
-          );
-        }
+        // doubleRentTurns applied immediately in CARD_DRAWN — no deferred action needed
         if (eff.skipTurn) {
           clearPlayers = clearPlayers.map(p =>
             p.slot === eff.slot ? { ...p, skipNextTurn: true } : p
@@ -1050,6 +1065,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         return {
           ...state,
+          animatingToken: null,
           drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
           players: clearPlayers,
           ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}),
@@ -1058,7 +1074,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           displayPoints: dpCm,
         };
       }
-      return { ...state, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers, ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}) };
+      return { ...state, animatingToken: null, pendingMove: null, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers, ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}) };
     }
 
     case 'HOUSE_BUILT': {
@@ -1162,15 +1178,15 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, freeHousePrompt: null };
 
     case 'GO_BONUS': {
-      // GO bonus gives random points — update player points immediately
+      // GO bonus: BONUS_POINTS gives random TT, FREE_HOUSE triggers free-house-prompt
       const gbSlot = action.payload.slot;
-      const gbAmt = action.payload.amount || 0;
+      const gbAmt = action.payload.bonusType === 'BONUS_POINTS' ? (action.payload.amount || 0) : 0;
       const dpGb = gbAmt ? freezePoints(state) : state.displayPoints;
       return {
         ...state,
         goBonusPrompt: action.payload,
         queuedTurnChange: null,
-        players: state.players.map(p => p.slot === gbSlot ? { ...p, points: p.points + gbAmt } : p),
+        players: gbAmt ? state.players.map(p => p.slot === gbSlot ? { ...p, points: p.points + gbAmt } : p) : state.players,
         displayPoints: dpGb,
         pendingNotifs: gbAmt ? queueNotifs(state.pendingNotifs, [{ slot: gbSlot, amount: gbAmt }]) : state.pendingNotifs,
       };
@@ -2025,13 +2041,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.rentAlert]);
 
-  // Attack alert auto-dismiss after 8s (safety net — component also has its own timer,
-  // but if component unmounts/remounts during timer, this context-level timer ensures cleanup)
+  // Attack alert auto-dismiss (safety net — component has its own timer too).
+  // Timer starts when alert is VISIBLE (card modal + animations done), not when attackAlert is set.
+  const attackAlertVisible = !!state.attackAlert && !state.drawnCard && !state.pendingMove && !state.animatingToken;
   useEffect(() => {
-    if (!state.attackAlert) return;
+    if (!attackAlertVisible) return;
     const timer = setTimeout(() => dispatch({ type: 'CLEAR_ATTACK_ALERT' }), 8000);
     return () => clearTimeout(timer);
-  }, [state.attackAlert]);
+  }, [attackAlertVisible]);
 
   // Auto-sold alert auto-dismiss after 10s
   useEffect(() => {
