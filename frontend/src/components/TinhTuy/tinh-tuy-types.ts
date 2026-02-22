@@ -4,13 +4,15 @@
  */
 
 // ─── Character ───────────────────────────────────────
-export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant';
-export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant'];
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse'];
 export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
   shiba: '/tinh-tuy-actor/shiba.png',
   kungfu: '/tinh-tuy-actor/kungfu.png',
   fox: '/tinh-tuy-actor/fox.png',
   elephant: '/tinh-tuy-actor/elephant.png',
+  trau: '/tinh-tuy-actor/trau.png',
+  horse: '/tinh-tuy-actor/horse.png',
 };
 
 // ─── View ─────────────────────────────────────────────
@@ -143,6 +145,8 @@ export interface TinhTuyState {
   /** True while dice roll animation is playing (blocks queued effects) */
   diceAnimating: boolean;
   round: number;
+  /** True when round > LATE_GAME_START (60) — triggers UI badge */
+  lateGameActive: boolean;
   pendingAction: PendingAction;
   /** Global festival — only 1 on the board at a time */
   festival: { slot: number; cellIndex: number; multiplier: number } | null;
@@ -271,6 +275,7 @@ export type TinhTuyAction =
   | { type: 'RENT_PAID'; payload: { fromSlot: number; toSlot: number; amount: number; cellIndex: number } }
   | { type: 'TAX_PAID'; payload: { slot: number; amount: number; cellIndex: number; houseCount: number; hotelCount: number; perHouse: number; perHotel: number } }
   | { type: 'TURN_CHANGED'; payload: { currentSlot: number; turnPhase: TurnPhase; turnStartedAt?: any; round?: number; extraTurn?: boolean; buffs?: Array<{ slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean }>; frozenProperties?: Array<{ cellIndex: number; turnsRemaining: number }> } }
+  | { type: 'LATE_GAME_STARTED' }
   | { type: 'PLAYER_BANKRUPT'; payload: { slot: number } }
   | { type: 'PLAYER_SURRENDERED'; payload: { slot: number } }
   | { type: 'PLAYER_ISLAND'; payload: { slot: number; turnsRemaining: number } }

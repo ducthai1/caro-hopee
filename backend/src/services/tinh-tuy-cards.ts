@@ -5,7 +5,8 @@
  */
 import crypto from 'crypto';
 import { ITinhTuyCard, CardEffectResult, ITinhTuyGame, ITinhTuyPlayer } from '../types/tinh-tuy.types';
-import { BOARD_CELLS, BOARD_SIZE, GO_SALARY } from './tinh-tuy-board';
+import { BOARD_CELLS, BOARD_SIZE } from './tinh-tuy-board';
+import { getEffectiveGoSalary } from './tinh-tuy-engine';
 
 // ─── 16 Khi Van Cards ────────────────────────────────────────
 
@@ -211,7 +212,7 @@ export function executeCardEffect(
 
     case 'MOVE_TO': {
       const passGo = action.position !== 0 && action.position < player.position;
-      const goBonus = (passGo || action.position === 0) ? GO_SALARY : 0;
+      const goBonus = (passGo || action.position === 0) ? getEffectiveGoSalary(game.round || 0) : 0;
       result.playerMoved = { slot: playerSlot, to: action.position, passedGo: passGo || action.position === 0 };
       if (goBonus) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + goBonus;
       break;
@@ -221,7 +222,7 @@ export function executeCardEffect(
       const newPos = ((player.position + action.steps) % BOARD_SIZE + BOARD_SIZE) % BOARD_SIZE;
       const passedGo = action.steps > 0 && newPos < player.position;
       result.playerMoved = { slot: playerSlot, to: newPos, passedGo };
-      if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
+      if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + getEffectiveGoSalary(game.round || 0);
       break;
     }
 
@@ -363,7 +364,7 @@ export function executeCardEffect(
       const newPos = ((player.position + steps) % BOARD_SIZE + BOARD_SIZE) % BOARD_SIZE;
       const passedGo = newPos < player.position;
       result.playerMoved = { slot: playerSlot, to: newPos, passedGo };
-      if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
+      if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + getEffectiveGoSalary(game.round || 0);
       result.randomSteps = steps;
       break;
     }
@@ -479,7 +480,7 @@ export function executeCardEffect(
         const dest = game.festival.cellIndex;
         const passedGo = dest < player.position && dest !== player.position;
         result.playerMoved = { slot: playerSlot, to: dest, passedGo };
-        if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + GO_SALARY;
+        if (passedGo) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + getEffectiveGoSalary(game.round || 0);
         result.movedToFestival = true;
       }
       // No festival → no movement, card has no effect

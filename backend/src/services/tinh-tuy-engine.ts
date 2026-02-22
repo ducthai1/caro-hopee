@@ -10,6 +10,26 @@ import {
   getCell, ownsFullGroup, countStationsOwned, getStationRent, getUtilityRent,
 } from './tinh-tuy-board';
 
+// ─── Late-Game Acceleration (Round 60+) ──────────────────────
+export const LATE_GAME_START = 60;
+const LATE_GAME_RENT_RATE = 0.05;   // +5%/round rent multiplier
+const LATE_GAME_TAX_RATE = 0.10;    // +10%/round tax multiplier
+const LATE_GAME_GO_DECAY = 0.05;    // -5%/round GO salary decay
+const LATE_GAME_GO_FLOOR = 0.2;     // Minimum 20% of base salary
+
+/** Late-game scaling multiplier: 1 + rate × (round − 60) when round > 60, else 1 */
+export function getLateGameMultiplier(round: number, rate: number): number {
+  if (round <= LATE_GAME_START) return 1;
+  return 1 + rate * (round - LATE_GAME_START);
+}
+
+/** Effective GO salary after late-game decay */
+export function getEffectiveGoSalary(round: number): number {
+  if (round <= LATE_GAME_START) return GO_SALARY;
+  const factor = Math.max(LATE_GAME_GO_FLOOR, 1 - LATE_GAME_GO_DECAY * (round - LATE_GAME_START));
+  return Math.floor(GO_SALARY * factor);
+}
+
 // ─── Dice ─────────────────────────────────────────────────────
 
 /** Roll 2d6 with crypto RNG */
@@ -90,6 +110,9 @@ export function calculateRent(
   if (owner.doubleRentTurns && owner.doubleRentTurns > 0) {
     rent *= 2;
   }
+
+  // Late-game rent escalation: +5%/round after round 60
+  rent = Math.floor(rent * getLateGameMultiplier(game.round || 1, LATE_GAME_RENT_RATE));
 
   return rent;
 }
@@ -407,8 +430,10 @@ export function resolveCellAction(
     }
     case 'TAX': {
       // Per-building tax: count houses & hotels owned by the player
-      const perHouse = cell.taxPerHouse || 500;
-      const perHotel = cell.taxPerHotel || 1000;
+      // Late-game: tax scales +10%/round after round 60
+      const taxMult = getLateGameMultiplier(game.round || 1, LATE_GAME_TAX_RATE);
+      const perHouse = Math.floor((cell.taxPerHouse || 500) * taxMult);
+      const perHotel = Math.floor((cell.taxPerHotel || 1000) * taxMult);
       let houseCount = 0;
       let hotelCount = 0;
       for (const propIdx of player.properties) {

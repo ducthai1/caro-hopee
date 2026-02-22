@@ -214,10 +214,19 @@ export const TinhTuyPlayView: React.FC = () => {
           overflowY: 'auto',
         }}
       >
-        {/* Round + Volume */}
+        {/* Round + Late-game badge + Volume */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 700, color: '#9b59b6', flex: 1 }}>
             {t('tinhTuy.game.round')} {state.round}
+            {state.lateGameActive && (
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{ ml: 1, fontWeight: 800, color: '#e74c3c', animation: 'pulse 1.5s infinite' }}
+              >
+                {t('tinhTuy.game.lateGameBadge')}
+              </Typography>
+            )}
           </Typography>
           <TinhTuyVolumeControl />
         </Box>

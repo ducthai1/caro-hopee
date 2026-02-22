@@ -856,6 +856,8 @@
       "kungfu": "Kungfu",
       "fox": "Cáo",
       "elephant": "Voi",
+      "trau": "Trâu",
+      "horse": "Ngựa",
       "characterTaken": "Đã được chọn bởi"
     },
     "settings": {
@@ -983,7 +985,9 @@
       "autoSoldTitle": "Tự Động Bán",
       "autoSoldHouse": "Nhà",
       "autoSoldHotel": "Khách sạn",
-      "autoSoldTotal": "Tổng thu"
+      "autoSoldTotal": "Tổng thu",
+      "lateGameBadge": "Tăng Tốc!",
+      "lateGameStarted": "Giai đoạn tăng tốc bắt đầu! Tiền thuê tăng, lương giảm."
     },
     "property": {
       "owner": "Chủ sở hữu",

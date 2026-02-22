@@ -856,6 +856,8 @@
       "kungfu": "Kungfu",
       "fox": "Fox",
       "elephant": "Elephant",
+      "trau": "Buffalo",
+      "horse": "Horse",
       "characterTaken": "Taken by"
     },
     "settings": {
@@ -983,7 +985,9 @@
       "autoSoldTitle": "Auto Sold",
       "autoSoldHouse": "House",
       "autoSoldHotel": "Hotel",
-      "autoSoldTotal": "Total"
+      "autoSoldTotal": "Total",
+      "lateGameBadge": "Accelerated!",
+      "lateGameStarted": "Late-game acceleration active! Rents up, salary down."
     },
     "property": {
       "owner": "Owner",

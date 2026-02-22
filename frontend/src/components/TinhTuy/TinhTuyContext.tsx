@@ -70,6 +70,7 @@ const initialState: TinhTuyState = {
   lastDiceResult: null,
   diceAnimating: false,
   round: 0,
+  lateGameActive: false,
   pendingAction: null,
   festival: null,
   winner: null,
@@ -203,6 +204,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           round: g.round || 1,
           festival: g.festival || null,
           frozenProperties: g.frozenProperties || [],
+          lateGameActive: (g.round || 0) > 60,
           // Restore sell prompt on reconnect with AWAITING_SELL phase
           sellPrompt: g.turnPhase === 'AWAITING_SELL'
             ? { deficit: Math.abs(mapPlayers(g.players).find((p: any) => p.slot === g.currentPlayerSlot)?.points ?? 0) }
@@ -604,6 +606,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         displayPoints: {},  // Unfreeze — show real points alongside notifications
       };
     }
+
+    case 'LATE_GAME_STARTED':
+      return { ...state, lateGameActive: true };
 
     case 'TURN_CHANGED':
       // Queue turn change — applied after animations + modals + notifs settle
@@ -1533,6 +1538,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
     socket.on('tinh-tuy:go-bonus' as any, handleGoBonus);
+    socket.on('tinh-tuy:late-game-started' as any, () => dispatch({ type: 'LATE_GAME_STARTED' }));
     socket.on('tinh-tuy:room-created' as any, handleLobbyUpdated);
     socket.on('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
 
@@ -1578,6 +1584,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
       socket.off('tinh-tuy:go-bonus' as any, handleGoBonus);
+      socket.off('tinh-tuy:late-game-started' as any);
       socket.off('tinh-tuy:room-created' as any, handleLobbyUpdated);
       socket.off('tinh-tuy:lobby-room-updated' as any, handleLobbyUpdated);
     };

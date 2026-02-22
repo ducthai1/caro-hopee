@@ -9,7 +9,7 @@ import { ITinhTuyGame } from '../types/tinh-tuy.types';
 
 const TinhTuyPlayerSchema = new Schema({
   slot: { type: Number, required: true, min: 1, max: 4 },
-  character: { type: String, enum: ['shiba', 'kungfu', 'fox', 'elephant'], required: true },
+  character: { type: String, enum: ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse'], required: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   guestId: { type: String, default: null },
   guestName: { type: String, default: null, maxlength: 20 },

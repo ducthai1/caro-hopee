@@ -12,6 +12,7 @@ import {
   getNextActivePlayer, checkGameEnd, sendToIsland,
   handleIslandEscape, canBuildHouse, buildHouse, canBuildHotel, buildHotel,
   calculateRent, getSellPrice, getPropertyTotalSellValue, calculateSellableValue,
+  getEffectiveGoSalary, LATE_GAME_START,
 } from './tinh-tuy-engine';
 import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
@@ -202,6 +203,10 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
   const nextSlot = getNextActivePlayer(game.players, game.currentPlayerSlot);
   if (nextSlot <= game.currentPlayerSlot) {
     game.round += 1;
+    // Notify clients when late-game acceleration starts
+    if (game.round === LATE_GAME_START + 1) {
+      io.to(game.roomId).emit('tinh-tuy:late-game-started');
+    }
   }
 
   // Decrement frozen property turns only on real turn transitions (not skip recursion)
@@ -281,12 +286,13 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
         const oldPos = p.position;
         const passedGo = dest < oldPos;
         p.position = dest;
-        if (passedGo) p.points += GO_SALARY;
+        const goSalary = getEffectiveGoSalary(g.round || 1);
+        if (passedGo) p.points += goSalary;
         g.markModified('players');
         await g.save();
         io.to(g.roomId).emit('tinh-tuy:player-moved', {
           slot: p.slot, from: oldPos, to: dest,
-          passedGo, goBonus: passedGo ? GO_SALARY : 0, isTravel: true,
+          passedGo, goBonus: passedGo ? goSalary : 0, isTravel: true,
         });
         await resolveAndAdvance(io, g, p, dest, { dice1: 0, dice2: 0, total: 0, isDouble: false });
       } catch (err) { console.error('[tinh-tuy] Travel timeout:', err); }
@@ -916,13 +922,16 @@ function autoSellCheapest(
 const GO_BONUS_MIN = 3000;
 const GO_BONUS_MAX = 5000;
 
-/** Handle landing exactly on GO: random 3000-5000 TT bonus (multiples of 500) */
+/** Handle landing exactly on GO: random 3000-5000 TT bonus (multiples of 500), decayed in late-game */
 async function handleGoBonus(
   io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
 ): Promise<void> {
   const roomId = game.roomId;
   const steps = Math.floor((GO_BONUS_MAX - GO_BONUS_MIN) / 500) + 1; // 3000,3500,4000,4500,5000
-  const amount = GO_BONUS_MIN + crypto.randomInt(steps) * 500;
+  const baseAmount = GO_BONUS_MIN + crypto.randomInt(steps) * 500;
+  // Apply same GO salary decay to bonus
+  const decayFactor = getEffectiveGoSalary(game.round || 1) / GO_SALARY;
+  const amount = Math.floor(baseAmount * decayFactor);
 
   player.points += amount;
   game.markModified('players');
@@ -1225,12 +1234,13 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const oldPos = player.position;
           const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
           player.position = newPos;
-          if (passedGo) player.points += GO_SALARY;
+          const goSalary1 = getEffectiveGoSalary(game.round || 1);
+          if (passedGo) player.points += goSalary1;
           await game.save();
 
           io.to(roomId).emit('tinh-tuy:player-moved', {
             slot: player.slot, from: oldPos, to: newPos, passedGo,
-            goBonus: passedGo ? GO_SALARY : 0,
+            goBonus: passedGo ? goSalary1 : 0,
           });
 
           // Resolve landing cell
@@ -1276,7 +1286,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
       player.position = newPos;
 
-      if (passedGo) player.points += GO_SALARY;
+      const goSalary2 = getEffectiveGoSalary(game.round || 1);
+      if (passedGo) player.points += goSalary2;
 
       await game.save();
 
@@ -1284,7 +1295,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       io.to(roomId).emit('tinh-tuy:dice-result', dice);
       io.to(roomId).emit('tinh-tuy:player-moved', {
         slot: player.slot, from: oldPos, to: newPos, passedGo,
-        goBonus: passedGo ? GO_SALARY : 0,
+        goBonus: passedGo ? goSalary2 : 0,
       });
 
       // Resolve landing cell
@@ -1438,12 +1449,13 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const oldPos = player.position;
       const passedGo = cellIndex < oldPos; // forward wrap = passed GO
       player.position = cellIndex;
-      if (passedGo) player.points += GO_SALARY;
+      const goSalary3 = getEffectiveGoSalary(game.round || 1);
+      if (passedGo) player.points += goSalary3;
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:player-moved', {
         slot: player.slot, from: oldPos, to: cellIndex,
-        passedGo, goBonus: passedGo ? GO_SALARY : 0, isTravel: true,
+        passedGo, goBonus: passedGo ? goSalary3 : 0, isTravel: true,
       });
 
       // Resolve destination cell
