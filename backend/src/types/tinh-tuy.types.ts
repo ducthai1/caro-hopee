@@ -185,7 +185,8 @@ export type CardAction =
   | { type: 'MOVE_TO_FESTIVAL' }
   | { type: 'FREE_HOTEL' }
   | { type: 'BUY_BLOCKED'; turns: number }
-  | { type: 'EMINENT_DOMAIN' };
+  | { type: 'EMINENT_DOMAIN' }
+  | { type: 'GAIN_PER_GROUP'; amount: number };
 
 export interface ITinhTuyCard {
   id: string;
@@ -241,4 +242,6 @@ export interface CardEffectResult {
   buyBlockedTurns?: number;
   /** Eminent domain: force-bought property transfer */
   eminentDomain?: { fromSlot: number; toSlot: number; cellIndex: number; price: number; houses: number };
+  /** Zone bonus: number of completed groups (for UI display) */
+  completedGroups?: number;
 }

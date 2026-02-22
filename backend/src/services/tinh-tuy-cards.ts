@@ -5,7 +5,7 @@
  */
 import crypto from 'crypto';
 import { ITinhTuyCard, CardEffectResult, ITinhTuyGame, ITinhTuyPlayer } from '../types/tinh-tuy.types';
-import { BOARD_CELLS, BOARD_SIZE } from './tinh-tuy-board';
+import { BOARD_CELLS, BOARD_SIZE, PROPERTY_GROUPS, ownsFullGroup } from './tinh-tuy-board';
 import { getEffectiveGoSalary } from './tinh-tuy-engine';
 
 // ─── 16 Khi Van Cards ────────────────────────────────────────
@@ -122,6 +122,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'BUY_BLOCKED', turns: 2 } },
   { id: 'ch-30', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch30.name', descriptionKey: 'tinhTuy.cards.ch30.desc',
     action: { type: 'EMINENT_DOMAIN' } },
+  { id: 'ch-31', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch31.name', descriptionKey: 'tinhTuy.cards.ch31.desc',
+    action: { type: 'GAIN_PER_GROUP', amount: 1500 } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -510,6 +512,16 @@ export function executeCardEffect(
         result.requiresChoice = 'EMINENT_DOMAIN';
         result.targetableCells = affordableProps;
       }
+      break;
+    }
+
+    case 'GAIN_PER_GROUP': {
+      // Gain points for each completed color group the player owns
+      const allGroups = Object.keys(PROPERTY_GROUPS) as Array<keyof typeof PROPERTY_GROUPS>;
+      const completed = allGroups.filter(g => ownsFullGroup(g, player.properties));
+      const bonus = completed.length * action.amount;
+      if (bonus > 0) result.pointsChanged[playerSlot] = bonus;
+      result.completedGroups = completed.length;
       break;
     }
 

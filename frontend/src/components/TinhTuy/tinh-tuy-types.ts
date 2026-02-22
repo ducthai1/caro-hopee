@@ -237,6 +237,7 @@ export interface TinhTuyState {
     teleportAll?: Array<{ slot: number; to: number }>;
     movedToFestival?: boolean;
     festivalCellIndex?: number;
+    completedGroups?: number;
   } | null;
   /** Queued bankruptcy alert — shown after rent/tax alerts */
   queuedBankruptAlert: number | null;

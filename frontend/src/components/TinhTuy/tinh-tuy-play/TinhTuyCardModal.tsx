@@ -419,6 +419,23 @@ export const TinhTuyCardModal: React.FC = () => {
                   ))}
                 </Box>
               )}
+
+              {/* ─── Zone bonus: completed groups count ─── */}
+              {extra?.completedGroups != null && (
+                <Box sx={{
+                  mt: 2, px: 2, py: 1.5, borderRadius: 2,
+                  bgcolor: extra.completedGroups > 0 ? 'rgba(46, 204, 113, 0.15)' : 'rgba(149, 165, 166, 0.12)',
+                  border: `2px solid ${extra.completedGroups > 0 ? 'rgba(46, 204, 113, 0.5)' : 'rgba(149, 165, 166, 0.4)'}`,
+                  animation: extra.completedGroups > 0 ? 'tt-travel-pulse 1.5s ease-in-out infinite' : 'none',
+                }}>
+                  <Typography variant="body2" sx={{
+                    color: extra.completedGroups > 0 ? '#27ae60' : '#7f8c8d',
+                    fontWeight: 800, fontSize: '1.1rem',
+                  }}>
+                    {extra.completedGroups > 0 ? '🎯' : '😢'} {(t as any)('tinhTuy.cards.zoneBonusResult', { groups: extra.completedGroups })}
+                  </Typography>
+                </Box>
+              )}
             </div>
           </div>
         </div>

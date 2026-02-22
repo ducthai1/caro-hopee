@@ -948,7 +948,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         effect?.randomSteps != null || effect?.randomPoints != null || effect?.gambleWon != null ||
         (effect?.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
         effect?.underdogBoosted != null || effect?.extraTurn || effect?.wealthTransfer ||
-        (effect?.teleportAll && effect.teleportAll.length > 0) || effect?.movedToFestival;
+        (effect?.teleportAll && effect.teleportAll.length > 0) || effect?.movedToFestival ||
+        effect?.completedGroups != null;
       const extraInfo: TinhTuyState['cardExtraInfo'] = hasExtra
           ? {
             swapTargetSlot: effect.swapPosition?.targetSlot,
@@ -967,6 +968,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             teleportAll: effect.teleportAll,
             movedToFestival: effect.movedToFestival,
             festivalCellIndex: effect.playerMoved?.to,
+            completedGroups: effect.completedGroups,
           } : null;
       return {
         ...state, players: updated, drawnCard: card, pendingCardMove: cardMove,

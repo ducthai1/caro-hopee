@@ -1109,6 +1109,8 @@
       "buyBlockHint": "Chọn đối thủ để phong tỏa mua bán ({{turns}} vòng)",
       "ch30": { "name": "Trưng Thu", "desc": "Mua CƯỠNG CHẾ 1 đất đối thủ (không hotel) theo giá gốc!" },
       "eminentDomainHint": "Chọn đất đối thủ để trưng thu theo giá gốc",
+      "ch31": { "name": "Tiền Thưởng Khu Vực", "desc": "Nhận 1,500 TT cho MỖI nhóm màu bạn sở hữu đầy đủ!" },
+      "zoneBonusResult": "{{groups}} combo hoàn thành!",
       "frozenRent": "Đóng băng"
     },
     "cells": {
