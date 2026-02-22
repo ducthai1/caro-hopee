@@ -94,11 +94,11 @@ export const TinhTuyCardModal: React.FC = () => {
       fullWidth
       TransitionProps={{ timeout: 400 }}
       PaperProps={{
-        sx: { borderRadius: 3, overflow: 'visible', background: 'none', boxShadow: 'none', border: 0, outline: 'none' },
+        sx: { borderRadius: 3, overflow: 'visible', background: 'none', boxShadow: 'none', border: 0, outline: 'none', pointerEvents: 'none' },
       }}
       slotProps={{ backdrop: { sx: { bgcolor: 'rgba(0,0,0,0.5)' } } }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 2, pointerEvents: 'auto', cursor: 'pointer' }} onClick={clearCard}>
         <div className="tt-card-flip-container">
           <div className={`tt-card-inner ${flipped ? 'flipped' : ''}`}>
             {/* Back face */}
