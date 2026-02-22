@@ -960,6 +960,8 @@
       "sellSelect": "Bán",
       "sellSelected": "Đã chọn",
       "sellSelectAll": "Chọn tất cả",
+      "sellBankruptWarning": "Bán hết cũng không đủ trả nợ. Bạn sẽ phá sản!",
+      "sellConfirmBankrupt": "Bán & Phá sản",
       "sellAutoTimeout": "Hết giờ - tự động bán",
       "attackDestroyTitle": "Phá Hủy Đất",
       "attackDowngradeTitle": "Hạ Cấp Nhà",

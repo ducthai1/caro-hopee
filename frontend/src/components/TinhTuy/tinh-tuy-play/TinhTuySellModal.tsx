@@ -45,7 +45,7 @@ export const TinhTuySellModal: React.FC = () => {
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
 
-  // Reset selections when a new sell session starts (sp changes from null → object)
+  // Reset selections when a new sell session starts
   useEffect(() => {
     if (sp) setSelections([]);
   }, [sp]);
@@ -99,6 +99,16 @@ export const TinhTuySellModal: React.FC = () => {
     return items;
   }, [myPlayer, sp]);
 
+  // Auto-select all properties when can't cover debt
+  useEffect(() => {
+    if (sp?.canCoverDebt === false && sellableItems.length > 0 && selections.length === 0) {
+      const allProps: SellSelection[] = sellableItems
+        .filter(i => i.type === 'property')
+        .map(i => ({ cellIndex: i.cellIndex, type: 'property' as SellType, count: 1 }));
+      setSelections(allProps);
+    }
+  }, [sp, sellableItems, selections.length]);
+
   // Calculate total sell value
   const totalSellValue = useMemo(() => {
     let total = 0;
@@ -118,7 +128,9 @@ export const TinhTuySellModal: React.FC = () => {
   }, [selections, sellableItems, propertySellSet]);
 
   const deficit = sp?.deficit ?? 0;
-  const canConfirm = totalSellValue >= deficit;
+  const canCoverDebt = sp?.canCoverDebt ?? true;
+  // When can't cover debt: allow confirming once player selects any items (will go bankrupt after)
+  const canConfirm = canCoverDebt ? totalSellValue >= deficit : totalSellValue > 0;
   const progress = deficit > 0 ? Math.min((totalSellValue / deficit) * 100, 100) : 0;
 
   const getSelCount = (cellIndex: number, type: SellType) => {
@@ -328,10 +340,19 @@ export const TinhTuySellModal: React.FC = () => {
           })}
         </Box>
 
+        {/* Bankruptcy warning */}
+        {!canCoverDebt && (
+          <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 2, bgcolor: 'rgba(231,76,60,0.08)', border: '1px solid rgba(231,76,60,0.25)' }}>
+            <Typography variant="caption" sx={{ color: '#e74c3c', fontWeight: 700 }}>
+              {t('tinhTuy.game.sellBankruptWarning' as any)}
+            </Typography>
+          </Box>
+        )}
+
         {/* Progress bar */}
         <Box sx={{ mt: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: canConfirm ? '#27ae60' : '#e67e22' }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: !canCoverDebt ? '#e74c3c' : canConfirm ? '#27ae60' : '#e67e22' }}>
               {t('tinhTuy.game.sellTotal' as any)}: {totalSellValue.toLocaleString()} TT
             </Typography>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#e74c3c' }}>
@@ -345,7 +366,7 @@ export const TinhTuySellModal: React.FC = () => {
               height: 8, borderRadius: 4,
               bgcolor: 'rgba(0,0,0,0.08)',
               '& .MuiLinearProgress-bar': {
-                bgcolor: canConfirm ? '#27ae60' : '#e67e22',
+                bgcolor: !canCoverDebt ? '#e74c3c' : canConfirm ? '#27ae60' : '#e67e22',
                 borderRadius: 4,
               },
             }}
@@ -369,7 +390,7 @@ export const TinhTuySellModal: React.FC = () => {
             fontWeight: 700, py: 1,
           }}
         >
-          {t('tinhTuy.game.sellConfirm' as any)}
+          {canCoverDebt ? t('tinhTuy.game.sellConfirm' as any) : t('tinhTuy.game.sellConfirmBankrupt' as any)}
         </Button>
       </DialogActions>
     </Dialog>

@@ -653,6 +653,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         sellPrompt: null,
         buybackPrompt: null,
         attackPrompt: null,
+        // Clear card-choice prompts from the previous turn to prevent stale modals
+        // from blocking the next turn's roll button (e.g. forced trade timeout with no valid trade)
+        forcedTradePrompt: null,
+        rentFreezePrompt: null,
         // Only clear GO bonus prompt when the current player actually changes
         // (prevents doubles extra turn from dismissing the GO bonus modal)
         goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
@@ -1185,7 +1189,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, travelPendingSlot: null };
 
     case 'SELL_PROMPT':
-      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit, sellPrices: action.payload.sellPrices }, queuedTurnChange: null };
+      return { ...state, queuedSellPrompt: { deficit: action.payload.deficit, sellPrices: action.payload.sellPrices, canCoverDebt: action.payload.canCoverDebt ?? true }, queuedTurnChange: null };
 
     case 'APPLY_QUEUED_SELL':
       return { ...state, turnPhase: 'AWAITING_SELL', sellPrompt: state.queuedSellPrompt, queuedSellPrompt: null };

@@ -190,9 +190,9 @@ export interface TinhTuyState {
   /** Queued island alert — shown after movement animation finishes */
   queuedIslandAlert: number | null;
   /** Sell prompt — shown when player must sell buildings to cover debt */
-  sellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } | null;
+  sellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }>; canCoverDebt?: boolean } | null;
   /** Queued sell prompt — applied after animation settles */
-  queuedSellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } | null;
+  queuedSellPrompt: { deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }>; canCoverDebt?: boolean } | null;
   /** Travel pending alert — shown when landing on Travel cell */
   travelPendingSlot: number | null;
   /** Queued travel pending — applied after movement animation finishes */
@@ -315,7 +315,7 @@ export type TinhTuyAction =
   | { type: 'BUILD_PROMPT'; payload: { cellIndex: number; canBuildHouse: boolean; houseCost: number; canBuildHotel: boolean; hotelCost: number; currentHouses: number; hasHotel: boolean } }
   | { type: 'APPLY_QUEUED_BUILD' }
   | { type: 'CLEAR_BUILD_PROMPT' }
-  | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }> } }
+  | { type: 'SELL_PROMPT'; payload: { slot: number; deficit: number; sellPrices?: Record<string, { property: number; house: number; hotel: number }>; canCoverDebt?: boolean } }
   | { type: 'BUILDINGS_SOLD'; payload: { slot: number; newPoints: number; houses: Record<string, number>; hotels: Record<string, boolean>; properties?: number[]; autoSold?: Array<{ cellIndex: number; type: string; price: number }>; festival?: { slot: number; cellIndex: number; multiplier: number } | null } }
   | { type: 'APPLY_QUEUED_SELL' }
   | { type: 'TRAVEL_PENDING'; payload: { slot: number } }

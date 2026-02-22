@@ -63,13 +63,14 @@ async function checkBankruptcy(
     const completedRounds = Math.max((game.round || 1) - 1, 0);
     const sellableValue = calculateSellableValue(player, completedRounds);
     const deficit = Math.abs(player.points);
-    if (sellableValue >= deficit) {
-      // Enter sell phase — player must sell buildings
+    if (sellableValue > 0) {
+      // Enter sell phase — player must sell buildings (may still go bankrupt if can't cover)
       game.turnPhase = 'AWAITING_SELL';
       await game.save();
       // Send exact sell prices so frontend matches backend calculations
       const sellPrices = buildSellPricesMap(player, completedRounds);
-      io.to(game.roomId).emit('tinh-tuy:sell-prompt', { slot: player.slot, deficit, sellPrices });
+      const canCoverDebt = sellableValue >= deficit;
+      io.to(game.roomId).emit('tinh-tuy:sell-prompt', { slot: player.slot, deficit, sellPrices, canCoverDebt });
       // Start timer — auto-sell cheapest on timeout
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
         try {
@@ -78,8 +79,6 @@ async function checkBankruptcy(
           const p = g.players.find(pp => pp.slot === player.slot);
           if (!p) return;
           const soldItems = autoSellCheapest(g, p);
-          g.turnPhase = 'END_TURN';
-          await g.save();
           io.to(game.roomId).emit('tinh-tuy:buildings-sold', {
             slot: p.slot, newPoints: p.points,
             houses: { ...p.houses }, hotels: { ...p.hotels },
@@ -87,6 +86,36 @@ async function checkBankruptcy(
             autoSold: soldItems,
             festival: g.festival,
           });
+          // Still in debt after selling everything → bankruptcy
+          if (p.points < 0) {
+            p.isBankrupt = true;
+            p.points = 0;
+            p.properties = [];
+            p.houses = {} as Record<string, number>;
+            p.hotels = {} as Record<string, boolean>;
+            if (g.festival && g.festival.slot === p.slot) {
+              g.festival = null;
+              g.markModified('festival');
+            }
+            if (g.frozenProperties?.length) {
+              g.frozenProperties = g.frozenProperties.filter((fp: any) =>
+                g.players.some(pl => !pl.isBankrupt && pl.properties.includes(fp.cellIndex)));
+              g.markModified('frozenProperties');
+            }
+            g.markModified('players');
+            g.turnPhase = 'END_TURN';
+            await g.save();
+            io.to(game.roomId).emit('tinh-tuy:player-bankrupt', { slot: p.slot });
+            const endCheck = checkGameEnd(g);
+            if (endCheck.ended) {
+              await finishGame(io, g, endCheck.winner, endCheck.reason || 'lastStanding');
+            } else {
+              await advanceTurn(io, g);
+            }
+            return;
+          }
+          g.turnPhase = 'END_TURN';
+          await g.save();
           await advanceTurnOrDoubles(io, g, p);
         } catch (err) { console.error('[tinh-tuy] Sell timeout:', err); }
       });
@@ -420,13 +449,21 @@ async function handleCardDraw(
   let deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
   let currentIndex = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
 
-  // Safety: rebuild deck if empty or index corrupted
-  if (!deck || deck.length === 0 || typeof currentIndex !== 'number' || isNaN(currentIndex)) {
+  // Safety: rebuild deck if empty, corrupted, or contains invalid entries
+  const deckCorrupted = !deck || deck.length === 0
+    || typeof currentIndex !== 'number' || isNaN(currentIndex)
+    || deck.some((id: any) => !id || typeof id !== 'string');
+  if (deckCorrupted) {
     console.warn(`[tinh-tuy:handleCardDraw] ${cellType} deck invalid for room ${game.roomId} (deckLen=${deck?.length}, idx=${currentIndex}) — rebuilding`);
     deck = shuffleDeck(isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds());
     currentIndex = 0;
-    if (isKhiVan) { game.luckCardDeck = deck; game.luckCardIndex = 0; }
-    else { game.opportunityCardDeck = deck; game.opportunityCardIndex = 0; }
+    if (isKhiVan) {
+      game.luckCardDeck = deck; game.luckCardIndex = 0;
+      game.markModified('luckCardDeck'); game.markModified('luckCardIndex');
+    } else {
+      game.opportunityCardDeck = deck; game.opportunityCardIndex = 0;
+      game.markModified('opportunityCardDeck'); game.markModified('opportunityCardIndex');
+    }
   }
 
   const { cardId, newIndex, reshuffle } = drawCard(deck, currentIndex, isKhiVan);
@@ -453,8 +490,21 @@ async function handleCardDraw(
 
   const card = getCardById(cardId);
   if (!card) {
-    // Safety fallback — no card found, skip
-    console.error(`[tinh-tuy:handleCardDraw] Card not found: ${cardId}, deck: [${deck.slice(0, 5).join(',')}...], index: ${currentIndex}, room: ${game.roomId}`);
+    console.error(`[tinh-tuy:handleCardDraw] Card not found: "${cardId}", deck: [${deck.slice(0, 5).join(',')}...], index: ${currentIndex}, room: ${game.roomId}`);
+    // Rebuild the entire deck from source and retry once (depth guard prevents infinite loop)
+    if (depth < 1) {
+      const freshDeck = shuffleDeck(isKhiVan ? getKhiVanDeckIds() : getCoHoiDeckIds());
+      if (isKhiVan) {
+        game.luckCardDeck = freshDeck; game.luckCardIndex = 0;
+        game.markModified('luckCardDeck'); game.markModified('luckCardIndex');
+      } else {
+        game.opportunityCardDeck = freshDeck; game.opportunityCardIndex = 0;
+        game.markModified('opportunityCardDeck'); game.markModified('opportunityCardIndex');
+      }
+      await game.save();
+      return handleCardDraw(io, game, player, cellType, depth + 1);
+    }
+    // Final fallback — skip card draw
     game.turnPhase = 'END_TURN';
     await game.save();
     return;
@@ -762,9 +812,10 @@ async function handleCardDraw(
           if (!g.frozenProperties) g.frozenProperties = [];
           // Remove existing freeze on same cell, add new
           g.frozenProperties = g.frozenProperties.filter((fp: any) => fp.cellIndex !== target);
-          g.frozenProperties.push({ cellIndex: target, turnsRemaining: 2 });
+          // +1 to compensate for the immediate advanceTurn decrement that follows
+          g.frozenProperties.push({ cellIndex: target, turnsRemaining: 3 });
           g.markModified('frozenProperties');
-          io.to(g.roomId).emit('tinh-tuy:rent-frozen', { cellIndex: target, turnsRemaining: 2, frozenProperties: g.frozenProperties });
+          io.to(g.roomId).emit('tinh-tuy:rent-frozen', { cellIndex: target, turnsRemaining: 3, frozenProperties: g.frozenProperties });
         }
         g.turnPhase = 'END_TURN';
         g.markModified('players');
@@ -801,6 +852,11 @@ async function handleCardDraw(
           const myCell = myProps[crypto.randomInt(0, myProps.length)];
           const oppCell = oppProps[crypto.randomInt(0, oppProps.length)];
           applyForcedTrade(g, p.slot, myCell, oppCell, io);
+        } else {
+          // No valid trade — still emit forced-trade-done so frontend clears the prompt
+          io.to(g.roomId).emit('tinh-tuy:forced-trade-done', {
+            traderSlot: p.slot, traderCell: -1, victimSlot: -1, victimCell: -1, skipped: true,
+          });
         }
         g.turnPhase = 'END_TURN';
         g.markModified('players');
@@ -1842,13 +1898,14 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       clearTurnTimer(roomId);
       if (!game.frozenProperties) game.frozenProperties = [];
       game.frozenProperties = game.frozenProperties.filter((fp: any) => fp.cellIndex !== cellIndex);
-      game.frozenProperties.push({ cellIndex, turnsRemaining: 2 });
+      // +1 to compensate for the immediate advanceTurn decrement that follows
+      game.frozenProperties.push({ cellIndex, turnsRemaining: 3 });
       game.markModified('frozenProperties');
       game.turnPhase = 'END_TURN';
       game.markModified('players');
       await game.save();
 
-      io.to(roomId).emit('tinh-tuy:rent-frozen', { cellIndex, turnsRemaining: 2, frozenProperties: game.frozenProperties });
+      io.to(roomId).emit('tinh-tuy:rent-frozen', { cellIndex, turnsRemaining: 3, frozenProperties: game.frozenProperties });
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
     } catch (err: any) {
@@ -2090,9 +2147,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         }
       }
 
-      // Must cover deficit
+      // Must cover deficit — only reject if player COULD cover by selling more
       const deficit = Math.abs(player.points);
-      if (totalSellValue < deficit) {
+      const totalSellable = calculateSellableValue(player, completedRounds);
+      if (totalSellValue < deficit && totalSellable >= deficit) {
         return callback({ success: false, error: 'insufficientSell' });
       }
 
@@ -2132,11 +2190,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         }
       }
       player.points += totalSellValue;
-
       clearTurnTimer(roomId);
-      game.turnPhase = 'END_TURN';
-      game.markModified('players');
-      await game.save();
 
       io.to(roomId).emit('tinh-tuy:buildings-sold', {
         slot: player.slot, newPoints: player.points,
@@ -2145,6 +2199,39 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         festival: game.festival,
       });
 
+      // Still in debt after selling → bankruptcy
+      if (player.points < 0) {
+        player.isBankrupt = true;
+        player.points = 0;
+        player.properties = [];
+        player.houses = {} as Record<string, number>;
+        player.hotels = {} as Record<string, boolean>;
+        if (game.festival && game.festival.slot === player.slot) {
+          game.festival = null;
+          game.markModified('festival');
+        }
+        if (game.frozenProperties?.length) {
+          game.frozenProperties = game.frozenProperties.filter((fp: any) =>
+            game.players.some(p => !p.isBankrupt && p.properties.includes(fp.cellIndex)));
+          game.markModified('frozenProperties');
+        }
+        game.markModified('players');
+        game.turnPhase = 'END_TURN';
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:player-bankrupt', { slot: player.slot });
+        const endCheck = checkGameEnd(game);
+        if (endCheck.ended) {
+          await finishGame(io, game, endCheck.winner, endCheck.reason || 'lastStanding');
+        } else {
+          await advanceTurn(io, game);
+        }
+        callback({ success: true });
+        return;
+      }
+
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
     } catch (err: any) {
