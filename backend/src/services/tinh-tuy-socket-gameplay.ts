@@ -140,11 +140,6 @@ export function getPlayerBuffs(game: ITinhTuyGame): Array<{
 async function advanceTurnOrDoubles(
   io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer
 ): Promise<void> {
-  // Decrement doubleRent buff if active
-  if (player.doubleRentTurns && player.doubleRentTurns > 0) {
-    player.doubleRentTurns--;
-  }
-
   // Skip-next-turn flag (from card)
   if (player.skipNextTurn) {
     player.skipNextTurn = false;
@@ -222,8 +217,13 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
   game.lastDiceResult = null;
   game.markModified('lastDiceResult');
 
-  // Check skip-next-turn for the next player
+  // Check next player & decrement per-turn buffs at the START of their turn
   const nextPlayer = game.players.find(p => p.slot === nextSlot);
+
+  // Decrement doubleRent buff when the player's own turn comes around
+  if (nextPlayer?.doubleRentTurns && nextPlayer.doubleRentTurns > 0) {
+    nextPlayer.doubleRentTurns--;
+  }
 
   // skipNextTurn takes priority — keep pendingTravel for next non-skipped turn
   if (nextPlayer?.skipNextTurn) {

@@ -137,6 +137,9 @@ const PlayerCard: React.FC<{
     {/* Active buffs / held cards */}
     {!player.isBankrupt && (player.cards?.length > 0 || player.immunityNextRent || player.doubleRentTurns > 0 || player.skipNextTurn) && (
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+        {player.cards?.includes('shield') && (
+          <Chip label={`🛡️ ${t('tinhTuy.game.buffShield')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(52,152,219,0.12)', color: '#2980b9' }} />
+        )}
         {player.cards?.includes('escape-island') && (
           <Chip label={`🃏 ${t('tinhTuy.game.buffEscapeIsland')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(39,174,96,0.12)', color: '#27ae60' }} />
         )}
