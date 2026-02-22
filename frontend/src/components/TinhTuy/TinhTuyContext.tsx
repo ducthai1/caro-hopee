@@ -104,6 +104,7 @@ const initialState: TinhTuyState = {
   travelPendingSlot: null,
   queuedTravelPending: null,
   freeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
+  queuedFreeHousePrompt: null as { slot: number; buildableCells: number[] } | null,
   pendingCardEffect: null,
   queuedBankruptAlert: null,
   bankruptAlert: null,
@@ -114,6 +115,7 @@ const initialState: TinhTuyState = {
   buybackPrompt: null,
   queuedBuybackPrompt: null,
   goBonusPrompt: null,
+  queuedGoBonus: null as { slot: number; bonusType: 'BONUS_POINTS' | 'FREE_HOUSE'; amount?: number } | null,
   autoSoldAlert: null as { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null,
   forcedTradePrompt: null,
   frozenProperties: [],
@@ -656,6 +658,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         // Only clear GO bonus prompt when the current player actually changes
         // (prevents doubles extra turn from dismissing the GO bonus modal)
         goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
+        queuedGoBonus: qtc.currentSlot !== state.currentPlayerSlot ? null : state.queuedGoBonus,
+        queuedFreeHousePrompt: null,
         queuedTurnChange: null,
         queuedAction: null,
         queuedBuildPrompt: null,
@@ -1172,25 +1176,34 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, buildPrompt: null };
 
     case 'FREE_HOUSE_PROMPT':
-      return { ...state, freeHousePrompt: action.payload, queuedTurnChange: null };
+      // Queue — show after walk animation + card modal + go bonus modal finish
+      return { ...state, queuedFreeHousePrompt: action.payload, queuedTurnChange: null };
+
+    case 'APPLY_QUEUED_FREE_HOUSE_PROMPT':
+      if (!state.queuedFreeHousePrompt) return state;
+      return { ...state, freeHousePrompt: state.queuedFreeHousePrompt, queuedFreeHousePrompt: null };
 
     case 'CLEAR_FREE_HOUSE_PROMPT':
       return { ...state, freeHousePrompt: null };
 
     case 'GO_BONUS': {
-      // GO bonus: BONUS_POINTS gives random TT, FREE_HOUSE triggers free-house-prompt
+      // Queue GO bonus — show after walk animation finishes
       const gbSlot = action.payload.slot;
       const gbAmt = action.payload.bonusType === 'BONUS_POINTS' ? (action.payload.amount || 0) : 0;
       const dpGb = gbAmt ? freezePoints(state) : state.displayPoints;
       return {
         ...state,
-        goBonusPrompt: action.payload,
+        queuedGoBonus: action.payload,
         queuedTurnChange: null,
         players: gbAmt ? state.players.map(p => p.slot === gbSlot ? { ...p, points: p.points + gbAmt } : p) : state.players,
         displayPoints: dpGb,
         pendingNotifs: gbAmt ? queueNotifs(state.pendingNotifs, [{ slot: gbSlot, amount: gbAmt }]) : state.pendingNotifs,
       };
     }
+
+    case 'APPLY_QUEUED_GO_BONUS':
+      if (!state.queuedGoBonus) return state;
+      return { ...state, goBonusPrompt: state.queuedGoBonus, queuedGoBonus: null };
 
     case 'CLEAR_GO_BONUS':
       return { ...state, goBonusPrompt: null };
@@ -2116,6 +2129,20 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const timer = setTimeout(() => dispatch({ type: 'DICE_ANIM_DONE' }), 2300);
     return () => clearTimeout(timer);
   }, [state.diceAnimating]);
+
+  // Apply queued GO bonus after walk animation finishes (wait for pendingMove + animatingToken only)
+  useEffect(() => {
+    if (!state.queuedGoBonus) return;
+    if (state.pendingMove || state.animatingToken) return;
+    dispatch({ type: 'APPLY_QUEUED_GO_BONUS' });
+  }, [state.queuedGoBonus, state.pendingMove, state.animatingToken]);
+
+  // Apply queued free-house prompt after walk + card modal + go bonus modal finish
+  useEffect(() => {
+    if (!state.queuedFreeHousePrompt) return;
+    if (state.pendingMove || state.animatingToken || state.drawnCard || state.goBonusPrompt) return;
+    dispatch({ type: 'APPLY_QUEUED_FREE_HOUSE_PROMPT' });
+  }, [state.queuedFreeHousePrompt, state.pendingMove, state.animatingToken, state.drawnCard, state.goBonusPrompt]);
 
   // Apply queued travel prompt after movement animation finishes
   useEffect(() => {

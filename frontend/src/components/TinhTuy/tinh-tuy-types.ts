@@ -199,6 +199,8 @@ export interface TinhTuyState {
   queuedTravelPending: number | null;
   /** Free house prompt — player chooses which property gets a free house (from card) */
   freeHousePrompt: { slot: number; buildableCells: number[] } | null;
+  /** Queued free house prompt — applied after walk + card modal + go bonus finish */
+  queuedFreeHousePrompt: { slot: number; buildableCells: number[] } | null;
   /** Deferred card effects — applied only when card modal is dismissed (prevents spoilers) */
   pendingCardEffect: {
     slot: number;
@@ -249,6 +251,8 @@ export interface TinhTuyState {
   queuedBuybackPrompt: TinhTuyState['buybackPrompt'];
   /** GO bonus prompt — shown when landing exactly on GO */
   goBonusPrompt: { slot: number; bonusType: 'BONUS_POINTS' | 'FREE_HOUSE'; amount?: number } | null;
+  /** Queued GO bonus — applied after walk animation finishes */
+  queuedGoBonus: { slot: number; bonusType: 'BONUS_POINTS' | 'FREE_HOUSE'; amount?: number } | null;
   /** Auto-sold alert — shown when timeout auto-sells buildings/properties */
   autoSoldAlert: { slot: number; items: Array<{ cellIndex: number; type: string; price: number }> } | null;
   /** Forced trade prompt — player picks own property + opponent property to swap */
@@ -322,6 +326,7 @@ export type TinhTuyAction =
   | { type: 'APPLY_QUEUED_TRAVEL_PENDING' }
   | { type: 'CLEAR_TRAVEL_PENDING' }
   | { type: 'FREE_HOUSE_PROMPT'; payload: { slot: number; buildableCells: number[] } }
+  | { type: 'APPLY_QUEUED_FREE_HOUSE_PROMPT' }
   | { type: 'CLEAR_FREE_HOUSE_PROMPT' }
   | { type: 'DICE_ANIM_DONE' }
   | { type: 'APPLY_QUEUED_BANKRUPT_ALERT' }
@@ -339,6 +344,7 @@ export type TinhTuyAction =
   | { type: 'FORCE_CLEAR_ANIM' }
   | { type: 'ROOM_RESET'; payload: { game: any } }
   | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'BONUS_POINTS' | 'FREE_HOUSE'; amount?: number } }
+  | { type: 'APPLY_QUEUED_GO_BONUS' }
   | { type: 'CLEAR_GO_BONUS' }
   | { type: 'CLEAR_AUTO_SOLD' }
   | { type: 'CARD_DESTINATION_PROMPT'; payload: { slot: number } }

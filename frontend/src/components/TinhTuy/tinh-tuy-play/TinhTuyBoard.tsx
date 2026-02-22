@@ -151,7 +151,7 @@ export const TinhTuyBoard: React.FC = () => {
             gap: '2px',
             aspectRatio: '1',
             width: '100%',
-            maxWidth: 'min(88vw, 88vh, 780px)',
+            maxWidth: 'min(88vw, 88vh, 1200px)',
             mx: 'auto',
             overflow: 'visible',
           }}
