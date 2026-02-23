@@ -203,10 +203,13 @@ export const TinhTuyBoard: React.FC = () => {
             const cellGroup = playersPerCell.get(cellIdx) || [slot];
             const indexInGroup = cellGroup.indexOf(slot);
             const isAnim = state.animatingToken?.slot === slot;
+            const isSwapping = !!(state.pendingSwapAnim &&
+              (slot === state.pendingSwapAnim.slot || slot === state.pendingSwapAnim.targetSlot));
             const offsets = getTokenOffset(indexInGroup, cellGroup.length);
             return (
               <Box
                 key={`token-${slot}`}
+                className={isSwapping ? 'tt-swap-pulse' : undefined}
                 sx={{
                   gridColumn: cellPos.col,
                   gridRow: cellPos.row,

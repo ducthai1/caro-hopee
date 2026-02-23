@@ -109,6 +109,7 @@ const initialState: TinhTuyState = {
   freeHotelPrompt: null as { slot: number; buildableCells: number[] } | null,
   queuedFreeHotelPrompt: null as { slot: number; buildableCells: number[] } | null,
   pendingCardEffect: null,
+  pendingSwapAnim: null,
   queuedBankruptAlert: null,
   bankruptAlert: null,
   monopolyAlert: null,
@@ -256,7 +257,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         festival: g.festival || null,
         frozenProperties: g.frozenProperties || [],
         lastDiceResult: null, diceAnimating: false, pendingAction: null, winner: null,
-        pendingCardEffect: null, gameEndReason: null,
+        pendingCardEffect: null, pendingSwapAnim: null, gameEndReason: null,
         queuedBankruptAlert: null, bankruptAlert: null, monopolyAlert: null, queuedGameFinished: null, attackPrompt: null, attackAlert: null, buybackPrompt: null, queuedBuybackPrompt: null,
       };
     }
@@ -309,14 +310,17 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === fcEff.slot ? { ...p, skipNextTurn: true } : p
           );
         }
-        // Previously missing — must match CLEAR_CARD logic
+        // Swap: restore pre-swap positions, defer actual swap via pendingSwapAnim (matches CLEAR_CARD)
         if (fcEff.swapPosition) {
           const sw = fcEff.swapPosition;
-          fcPlayers = fcPlayers.map(p => {
-            if (p.slot === sw.slot) return { ...p, position: sw.myNewPos };
-            if (p.slot === sw.targetSlot) return { ...p, position: sw.targetNewPos };
-            return p;
-          });
+          const oldPos = fcEff.swapOldPositions;
+          if (oldPos) {
+            fcPlayers = fcPlayers.map(p => {
+              if (p.slot === sw.slot) return { ...p, position: oldPos.myOldPos };
+              if (p.slot === sw.targetSlot) return { ...p, position: oldPos.targetOldPos };
+              return p;
+            });
+          }
         }
         if (fcEff.stolenProperty) {
           const st = fcEff.stolenProperty;
@@ -375,6 +379,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         diceAnimating: false, drawnCard: null, animatingToken: null,
         houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
         pendingMove: fcPendingMove,
+        pendingSwapAnim: fcEff?.swapPosition ? {
+          slot: fcEff.swapPosition.slot, targetSlot: fcEff.swapPosition.targetSlot,
+          myNewPos: fcEff.swapPosition.myNewPos, targetNewPos: fcEff.swapPosition.targetNewPos,
+        } : null,
       };
     }
 
@@ -733,10 +741,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         rentFreezePrompt: null,
         buyBlockPrompt: null,
         eminentDomainPrompt: null,
-        // Only clear GO bonus prompt when the current player actually changes
-        // (prevents doubles extra turn from dismissing the GO bonus modal)
-        goBonusPrompt: qtc.currentSlot !== state.currentPlayerSlot ? null : state.goBonusPrompt,
-        queuedGoBonus: qtc.currentSlot !== state.currentPlayerSlot ? null : state.queuedGoBonus,
+        // GO bonus modal has its own auto-dismiss timer (CLEAR_GO_BONUS) — do NOT
+        // clear it here, because turn-changed arrives right after go-bonus and would
+        // kill the modal before the user sees it.
         queuedFreeHousePrompt: null,
         queuedFreeHotelPrompt: null,
         queuedTurnChange: null,
@@ -986,6 +993,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         goToIsland: effect.goToIsland,
         houseRemoved: effect.houseRemoved,
         swapPosition: effect.swapPosition,
+        swapOldPositions: effect.swapPosition ? {
+          myOldPos: state.players.find(p => p.slot === slot)?.position ?? 0,
+          targetOldPos: state.players.find(p => p.slot === effect.swapPosition!.targetSlot)?.position ?? 0,
+        } : undefined,
         stolenProperty: effect.stolenProperty,
         allHousesRemoved: effect.allHousesRemoved,
       } : null;
@@ -1049,6 +1060,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         );
       }
       const eff = state.pendingCardEffect;
+      let clearSwapAnim: TinhTuyState['pendingSwapAnim'] = null;
       if (eff) {
         if (eff.cardHeld) {
           clearPlayers = clearPlayers.map(p =>
@@ -1079,13 +1091,19 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === eff.slot ? { ...p, skipNextTurn: true } : p
           );
         }
+        // Swap: restore pre-swap positions (defense against early position leak),
+        // then defer the actual position swap via pendingSwapAnim
         if (eff.swapPosition) {
           const sw = eff.swapPosition;
-          clearPlayers = clearPlayers.map(p => {
-            if (p.slot === sw.slot) return { ...p, position: sw.myNewPos };
-            if (p.slot === sw.targetSlot) return { ...p, position: sw.targetNewPos };
-            return p;
-          });
+          const oldPos = eff.swapOldPositions;
+          if (oldPos) {
+            clearPlayers = clearPlayers.map(p => {
+              if (p.slot === sw.slot) return { ...p, position: oldPos.myOldPos };
+              if (p.slot === sw.targetSlot) return { ...p, position: oldPos.targetOldPos };
+              return p;
+            });
+          }
+          clearSwapAnim = { slot: sw.slot, targetSlot: sw.targetSlot, myNewPos: sw.myNewPos, targetNewPos: sw.targetNewPos };
         }
         if (eff.stolenProperty) {
           const st = eff.stolenProperty;
@@ -1153,13 +1171,25 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           animatingToken: null,
           drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null,
           players: clearPlayers,
+          pendingSwapAnim: eff?.swapPosition ? clearSwapAnim : null,
           ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}),
           pendingMove: { slot: cm.slot, path, goBonus, passedGo: cm.passedGo, fromCard: true },
           pendingNotifs: goBonus ? queueNotifs(state.pendingNotifs, [{ slot: cm.slot, amount: goBonus }]) : state.pendingNotifs,
           displayPoints: dpCm,
         };
       }
-      return { ...state, animatingToken: null, pendingMove: null, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers, ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}) };
+      return { ...state, animatingToken: null, pendingMove: null, drawnCard: null, houseRemovedCell: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, players: clearPlayers, pendingSwapAnim: eff?.swapPosition ? clearSwapAnim : null, ...(stolenFestival !== undefined ? { festival: stolenFestival } : {}) };
+    }
+
+    case 'SWAP_ANIM_DONE': {
+      if (!state.pendingSwapAnim) return state;
+      const sw = state.pendingSwapAnim;
+      const updated = state.players.map(p => {
+        if (p.slot === sw.slot) return { ...p, position: sw.myNewPos };
+        if (p.slot === sw.targetSlot) return { ...p, position: sw.targetNewPos };
+        return p;
+      });
+      return { ...state, players: updated, pendingSwapAnim: null };
     }
 
     case 'HOUSE_BUILT': {
@@ -2353,17 +2383,17 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [state.pointNotifs.length]);
 
   // Gate: dice animation + card modal + movement animation must all finish before queued visual effects fire
-  const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken);
+  const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken || state.pendingSwapAnim);
   // Separate gate for turn change: excludes diceAnimating since it's purely visual
   // and its timer can fail (tab backgrounded, component re-mount), causing permanent stuck state
-  const isTurnChangeBusy = !!(state.drawnCard || state.pendingMove || state.animatingToken);
+  const isTurnChangeBusy = !!(state.drawnCard || state.pendingMove || state.animatingToken || state.pendingSwapAnim);
 
   // Safety watchdog: force-clear stuck animation state after timeout.
   // Uses granular key so timer RESETS when busy composition changes (dice→movement→card).
   // When a card is being displayed (drawnCard !== null and no movement animation),
   // use 15s timeout so 12s detailed-info cards aren't killed prematurely.
   // Otherwise use 8s for dice/movement animations.
-  const animBusyKey = `${state.diceAnimating}-${!!state.drawnCard}-${!!state.pendingMove}-${!!state.animatingToken}`;
+  const animBusyKey = `${state.diceAnimating}-${!!state.drawnCard}-${!!state.pendingMove}-${!!state.animatingToken}-${!!state.pendingSwapAnim}`;
   const isCardOnlyBusy = !!state.drawnCard && !state.pendingMove && !state.animatingToken && !state.diceAnimating;
   const safetyTimeoutMs = isCardOnlyBusy ? 15000 : 8000;
   const animBusyKeyRef = useRef(animBusyKey);
@@ -2387,6 +2417,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const timer = setTimeout(() => dispatch({ type: 'DICE_ANIM_DONE' }), 2300);
     return () => clearTimeout(timer);
   }, [state.diceAnimating]);
+
+  // Apply swap positions after brief delay (lets card modal close, shows swap visually)
+  useEffect(() => {
+    if (!state.pendingSwapAnim) return;
+    const timer = setTimeout(() => dispatch({ type: 'SWAP_ANIM_DONE' }), 1000);
+    return () => clearTimeout(timer);
+  }, [state.pendingSwapAnim]);
 
   // Apply queued GO bonus after walk animation finishes (wait for pendingMove + animatingToken only)
   useEffect(() => {

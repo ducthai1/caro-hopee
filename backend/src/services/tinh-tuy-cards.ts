@@ -453,7 +453,7 @@ export function executeCardEffect(
       const poorCandidates = activePlayers.filter(p => p.points === minPts);
       const richest = richCandidates[crypto.randomInt(0, richCandidates.length)];
       const poorest2 = poorCandidates[crypto.randomInt(0, poorCandidates.length)];
-      // Cap transfer so richest can't go negative (non-current player has no sell phase → instant bankruptcy)
+      // Cap transfer so richest can't go negative (prevents excessive wealth drain)
       const transferAmount = Math.min(action.amount, richest.points);
       if (transferAmount <= 0) break;
       result.pointsChanged[richest.slot] = (result.pointsChanged[richest.slot] || 0) - transferAmount;

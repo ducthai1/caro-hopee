@@ -125,7 +125,28 @@ async function checkBankruptcy(
     }
   }
 
-  // Instant bankruptcy — no sellable buildings or not current player
+  // Non-current player with sellable assets: auto-sell cheapest to cover debt
+  if (game.currentPlayerSlot !== player.slot) {
+    const completedRounds = Math.max((game.round || 1) - 1, 0);
+    const sellableValue = calculateSellableValue(player, completedRounds);
+    if (sellableValue > 0) {
+      const soldItems = autoSellCheapest(game, player);
+      io.to(game.roomId).emit('tinh-tuy:buildings-sold', {
+        slot: player.slot, newPoints: player.points,
+        houses: { ...player.houses }, hotels: { ...player.hotels },
+        properties: [...player.properties],
+        autoSold: soldItems,
+        festival: game.festival,
+      });
+      if (player.points >= 0) {
+        game.markModified('players');
+        await game.save();
+        return false; // Survived — not bankrupt
+      }
+    }
+  }
+
+  // Instant bankruptcy — no sellable assets left or still in debt
   player.isBankrupt = true;
   player.points = 0;
   player.properties = [];
@@ -247,14 +268,13 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
     if (game.round === LATE_GAME_START + 1) {
       io.to(game.roomId).emit('tinh-tuy:late-game-started');
     }
-  }
-
-  // Decrement frozen property turns only on real turn transitions (not skip recursion)
-  if (!_skipRecurse && game.frozenProperties && game.frozenProperties.length > 0) {
-    game.frozenProperties = game.frozenProperties
-      .map((fp: any) => ({ ...fp, turnsRemaining: fp.turnsRemaining - 1 }))
-      .filter((fp: any) => fp.turnsRemaining > 0);
-    game.markModified('frozenProperties');
+    // Decrement frozen property ROUNDS (not turns) — only when round increments
+    if (!_skipRecurse && game.frozenProperties && game.frozenProperties.length > 0) {
+      game.frozenProperties = game.frozenProperties
+        .map((fp: any) => ({ ...fp, turnsRemaining: fp.turnsRemaining - 1 }))
+        .filter((fp: any) => fp.turnsRemaining > 0);
+      game.markModified('frozenProperties');
+    }
   }
 
   game.currentPlayerSlot = nextSlot;
@@ -941,7 +961,7 @@ async function handleCardDraw(
           // +1 to compensate for the immediate advanceTurn decrement that follows
           g.frozenProperties.push({ cellIndex: target, turnsRemaining: 3 });
           g.markModified('frozenProperties');
-          io.to(g.roomId).emit('tinh-tuy:rent-frozen', { cellIndex: target, turnsRemaining: 3, frozenProperties: g.frozenProperties });
+          io.to(g.roomId).emit('tinh-tuy:rent-frozen', { cellIndex: target, turnsRemaining: 2, frozenProperties: g.frozenProperties });
         }
         g.turnPhase = 'END_TURN';
         g.markModified('players');
@@ -2348,7 +2368,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       game.markModified('players');
       await game.save();
 
-      io.to(roomId).emit('tinh-tuy:rent-frozen', { cellIndex, turnsRemaining: 3, frozenProperties: game.frozenProperties });
+      io.to(roomId).emit('tinh-tuy:rent-frozen', { cellIndex, turnsRemaining: 2, frozenProperties: game.frozenProperties });
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
     } catch (err: any) {

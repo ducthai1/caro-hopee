@@ -220,9 +220,12 @@ export interface TinhTuyState {
     goToIsland?: boolean;
     houseRemoved?: { slot: number; cellIndex: number };
     swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
+    swapOldPositions?: { myOldPos: number; targetOldPos: number };
     stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number; houses?: number };
     allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
   } | null;
+  /** Pending swap animation — positions applied after brief delay post card dismiss */
+  pendingSwapAnim: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number } | null;
   /** Extra info shown on card modal (swap target, stolen property, taxed player, random steps) */
   cardExtraInfo: {
     swapTargetSlot?: number;
@@ -367,6 +370,7 @@ export type TinhTuyAction =
   | { type: 'CLEAR_BUYBACK_PROMPT' }
   | { type: 'BUYBACK_COMPLETED'; payload: { buyerSlot: number; ownerSlot: number; cellIndex: number; price: number; buyerPoints: number; ownerPoints: number; houses: number; hotel: boolean } }
   | { type: 'FORCE_CLEAR_ANIM' }
+  | { type: 'SWAP_ANIM_DONE' }
   | { type: 'ROOM_RESET'; payload: { game: any } }
   | { type: 'GO_BONUS'; payload: { slot: number; bonusType: 'BONUS_POINTS' | 'FREE_HOUSE'; amount?: number } }
   | { type: 'APPLY_QUEUED_GO_BONUS' }
