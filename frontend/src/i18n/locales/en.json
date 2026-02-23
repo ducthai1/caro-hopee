@@ -533,6 +533,7 @@
       "saving": "Saving...",
       "reset": "Reset",
       "roomNotFound": "Room not found",
+      "total": "Total",
       "bothDiceRequired": "Both dice must be set or both random"
     }
   },

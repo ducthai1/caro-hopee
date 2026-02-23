@@ -533,6 +533,7 @@
       "saving": "Đang lưu...",
       "reset": "Đặt lại",
       "roomNotFound": "Không tìm thấy phòng",
+      "total": "Tổng",
       "bothDiceRequired": "Cả hai xúc xắc phải được đặt hoặc cả hai ngẫu nhiên"
     }
   },

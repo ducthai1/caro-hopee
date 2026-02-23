@@ -49,6 +49,17 @@ const DICE_OPTIONS = [
   { value: 6, label: '6' },
 ];
 
+// Total options 2-12, plus 0 = random
+const TOTAL_OPTIONS = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+/** Given a target total (2-12), return a random valid (dice1, dice2) pair */
+const randomPairForTotal = (total: number): { dice1: number; dice2: number } => {
+  const min = Math.max(1, total - 6);
+  const max = Math.min(6, total - 1);
+  const d1 = min + Math.floor(Math.random() * (max - min + 1));
+  return { dice1: d1, dice2: total - d1 };
+};
+
 const TinhTuyRoomConfigPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
@@ -109,6 +120,17 @@ const TinhTuyRoomConfigPage: React.FC = () => {
       ...prev,
       [slot]: { ...prev[slot], [die]: value === 0 ? null : value },
     }));
+  };
+
+  /** Pick a total (2-12) → auto-generate random dice1+dice2 pair summing to it */
+  const handleTotalChange = (slot: string, total: number) => {
+    if (total === 0) {
+      // Reset to random
+      setOverrides((prev) => ({ ...prev, [slot]: { dice1: null, dice2: null } }));
+    } else {
+      const pair = randomPairForTotal(total);
+      setOverrides((prev) => ({ ...prev, [slot]: { dice1: pair.dice1, dice2: pair.dice2 } }));
+    }
   };
 
   const handleSave = async () => {
@@ -266,7 +288,25 @@ const TinhTuyRoomConfigPage: React.FC = () => {
 
                       {/* Dice selectors */}
                       {!player.isBankrupt && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                          {/* Total shortcut — pick total, auto-split into random dice pair */}
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#5a6a7a', display: 'block', mb: 0.5 }}>
+                              {t('admin.tinhTuy.total') || 'Total'}
+                            </Typography>
+                            <Select
+                              size="small"
+                              value={(ov.dice1 !== null && ov.dice2 !== null) ? ov.dice1 + ov.dice2 : 0}
+                              onChange={(e) => handleTotalChange(slot, e.target.value as number)}
+                              sx={{ minWidth: 90 }}
+                            >
+                              {TOTAL_OPTIONS.map((v) => (
+                                <MenuItem key={v} value={v}>
+                                  {v === 0 ? (t('admin.tinhTuy.random') || 'Random') : v}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </Box>
                           <Box>
                             <Typography variant="caption" sx={{ color: '#5a6a7a', display: 'block', mb: 0.5 }}>
                               {t('admin.tinhTuy.dice1') || 'Dice 1'}
