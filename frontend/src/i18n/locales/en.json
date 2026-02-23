@@ -1226,8 +1226,10 @@
     "nearWin": {
       "title": "Near Victory!",
       "edgeDesc": "Just 1 more property on edge {{edge}} to win!",
+      "edgeHouseDesc": "Owns all properties on edge {{edge}} — just 1 more house to win!",
       "groupDesc": "Owns {{count}}/6 required color groups — only 1 more needed!",
       "missingCell": "Missing property:",
+      "missingHouse": "Needs house on:",
       "groupProgress": "{{current}}/{{target}} color groups completed"
     }
   }

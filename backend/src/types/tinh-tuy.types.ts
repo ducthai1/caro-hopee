@@ -143,6 +143,9 @@ export interface ITinhTuyGame extends Document {
   /** Admin dice overrides — slot → forced dice values. Missing/null = random. */
   diceOverrides?: Record<string, { dice1: number; dice2: number }>;
 
+  /** Near-win warnings already emitted — key = "slot:type:edgeIndex", prevents repeated alerts */
+  nearWinAlerted?: Record<string, boolean>;
+
   winner?: ITinhTuyWinner | null;
 
   createdAt: Date;

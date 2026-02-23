@@ -99,6 +99,9 @@ const TinhTuyGameSchema = new Schema({
   /** Admin dice overrides — slot → { dice1, dice2 } */
   diceOverrides: { type: Schema.Types.Mixed, default: {} },
 
+  /** Near-win warnings already emitted — prevents repeated alerts */
+  nearWinAlerted: { type: Schema.Types.Mixed, default: {} },
+
   winner: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 

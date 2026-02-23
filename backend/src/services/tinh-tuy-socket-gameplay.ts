@@ -612,7 +612,7 @@ async function handleCardDraw(
           slot: thief.slot, group, cellIndices: PROPERTY_GROUPS[group],
         });
       }
-      emitNearWinWarning(io, game.roomId, thief);
+      emitNearWinWarning(io, game, thief);
     }
   }
 
@@ -1192,11 +1192,21 @@ async function handleGoBonus(
 
 // ─── Near-Win Warning ────────────────────────────────────────
 
-/** Emit near-win warning if a player is 1 step from domination victory */
-function emitNearWinWarning(io: SocketIOServer, roomId: string, player: ITinhTuyPlayer) {
+/** Emit near-win warning if a player is 1 step from domination victory.
+ *  Deduped per game — each unique warning (slot+type+edgeIndex) only fires once. */
+function emitNearWinWarning(io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer) {
   const warning = checkNearWin(player);
   if (!warning) return;
-  io.to(roomId).emit('tinh-tuy:near-win-warning', {
+
+  // Build dedup key: "slot:type:edgeIndex" (edgeIndex undefined → -1)
+  const key = `${player.slot}:${warning.type}:${warning.edgeIndex ?? -1}`;
+  if (!game.nearWinAlerted) game.nearWinAlerted = {};
+  if (game.nearWinAlerted[key]) return; // already emitted this warning
+
+  game.nearWinAlerted[key] = true;
+  game.markModified('nearWinAlerted');
+
+  io.to(game.roomId).emit('tinh-tuy:near-win-warning', {
     slot: player.slot,
     type: warning.type,
     missingCells: warning.missingCells,
@@ -1278,8 +1288,8 @@ function applyForcedTrade(
     });
   }
 
-  emitNearWinWarning(io, game.roomId, me);
-  emitNearWinWarning(io, game.roomId, oppOwner);
+  emitNearWinWarning(io, game, me);
+  emitNearWinWarning(io, game, oppOwner);
 }
 
 /** Negotiate trade: buyer purchases a property from seller at offered price. One-directional buy. */
@@ -1323,7 +1333,7 @@ function applyNegotiateTrade(
     });
   }
 
-  emitNearWinWarning(io, game.roomId, buyer);
+  emitNearWinWarning(io, game, buyer);
   return true;
 }
 
@@ -1755,7 +1765,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       // Check near-win warning (1 step from domination victory)
-      emitNearWinWarning(io, roomId, player);
+      emitNearWinWarning(io, game, player);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
@@ -2261,7 +2271,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
       }
-      emitNearWinWarning(io, roomId, player);
+      emitNearWinWarning(io, game, player);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
@@ -2566,7 +2576,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         });
       }
 
-      emitNearWinWarning(io, roomId, player);
+      emitNearWinWarning(io, game, player);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });

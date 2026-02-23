@@ -195,23 +195,45 @@ export function checkGameEnd(game: ITinhTuyGame): {
 
 // ─── Near-Win Warning ────────────────────────────────────────
 
+/** Find PROPERTY cells in list that are missing a house (or hotel). */
+function propertiesMissingHouse(player: ITinhTuyPlayer, cellIndices: number[]): number[] {
+  const result: number[] = [];
+  for (const idx of cellIndices) {
+    const cell = getCell(idx);
+    if (!cell || cell.type !== 'PROPERTY') continue;
+    if (!player.hotels[String(idx)] && (player.houses[String(idx)] || 0) < 1) {
+      result.push(idx);
+    }
+  }
+  return result;
+}
+
+export type NearWinType = 'nearEdgeDomination' | 'nearEdgeHouseDomination' | 'nearMonopolyGroupDomination';
+
 /** Check if a player is 1 step away from winning via domination.
  *  Returns warning details or null. */
 export function checkNearWin(player: ITinhTuyPlayer): {
-  type: 'nearEdgeDomination' | 'nearMonopolyGroupDomination';
-  /** For edge: the missing cell indices. For groups: completed group count. */
+  type: NearWinType;
+  /** For edge: the missing cell indices (to buy or to build). */
   missingCells?: number[];
   completedGroups?: number;
   edgeIndex?: number;
 } | null {
-  // Check edge domination: owns all but 1 cell on an edge + houses on owned properties
   for (let i = 0; i < EDGE_OWNABLE_CELLS.length; i++) {
     const edge = EDGE_OWNABLE_CELLS[i];
-    const missing = edge.filter(idx => !player.properties.includes(idx));
-    if (missing.length === 1) {
+    const missingOwnership = edge.filter(idx => !player.properties.includes(idx));
+
+    if (missingOwnership.length === 1) {
+      // Case 1: owns all but 1 cell + all owned properties have houses → need 1 purchase
       const ownedEdgeCells = edge.filter(idx => player.properties.includes(idx));
       if (hasHousesOnAllProperties(player, ownedEdgeCells)) {
-        return { type: 'nearEdgeDomination', missingCells: missing, edgeIndex: i };
+        return { type: 'nearEdgeDomination', missingCells: missingOwnership, edgeIndex: i };
+      }
+    } else if (missingOwnership.length === 0) {
+      // Case 2: owns ALL cells on edge but exactly 1 property missing a house → need 1 build
+      const unhousedCells = propertiesMissingHouse(player, edge);
+      if (unhousedCells.length === 1) {
+        return { type: 'nearEdgeHouseDomination', missingCells: unhousedCells, edgeIndex: i };
       }
     }
   }

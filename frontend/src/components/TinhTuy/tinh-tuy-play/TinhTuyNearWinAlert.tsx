@@ -22,7 +22,9 @@ export const TinhTuyNearWinAlert: React.FC = () => {
   if (!player) return null;
 
   const playerColor = PLAYER_COLORS[warning.slot] || '#e74c3c';
-  const isEdge = warning.type === 'nearEdgeDomination';
+  const isEdgeBuy = warning.type === 'nearEdgeDomination';
+  const isEdgeHouse = warning.type === 'nearEdgeHouseDomination';
+  const isEdge = isEdgeBuy || isEdgeHouse;
 
   return (
     <Dialog
@@ -69,7 +71,11 @@ export const TinhTuyNearWinAlert: React.FC = () => {
 
         {/* Description */}
         <Typography variant="body2" sx={{ color: '#555', mb: 1.5, px: 1 }}>
-          {isEdge
+          {isEdgeHouse
+            ? t('tinhTuy.nearWin.edgeHouseDesc' as any, {
+                edge: EDGE_LABELS[warning.edgeIndex ?? 0],
+              } as any)
+            : isEdgeBuy
             ? t('tinhTuy.nearWin.edgeDesc' as any, {
                 edge: EDGE_LABELS[warning.edgeIndex ?? 0],
               } as any)
@@ -79,7 +85,7 @@ export const TinhTuyNearWinAlert: React.FC = () => {
           }
         </Typography>
 
-        {/* Missing cell(s) */}
+        {/* Missing cell(s) — shown for both edge-buy and edge-house cases */}
         {isEdge && warning.missingCells && warning.missingCells.length > 0 && (
           <Box sx={{
             p: 1.5, borderRadius: 2,
@@ -87,7 +93,10 @@ export const TinhTuyNearWinAlert: React.FC = () => {
             border: '1px solid rgba(231,76,60,0.2)',
           }}>
             <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, display: 'block', mb: 0.5 }}>
-              {t('tinhTuy.nearWin.missingCell' as any)}
+              {isEdgeHouse
+                ? t('tinhTuy.nearWin.missingHouse' as any)
+                : t('tinhTuy.nearWin.missingCell' as any)
+              }
             </Typography>
             {warning.missingCells.map(cellIdx => {
               const cell = BOARD_CELLS[cellIdx];

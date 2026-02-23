@@ -1226,8 +1226,10 @@
     "nearWin": {
       "title": "Sắp Chiến Thắng!",
       "edgeDesc": "Chỉ cần thêm 1 ô đất nữa trên cạnh {{edge}} là chiến thắng!",
+      "edgeHouseDesc": "Đã sở hữu tất cả ô đất trên cạnh {{edge}} — chỉ cần xây thêm 1 nhà nữa là chiến thắng!",
       "groupDesc": "Đã sở hữu {{count}}/6 nhóm màu cần thiết — chỉ thiếu 1 nhóm nữa!",
       "missingCell": "Ô đất còn thiếu:",
+      "missingHouse": "Ô đất cần xây nhà:",
       "groupProgress": "{{current}}/{{target}} nhóm màu hoàn thành"
     }
   }
