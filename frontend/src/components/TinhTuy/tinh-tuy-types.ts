@@ -4,8 +4,8 @@
  */
 
 // ─── Character ───────────────────────────────────────
-export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish';
-export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish'];
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken'];
 export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
   shiba: '/tinh-tuy-actor/shiba.png',
   kungfu: '/tinh-tuy-actor/kungfu.png',
@@ -16,6 +16,7 @@ export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
   canoc: '/tinh-tuy-actor/ca-noc.png',
   seahorse: '/tinh-tuy-actor/horse-fish.png',
   pigfish: '/tinh-tuy-actor/pig-fish.png',
+  chicken: '/tinh-tuy-actor/chicken.png',
 };
 
 // ─── View ─────────────────────────────────────────────
@@ -276,6 +277,12 @@ export interface TinhTuyState {
   buyBlockPrompt: { slot: number; targets: Array<{ slot: number; displayName: string }>; turns: number } | null;
   /** Eminent domain prompt — player chooses opponent's property to force-buy */
   eminentDomainPrompt: { slot: number; targetCells: number[] } | null;
+  /** Pending negotiate trade — one active at a time */
+  pendingNegotiate: { fromSlot: number; toSlot: number; cellIndex: number; offerAmount: number } | null;
+  /** Round when negotiate cooldown expires for this player */
+  negotiateCooldownUntil: number;
+  /** Whether the negotiate wizard (requester) is open */
+  negotiateWizardOpen: boolean;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -375,7 +382,12 @@ export type TinhTuyAction =
   | { type: 'BUY_BLOCK_PROMPT'; payload: { slot: number; targets: Array<{ slot: number; displayName: string }>; turns: number } }
   | { type: 'CLEAR_BUY_BLOCK_PROMPT' }
   | { type: 'EMINENT_DOMAIN_PROMPT'; payload: { slot: number; targetCells: number[] } }
-  | { type: 'CLEAR_EMINENT_DOMAIN_PROMPT' };
+  | { type: 'CLEAR_EMINENT_DOMAIN_PROMPT' }
+  | { type: 'NEGOTIATE_INCOMING'; payload: { fromSlot: number; toSlot: number; cellIndex: number; offerAmount: number } }
+  | { type: 'NEGOTIATE_COMPLETED'; payload: { accepted: boolean; fromSlot: number; toSlot: number; cellIndex?: number; offerAmount?: number; cooldownUntilRound?: number; festival?: any } }
+  | { type: 'NEGOTIATE_CANCELLED'; payload: { fromSlot: number } }
+  | { type: 'OPEN_NEGOTIATE_WIZARD' }
+  | { type: 'CLOSE_NEGOTIATE_WIZARD' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

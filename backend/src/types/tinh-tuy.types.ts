@@ -6,8 +6,8 @@ import { Document } from 'mongoose';
 import mongoose from 'mongoose';
 
 // ─── Character ───────────────────────────────────────────────
-export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish';
-export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish'];
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken'];
 
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
@@ -129,6 +129,16 @@ export interface ITinhTuyGame extends Document {
 
   /** Frozen properties — rent is 0 for these cells for turnsRemaining rounds */
   frozenProperties: Array<{ cellIndex: number; turnsRemaining: number }>;
+
+  /** Pending negotiate trade — one active at a time */
+  pendingNegotiate: {
+    fromSlot: number;
+    toSlot: number;
+    cellIndex: number;
+    offerAmount: number;
+  } | null;
+  /** Negotiate cooldowns — slot → round when cooldown expires */
+  negotiateCooldowns: Record<string, number>;
 
   winner?: ITinhTuyWinner | null;
 

@@ -45,6 +45,9 @@ import { TinhTuyAutoSoldAlert } from './TinhTuyAutoSoldAlert';
 import { TinhTuyNearWinAlert } from './TinhTuyNearWinAlert';
 import { TinhTuyBuyBlockModal } from './TinhTuyBuyBlockModal';
 import { TinhTuyEminentDomainModal } from './TinhTuyEminentDomainModal';
+import { TinhTuyNegotiateWizard } from './TinhTuyNegotiateWizard';
+import { TinhTuyNegotiateModal } from './TinhTuyNegotiateModal';
+import HandshakeIcon from '@mui/icons-material/Handshake';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
 const PlayerCard: React.FC<{
@@ -171,7 +174,7 @@ export const TinhTuyPlayView: React.FC = () => {
   const { t } = useLanguage();
   const { setFullscreen } = useMainLayout();
   const { isAuthenticated } = useAuth();
-  const { state, leaveRoom, surrender, updateGuestName } = useTinhTuy();
+  const { state, leaveRoom, surrender, updateGuestName, openNegotiateWizard } = useTinhTuy();
 
   useEffect(() => {
     setFullscreen(true);
@@ -272,6 +275,26 @@ export const TinhTuyPlayView: React.FC = () => {
             >
               {t('tinhTuy.game.build' as any)}
             </Button>
+          )}
+          {!isBankrupt && state.round >= 40 && !state.pendingNegotiate
+            && state.negotiateCooldownUntil <= state.round && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<HandshakeIcon />}
+              onClick={() => openNegotiateWizard()}
+              sx={{
+                borderColor: 'rgba(230,126,34,0.5)', color: '#e67e22', fontWeight: 600,
+                '&:hover': { borderColor: '#d35400', bgcolor: 'rgba(230,126,34,0.08)' },
+              }}
+            >
+              {t('tinhTuy.game.negotiate' as any)}
+            </Button>
+          )}
+          {!isBankrupt && state.negotiateCooldownUntil > state.round && (
+            <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center', py: 0.5 }}>
+              {t('tinhTuy.game.negotiateCooldown' as any, { round: state.negotiateCooldownUntil })}
+            </Typography>
           )}
           {!isBankrupt && (
             <Button
@@ -399,6 +422,8 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyNearWinAlert />
       <TinhTuyBuyBlockModal />
       <TinhTuyEminentDomainModal />
+      <TinhTuyNegotiateWizard />
+      <TinhTuyNegotiateModal />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

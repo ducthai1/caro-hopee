@@ -13,6 +13,7 @@ import { registerGameplayHandlers } from './tinh-tuy-socket-gameplay';
 
 export const activeTimers = new Map<string, NodeJS.Timeout>();
 export const disconnectTimers = new Map<string, NodeJS.Timeout>();
+export const negotiateTimers = new Map<string, NodeJS.Timeout>();
 export const activePlayerSockets = new Map<string, string>();
 export const roomPlayerNames = new Map<string, Map<number, string>>();
 export const roomPlayerDevices = new Map<string, Map<number, string>>();
@@ -92,6 +93,7 @@ export function safetyRestartTimer(io: SocketIOServer, roomId: string): void {
 
 export function cleanupRoom(roomId: string, full = false): void {
   clearTurnTimer(roomId);
+  clearNegotiateTimer(roomId);
   if (full) {
     roomPlayerNames.delete(roomId);
     roomPlayerDevices.delete(roomId);
@@ -103,6 +105,11 @@ export function cleanupRoom(roomId: string, full = false): void {
       disconnectTimers.delete(key);
     }
   }
+}
+
+export function clearNegotiateTimer(roomId: string): void {
+  const timer = negotiateTimers.get(roomId);
+  if (timer) { clearTimeout(timer); negotiateTimers.delete(roomId); }
 }
 
 // ─── Name Resolution ──────────────────────────────────────────
@@ -151,6 +158,16 @@ export function setupTinhTuySocketHandlers(io: SocketIOServer): void {
 
         player.isConnected = false;
         player.disconnectedAt = new Date();
+
+        // Auto-cancel pending negotiate if disconnecting player is involved
+        if (game.pendingNegotiate &&
+          (game.pendingNegotiate.fromSlot === player.slot || game.pendingNegotiate.toSlot === player.slot)) {
+          game.pendingNegotiate = null;
+          game.markModified('pendingNegotiate');
+          clearNegotiateTimer(roomId);
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot: player.slot });
+        }
+
         await game.save();
 
         io.to(roomId).emit('tinh-tuy:player-disconnected', { slot: player.slot });

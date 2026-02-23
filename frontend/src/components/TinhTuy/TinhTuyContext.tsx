@@ -126,6 +126,9 @@ const initialState: TinhTuyState = {
   nearWinWarning: null as { slot: number; type: string; missingCells?: number[]; completedGroups?: number; edgeIndex?: number } | null,
   buyBlockPrompt: null,
   eminentDomainPrompt: null,
+  pendingNegotiate: null,
+  negotiateCooldownUntil: 0,
+  negotiateWizardOpen: false,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -217,6 +220,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           sellPrompt: g.turnPhase === 'AWAITING_SELL'
             ? { deficit: Math.abs(mapPlayers(g.players).find((p: any) => p.slot === g.currentPlayerSlot)?.points ?? 0) }
             : null,
+          // Restore negotiate state
+          pendingNegotiate: g.pendingNegotiate || null,
+          negotiateWizardOpen: false,
           error: null,
         };
       }
@@ -522,6 +528,52 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
 
     case 'CLEAR_EMINENT_DOMAIN_PROMPT':
       return { ...state, eminentDomainPrompt: null };
+
+    case 'NEGOTIATE_INCOMING':
+      return { ...state, pendingNegotiate: action.payload, negotiateWizardOpen: false };
+
+    case 'NEGOTIATE_COMPLETED': {
+      if (action.payload.accepted && action.payload.cellIndex != null && action.payload.offerAmount != null) {
+        const { fromSlot, toSlot, cellIndex: negCell, offerAmount: negPrice } = action.payload;
+        const negKey = String(negCell);
+        let ngPlayers = dedupeProperty(state.players, negCell!, fromSlot);
+        ngPlayers = ngPlayers.map(p => {
+          if (p.slot === toSlot) {
+            const newHouses = { ...p.houses }; delete newHouses[negKey];
+            const newHotels = { ...p.hotels }; delete newHotels[negKey];
+            return { ...p, properties: p.properties.filter(idx => idx !== negCell), points: p.points + negPrice!, houses: newHouses, hotels: newHotels };
+          }
+          if (p.slot === fromSlot) {
+            const seller = state.players.find(sp => sp.slot === toSlot);
+            const sHouses = seller ? (seller.houses || {})[negKey] || 0 : 0;
+            const sHotel = seller ? !!(seller.hotels || {})[negKey] : false;
+            return {
+              ...p, points: p.points - negPrice!,
+              properties: [...p.properties.filter(idx => idx !== negCell), negCell!],
+              houses: sHouses > 0 ? { ...p.houses, [negKey]: sHouses } : p.houses,
+              hotels: sHotel ? { ...p.hotels, [negKey]: true } : p.hotels,
+            };
+          }
+          return p;
+        });
+        const ngFestival = action.payload.festival !== undefined ? action.payload.festival : state.festival;
+        return { ...state, players: ngPlayers, pendingNegotiate: null, negotiateWizardOpen: false, festival: ngFestival };
+      }
+      // Rejected
+      const ngCooldown = action.payload.cooldownUntilRound && action.payload.fromSlot === state.mySlot
+        ? action.payload.cooldownUntilRound
+        : state.negotiateCooldownUntil;
+      return { ...state, pendingNegotiate: null, negotiateWizardOpen: false, negotiateCooldownUntil: ngCooldown };
+    }
+
+    case 'NEGOTIATE_CANCELLED':
+      return { ...state, pendingNegotiate: null, negotiateWizardOpen: false };
+
+    case 'OPEN_NEGOTIATE_WIZARD':
+      return { ...state, negotiateWizardOpen: true };
+
+    case 'CLOSE_NEGOTIATE_WIZARD':
+      return { ...state, negotiateWizardOpen: false };
 
     case 'FORCED_TRADE_DONE': {
       const { traderSlot, traderCell, victimSlot, victimCell } = action.payload;
@@ -1360,6 +1412,11 @@ interface TinhTuyContextValue {
   buybackProperty: (cellIndex: number, accept: boolean) => void;
   selectCharacter: (character: TinhTuyCharacter) => void;
   playAgain: () => void;
+  negotiateSend: (targetSlot: number, cellIndex: number, offerAmount: number) => void;
+  negotiateRespond: (accept: boolean) => void;
+  negotiateCancel: () => void;
+  openNegotiateWizard: () => void;
+  closeNegotiateWizard: () => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -1590,6 +1647,16 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'CLEAR_EMINENT_DOMAIN_PROMPT' });
     };
 
+    const handleNegotiateIncoming = (data: any) => {
+      dispatch({ type: 'NEGOTIATE_INCOMING', payload: data });
+    };
+    const handleNegotiateCompleted = (data: any) => {
+      dispatch({ type: 'NEGOTIATE_COMPLETED', payload: data });
+    };
+    const handleNegotiateCancelled = (data: any) => {
+      dispatch({ type: 'NEGOTIATE_CANCELLED', payload: data });
+    };
+
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
     };
@@ -1668,6 +1735,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:buy-blocked' as any, handleBuyBlocked);
     socket.on('tinh-tuy:eminent-domain-prompt' as any, handleEminentDomainPrompt);
     socket.on('tinh-tuy:eminent-domain-applied' as any, handleEminentDomainApplied);
+    socket.on('tinh-tuy:negotiate-incoming' as any, handleNegotiateIncoming);
+    socket.on('tinh-tuy:negotiate-completed' as any, handleNegotiateCompleted);
+    socket.on('tinh-tuy:negotiate-cancelled' as any, handleNegotiateCancelled);
     socket.on('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1720,6 +1790,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:buy-blocked' as any, handleBuyBlocked);
       socket.off('tinh-tuy:eminent-domain-prompt' as any, handleEminentDomainPrompt);
       socket.off('tinh-tuy:eminent-domain-applied' as any, handleEminentDomainApplied);
+      socket.off('tinh-tuy:negotiate-incoming' as any, handleNegotiateIncoming);
+      socket.off('tinh-tuy:negotiate-completed' as any, handleNegotiateCompleted);
+      socket.off('tinh-tuy:negotiate-cancelled' as any, handleNegotiateCancelled);
       socket.off('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1815,7 +1888,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
           (isAuthenticated && p.userId?.toString?.() === playerId) ||
           (!isAuthenticated && p.guestId === playerId)
         );
-        if (me) dispatch({ type: 'SET_MY_SLOT', payload: me.slot });
+        if (me) {
+          dispatch({ type: 'SET_MY_SLOT', payload: me.slot });
+          // Restore negotiate cooldown on reconnect
+          if (res.game?.negotiateCooldowns) {
+            const cd = res.game.negotiateCooldowns[String(me.slot)] || 0;
+            if (cd > 0) dispatch({ type: 'NEGOTIATE_COMPLETED', payload: { accepted: false, fromSlot: me.slot, toSlot: 0, cooldownUntilRound: cd } });
+          }
+        }
         // Check host
         const hostId = res.game?.hostPlayerId || res.hostPlayerId;
         dispatch({ type: 'SET_HOST', payload: hostId === playerId });
@@ -2132,6 +2212,38 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.emit('tinh-tuy:select-character' as any, { character }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
+  }, []);
+
+  const negotiateSend = useCallback((targetSlot: number, cellIndex: number, offerAmount: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:negotiate-send' as any, { targetSlot, cellIndex, offerAmount }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const negotiateRespond = useCallback((accept: boolean) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:negotiate-respond' as any, { accept }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const negotiateCancel = useCallback(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:negotiate-cancel' as any, {}, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const openNegotiateWizard = useCallback(() => {
+    dispatch({ type: 'OPEN_NEGOTIATE_WIZARD' });
+  }, []);
+
+  const closeNegotiateWizard = useCallback(() => {
+    dispatch({ type: 'CLOSE_NEGOTIATE_WIZARD' });
   }, []);
 
   // Auto-refresh rooms on lobby view
@@ -2469,6 +2581,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -2476,6 +2589,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
+    negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
   ]);
 
   return (

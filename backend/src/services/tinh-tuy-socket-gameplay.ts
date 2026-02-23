@@ -15,7 +15,7 @@ import {
   getEffectiveGoSalary, LATE_GAME_START,
 } from './tinh-tuy-engine';
 import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
-import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer } from './tinh-tuy-socket';
+import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer, negotiateTimers, clearNegotiateTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds, KHI_VAN_CARDS, CO_HOI_CARDS } from './tinh-tuy-cards';
 
 // Extra time (ms) added to card-choice timers to account for frontend animations
@@ -40,6 +40,8 @@ async function finishGame(
 ): Promise<void> {
   game.gameStatus = 'finished';
   game.finishedAt = new Date();
+  game.pendingNegotiate = null;
+  game.markModified('pendingNegotiate');
   if (winner) {
     game.winner = {
       slot: winner.slot, userId: winner.userId,
@@ -129,6 +131,14 @@ async function checkBankruptcy(
   player.properties = [];
   player.houses = {} as Record<string, number>;
   player.hotels = {} as Record<string, boolean>;
+  // Auto-cancel pending negotiate if bankrupt player is involved
+  if (game.pendingNegotiate &&
+    (game.pendingNegotiate.fromSlot === player.slot || game.pendingNegotiate.toSlot === player.slot)) {
+    game.pendingNegotiate = null;
+    game.markModified('pendingNegotiate');
+    clearNegotiateTimer(game.roomId);
+    io.to(game.roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot: player.slot });
+  }
   // Clear game-level festival if this player owned it
   if (game.festival && game.festival.slot === player.slot) {
     game.festival = null;
@@ -1247,6 +1257,51 @@ function applyForcedTrade(
 
   emitNearWinWarning(io, game.roomId, me);
   emitNearWinWarning(io, game.roomId, oppOwner);
+}
+
+/** Negotiate trade: buyer purchases a property from seller at offered price. One-directional buy. */
+function applyNegotiateTrade(
+  game: ITinhTuyGame, buyerSlot: number, sellerSlot: number, cellIndex: number, price: number, io: SocketIOServer
+): boolean {
+  const buyer = game.players.find(p => p.slot === buyerSlot);
+  const seller = game.players.find(p => p.slot === sellerSlot);
+  if (!buyer || !seller) return false;
+  if (buyer.points < price) return false;
+  if (!seller.properties.includes(cellIndex)) return false;
+
+  // Transfer money
+  buyer.points -= price;
+  seller.points += price;
+
+  // Transfer property + buildings
+  const key = String(cellIndex);
+  const houses = (seller.houses || {})[key] || 0;
+  const hotel = !!(seller.hotels || {})[key];
+  seller.properties = seller.properties.filter(idx => idx !== cellIndex);
+  delete (seller.houses as any)[key];
+  delete (seller.hotels as any)[key];
+  buyer.properties.push(cellIndex);
+  if (houses > 0) (buyer.houses as any)[key] = houses;
+  if (hotel) (buyer.hotels as any)[key] = true;
+
+  // Transfer festival if on this cell
+  if (game.festival && game.festival.cellIndex === cellIndex && game.festival.slot === sellerSlot) {
+    game.festival = { ...game.festival, slot: buyerSlot };
+    game.markModified('festival');
+  }
+
+  game.markModified('players');
+
+  // Check monopoly completion for buyer
+  const buyerGroup = checkMonopolyCompleted(cellIndex, buyer.properties);
+  if (buyerGroup) {
+    io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
+      slot: buyerSlot, group: buyerGroup, cellIndices: PROPERTY_GROUPS[buyerGroup],
+    });
+  }
+
+  emitNearWinWarning(io, game.roomId, buyer);
+  return true;
 }
 
 /** Eminent Domain: force-buy opponent's property at original price, transfer with houses */
@@ -2813,6 +2868,194 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:send-reaction]', err.message);
       cb({ success: false, error: 'reactionFailed' });
+    }
+  });
+
+  // ── Negotiate: Send Offer ──────────────────────────────────────
+  socket.on('tinh-tuy:negotiate-send', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') return callback({ success: false, error: 'gameNotActive' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || player.isBankrupt) return callback({ success: false, error: 'notAllowed' });
+
+      // Must be round >= 40
+      if ((game.round || 0) < 40) return callback({ success: false, error: 'negotiateTooEarly' });
+
+      // No pending negotiate
+      if (game.pendingNegotiate) return callback({ success: false, error: 'negotiateAlreadyPending' });
+
+      // Check cooldown
+      const cd = (game.negotiateCooldowns || {})[String(player.slot)] || 0;
+      if (cd > (game.round || 0)) return callback({ success: false, error: 'negotiateCooldown' });
+
+      const { targetSlot, cellIndex, offerAmount } = data || {};
+      if (typeof targetSlot !== 'number' || typeof cellIndex !== 'number' || typeof offerAmount !== 'number') {
+        return callback({ success: false, error: 'invalidPayload' });
+      }
+
+      // Validate offer amount
+      if (offerAmount < 1 || offerAmount > player.points) {
+        return callback({ success: false, error: 'negotiateInsufficientFunds' });
+      }
+
+      // Validate target
+      const target = game.players.find(p => p.slot === targetSlot);
+      if (!target || target.isBankrupt || target.slot === player.slot) {
+        return callback({ success: false, error: 'negotiateInvalidTarget' });
+      }
+
+      // Validate target owns cell
+      if (!target.properties.includes(cellIndex)) {
+        return callback({ success: false, error: 'negotiatePropertyGone' });
+      }
+
+      // Set pending negotiate
+      game.pendingNegotiate = { fromSlot: player.slot, toSlot: targetSlot, cellIndex, offerAmount };
+      game.markModified('pendingNegotiate');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:negotiate-incoming', {
+        fromSlot: player.slot, toSlot: targetSlot, cellIndex, offerAmount,
+      });
+
+      // 60s timeout — auto-cancel if no response
+      negotiateTimers.set(roomId, setTimeout(async () => {
+        negotiateTimers.delete(roomId);
+        try {
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || !g.pendingNegotiate) return;
+          g.pendingNegotiate = null;
+          g.markModified('pendingNegotiate');
+          await g.save();
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot: player.slot });
+        } catch (err) { console.error('[tinh-tuy] Negotiate timeout error:', err); }
+      }, 60_000));
+
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:negotiate-send]', err.message);
+      callback({ success: false, error: 'negotiateFailed' });
+    }
+  });
+
+  // ── Negotiate: Respond (Accept/Reject) ─────────────────────────
+  socket.on('tinh-tuy:negotiate-respond', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') return callback({ success: false, error: 'gameNotActive' });
+      if (!game.pendingNegotiate) return callback({ success: false, error: 'noPendingNegotiate' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || player.slot !== game.pendingNegotiate.toSlot) {
+        return callback({ success: false, error: 'notNegotiateTarget' });
+      }
+
+      const { accept } = data || {};
+      const { fromSlot, toSlot, cellIndex, offerAmount } = game.pendingNegotiate;
+      clearNegotiateTimer(roomId);
+
+      if (accept) {
+        // Re-validate before executing
+        const buyer = game.players.find(p => p.slot === fromSlot);
+        const seller = game.players.find(p => p.slot === toSlot);
+        if (!buyer || !seller || buyer.isBankrupt || seller.isBankrupt) {
+          game.pendingNegotiate = null;
+          game.markModified('pendingNegotiate');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot });
+          return callback({ success: false, error: 'negotiateInvalidTarget' });
+        }
+        if (buyer.points < offerAmount) {
+          game.pendingNegotiate = null;
+          game.markModified('pendingNegotiate');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot });
+          return callback({ success: false, error: 'negotiateInsufficientFunds' });
+        }
+        if (!seller.properties.includes(cellIndex)) {
+          game.pendingNegotiate = null;
+          game.markModified('pendingNegotiate');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot });
+          return callback({ success: false, error: 'negotiatePropertyGone' });
+        }
+
+        // Execute trade
+        const success = applyNegotiateTrade(game, fromSlot, toSlot, cellIndex, offerAmount, io);
+        if (!success) {
+          game.pendingNegotiate = null;
+          game.markModified('pendingNegotiate');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot });
+          return callback({ success: false, error: 'negotiateFailed' });
+        }
+
+        game.pendingNegotiate = null;
+        game.markModified('pendingNegotiate');
+        await game.save();
+
+        io.to(roomId).emit('tinh-tuy:negotiate-completed', {
+          accepted: true, fromSlot, toSlot, cellIndex, offerAmount,
+          festival: game.festival,
+        });
+      } else {
+        // Rejected — set cooldown for requester (5 rounds)
+        const cooldowns = game.negotiateCooldowns || {};
+        cooldowns[String(fromSlot)] = (game.round || 0) + 5;
+        game.negotiateCooldowns = cooldowns;
+        game.markModified('negotiateCooldowns');
+
+        game.pendingNegotiate = null;
+        game.markModified('pendingNegotiate');
+        await game.save();
+
+        io.to(roomId).emit('tinh-tuy:negotiate-completed', {
+          accepted: false, fromSlot, toSlot, cooldownUntilRound: cooldowns[String(fromSlot)],
+        });
+      }
+
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:negotiate-respond]', err.message);
+      callback({ success: false, error: 'negotiateFailed' });
+    }
+  });
+
+  // ── Negotiate: Cancel (requester cancels) ──────────────────────
+  socket.on('tinh-tuy:negotiate-cancel', async (_data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || !game.pendingNegotiate) return callback({ success: false, error: 'noPendingNegotiate' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || player.slot !== game.pendingNegotiate.fromSlot) {
+        return callback({ success: false, error: 'notNegotiateRequester' });
+      }
+
+      clearNegotiateTimer(roomId);
+      game.pendingNegotiate = null;
+      game.markModified('pendingNegotiate');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:negotiate-cancelled', { fromSlot: player.slot });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:negotiate-cancel]', err.message);
+      callback({ success: false, error: 'negotiateFailed' });
     }
   });
 }

@@ -9,7 +9,7 @@ import { ITinhTuyGame } from '../types/tinh-tuy.types';
 
 const TinhTuyPlayerSchema = new Schema({
   slot: { type: Number, required: true, min: 1, max: 4 },
-  character: { type: String, enum: ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse'], required: true },
+  character: { type: String, enum: ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken'], required: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   guestId: { type: String, default: null },
   guestName: { type: String, default: null, maxlength: 20 },
@@ -89,6 +89,11 @@ const TinhTuyGameSchema = new Schema({
 
   /** Frozen properties — rent is 0 for these cells [{cellIndex, turnsRemaining}] */
   frozenProperties: { type: [Schema.Types.Mixed], default: [] },
+
+  /** Pending negotiate trade — one active at a time */
+  pendingNegotiate: { type: Schema.Types.Mixed, default: null },
+  /** Negotiate cooldowns — slot → round when cooldown expires */
+  negotiateCooldowns: { type: Schema.Types.Mixed, default: {} },
 
   winner: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });
