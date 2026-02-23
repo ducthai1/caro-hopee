@@ -10,9 +10,9 @@ import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
 import './tinh-tuy-board.css';
 
-const CARD_DISPLAY_MS = 7000;
+const CARD_DISPLAY_MS = 5000;
 // Cards with detailed info (multi-player effects, teleports, etc.) need more reading time
-const CARD_DISPLAY_LONG_MS = 12000;
+const CARD_DISPLAY_LONG_MS = 8000;
 
 export const TinhTuyCardModal: React.FC = () => {
   const { t } = useLanguage();

@@ -2077,6 +2077,11 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const clearCard = useCallback(() => {
     dispatch({ type: 'CLEAR_CARD' });
+    // Notify backend so it can advance the turn immediately instead of waiting full timer
+    if (stateRef.current.currentPlayerSlot === stateRef.current.mySlot) {
+      const socket = socketService.getSocket();
+      socket?.emit('tinh-tuy:card-dismiss' as any);
+    }
   }, []);
 
   const clearRentAlert = useCallback(() => {
@@ -2395,7 +2400,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Otherwise use 8s for dice/movement animations.
   const animBusyKey = `${state.diceAnimating}-${!!state.drawnCard}-${!!state.pendingMove}-${!!state.animatingToken}-${!!state.pendingSwapAnim}`;
   const isCardOnlyBusy = !!state.drawnCard && !state.pendingMove && !state.animatingToken && !state.diceAnimating;
-  const safetyTimeoutMs = isCardOnlyBusy ? 15000 : 8000;
+  const safetyTimeoutMs = isCardOnlyBusy ? 12000 : 8000;
   const animBusyKeyRef = useRef(animBusyKey);
   animBusyKeyRef.current = animBusyKey; // Updated during render, before effects
   useEffect(() => {

@@ -1015,12 +1015,12 @@ async function handleCardDraw(
 
   // Hold turn so frontend card modal can display before turn advances.
   // Cards with detailed multi-player effects (storm, teleport, steal, wealth transfer)
-  // need longer display for players to read. Frontend uses 12s for these, 7s for others.
-  // Backend delay must exceed frontend display + movement animation time.
+  // need longer display for players to read. Frontend uses 8s for these, 5s for others.
+  // Backend delay is a safety fallback — current player can dismiss early via card-dismiss event.
   const hasDetailedInfo = (effect.allHousesRemoved && effect.allHousesRemoved.length > 0) ||
     (effect.teleportAll && effect.teleportAll.length > 0) ||
     !!effect.stolenProperty || !!effect.wealthTransfer;
-  const CARD_DISPLAY_DELAY = hasDetailedInfo ? 16000 : 8000;
+  const CARD_DISPLAY_DELAY = hasDetailedInfo ? 10000 : 6000;
   game.turnPhase = 'AWAITING_CARD_DISPLAY';
   try {
     await game.save();
@@ -1659,6 +1659,29 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       callback({ success: false, error: 'rollFailed' });
       const roomId = socket.data.tinhTuyRoomId as string;
       if (roomId) safetyRestartTimer(io, roomId);
+    }
+  });
+
+  // ── Card Dismiss (early turn advance) ────────────────────────
+  // Current player dismissed the card modal early — skip remaining display timer
+  socket.on('tinh-tuy:card-dismiss', async () => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return;
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') return;
+      if (game.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return;
+
+      clearTurnTimer(roomId);
+      game.turnPhase = 'END_TURN';
+      await game.save();
+      await advanceTurnOrDoubles(io, game, player);
+    } catch (err) {
+      console.error('[tinh-tuy] card-dismiss error:', err);
     }
   });
 
