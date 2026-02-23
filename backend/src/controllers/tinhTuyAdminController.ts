@@ -96,7 +96,8 @@ export const updateDiceOverrides = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const game = await TinhTuyGame.findOne({ roomId });
+    // Read-only query for validation (lean = no Mongoose overhead, no save risk)
+    const game = await TinhTuyGame.findOne({ roomId }).lean();
     if (!game) {
       res.status(404).json({ message: 'Room not found' });
       return;
@@ -128,22 +129,30 @@ export const updateDiceOverrides = async (req: Request, res: Response): Promise<
       }
     }
 
-    // Apply overrides
-    const current = game.diceOverrides || {};
+    // Build atomic $set/$unset — only touches diceOverrides, no race with socket gameplay
+    const $set: Record<string, any> = {};
+    const $unset: Record<string, any> = {};
     for (const [slot, value] of Object.entries(overrides)) {
       if (value === null) {
-        delete current[slot];
+        $unset[`diceOverrides.${slot}`] = '';
       } else {
-        current[slot] = value as { dice1: number; dice2: number };
+        $set[`diceOverrides.${slot}`] = value;
       }
     }
-    game.diceOverrides = current;
-    game.markModified('diceOverrides');
-    await game.save();
+
+    const update: Record<string, any> = {};
+    if (Object.keys($set).length > 0) update.$set = $set;
+    if (Object.keys($unset).length > 0) update.$unset = $unset;
+
+    const updated = await TinhTuyGame.findOneAndUpdate(
+      { roomId, gameStatus: 'playing' },
+      update,
+      { new: true, projection: { diceOverrides: 1 } },
+    );
 
     res.json({
       message: 'Dice overrides updated',
-      diceOverrides: game.diceOverrides,
+      diceOverrides: updated?.diceOverrides || {},
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message || 'Failed to update dice overrides' });
