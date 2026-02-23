@@ -614,6 +614,9 @@ async function handleCardDraw(
       }
       emitNearWinWarning(io, game, thief);
     }
+    // Also re-check victim (stale keys cleared if near-win was broken)
+    const stealVictim = game.players.find(p => p.slot === effect.stolenProperty!.fromSlot);
+    if (stealVictim) emitNearWinWarning(io, game, stealVictim);
   }
 
   // Check bankruptcy for point loss
@@ -1193,17 +1196,31 @@ async function handleGoBonus(
 // ─── Near-Win Warning ────────────────────────────────────────
 
 /** Emit near-win warning if a player is 1 step from domination victory.
- *  Deduped per game — each unique warning (slot+type+edgeIndex) only fires once. */
+ *  Deduped: each unique warning fires once, but resets if condition is broken
+ *  (e.g. opponent steals/swaps/destroys) so it can fire again when rebuilt. */
 function emitNearWinWarning(io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer) {
   const warning = checkNearWin(player);
-  if (!warning) return;
-
-  // Build dedup key: "slot:type:edgeIndex" (edgeIndex undefined → -1)
-  const key = `${player.slot}:${warning.type}:${warning.edgeIndex ?? -1}`;
   if (!game.nearWinAlerted) game.nearWinAlerted = {};
-  if (game.nearWinAlerted[key]) return; // already emitted this warning
 
-  game.nearWinAlerted[key] = true;
+  const currentKey = warning
+    ? `${player.slot}:${warning.type}:${warning.edgeIndex ?? -1}`
+    : null;
+
+  // Clear stale keys for this slot — if condition was broken, allow re-alert later
+  const slotPrefix = `${player.slot}:`;
+  let dirty = false;
+  for (const key of Object.keys(game.nearWinAlerted)) {
+    if (key.startsWith(slotPrefix) && key !== currentKey) {
+      delete game.nearWinAlerted[key];
+      dirty = true;
+    }
+  }
+  if (dirty) game.markModified('nearWinAlerted');
+
+  if (!warning || !currentKey) return;
+  if (game.nearWinAlerted[currentKey]) return; // already emitted this exact warning
+
+  game.nearWinAlerted[currentKey] = true;
   game.markModified('nearWinAlerted');
 
   io.to(game.roomId).emit('tinh-tuy:near-win-warning', {
@@ -1334,6 +1351,7 @@ function applyNegotiateTrade(
   }
 
   emitNearWinWarning(io, game, buyer);
+  emitNearWinWarning(io, game, seller); // Clear stale keys if seller's near-win was broken
   return true;
 }
 
@@ -2256,6 +2274,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
 
       clearTurnTimer(roomId);
 
+      // Find victim before transfer (loses ownership after applyEminentDomain)
+      const edVictim = game.players.find(p => p.properties.includes(cellIndex) && p.slot !== player.slot);
       const success = applyEminentDomain(game, player.slot, cellIndex, io);
       if (!success) return callback({ success: false, error: 'eminentDomainFailed' });
 
@@ -2272,6 +2292,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         });
       }
       emitNearWinWarning(io, game, player);
+      if (edVictim) emitNearWinWarning(io, game, edVictim);
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
@@ -2321,6 +2342,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       clearTurnTimer(roomId);
       const attackType = isDestroy ? 'DESTROY_PROPERTY' : 'DOWNGRADE_BUILDING';
       applyPropertyAttack(game, attackType, cellIndex, io);
+      // Clear victim's stale near-win keys (property/house destroyed)
+      emitNearWinWarning(io, game, victim);
       game.turnPhase = 'END_TURN';
       game.markModified('players');
       await game.save();
@@ -2577,6 +2600,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       emitNearWinWarning(io, game, player);
+      emitNearWinWarning(io, game, owner); // Clear stale keys if owner's near-win was broken
 
       await advanceTurnOrDoubles(io, game, player);
       callback({ success: true });
