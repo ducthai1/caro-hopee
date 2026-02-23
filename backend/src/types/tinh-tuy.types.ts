@@ -6,8 +6,8 @@ import { Document } from 'mongoose';
 import mongoose from 'mongoose';
 
 // ─── Character ───────────────────────────────────────────────
-export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken';
-export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken'];
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken' | 'rabbit' | 'sloth' | 'owl';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken', 'rabbit', 'sloth', 'owl'];
 
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';

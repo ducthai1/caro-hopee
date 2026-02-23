@@ -4,8 +4,8 @@
  */
 
 // ─── Character ───────────────────────────────────────
-export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken';
-export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken'];
+export type TinhTuyCharacter = 'shiba' | 'kungfu' | 'fox' | 'elephant' | 'trau' | 'horse' | 'canoc' | 'seahorse' | 'pigfish' | 'chicken' | 'rabbit' | 'sloth' | 'owl';
+export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', 'elephant', 'trau', 'horse', 'canoc', 'seahorse', 'pigfish', 'chicken', 'rabbit', 'sloth', 'owl'];
 export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
   shiba: '/tinh-tuy-actor/shiba.png',
   kungfu: '/tinh-tuy-actor/kungfu.png',
@@ -17,6 +17,9 @@ export const CHARACTER_IMAGES: Record<TinhTuyCharacter, string> = {
   seahorse: '/tinh-tuy-actor/horse-fish.png',
   pigfish: '/tinh-tuy-actor/pig-fish.png',
   chicken: '/tinh-tuy-actor/chicken.png',
+  rabbit: '/tinh-tuy-actor/rabbit.png',
+  sloth: '/tinh-tuy-actor/sloth.png',
+  owl: '/tinh-tuy-actor/owl.png',
 };
 
 // ─── View ─────────────────────────────────────────────
