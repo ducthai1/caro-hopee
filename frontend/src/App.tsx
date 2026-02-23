@@ -20,6 +20,8 @@ import ProfilePage from './pages/ProfilePage';
 import LuckyWheelConfigPage from './pages/LuckyWheelConfigPage';
 import LuckyWheelAdminPage from './pages/admin/LuckyWheelAdminPage';
 import LuckyWheelUserConfigPage from './pages/admin/LuckyWheelUserConfigPage';
+import TinhTuyAdminPage from './pages/admin/TinhTuyAdminPage';
+import TinhTuyRoomConfigPage from './pages/admin/TinhTuyRoomConfigPage';
 import { MainLayout } from './components/MainLayout';
 
 const theme = createTheme({
@@ -178,6 +180,14 @@ const router = createBrowserRouter([
   {
     path: '/admin/lucky-wheel/:userId',
     element: <LuckyWheelUserConfigPage />,
+  },
+  {
+    path: '/admin/tinh-tuy',
+    element: <TinhTuyAdminPage />,
+  },
+  {
+    path: '/admin/tinh-tuy/:roomId',
+    element: <TinhTuyRoomConfigPage />,
   },
 ]);
 

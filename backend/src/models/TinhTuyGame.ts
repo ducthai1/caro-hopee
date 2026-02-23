@@ -96,6 +96,9 @@ const TinhTuyGameSchema = new Schema({
   /** Negotiate cooldowns — slot → round when cooldown expires */
   negotiateCooldowns: { type: Schema.Types.Mixed, default: {} },
 
+  /** Admin dice overrides — slot → { dice1, dice2 } */
+  diceOverrides: { type: Schema.Types.Mixed, default: {} },
+
   winner: { type: Schema.Types.Mixed, default: null },
 }, { timestamps: true });
 

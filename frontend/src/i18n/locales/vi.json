@@ -511,6 +511,29 @@
       "saveError": "Lưu cấu hình thất bại",
       "loadError": "Tải cấu hình người dùng thất bại",
       "userNotFound": "Không tìm thấy người dùng"
+    },
+    "tinhTuy": {
+      "title": "Quản trị Xúc xắc Tinh Túy",
+      "roomCode": "Mã phòng",
+      "round": "Vòng",
+      "players": "Người chơi",
+      "diceOverride": "Xúc xắc",
+      "actions": "Thao tác",
+      "active": "Đã đặt",
+      "random": "Ngẫu nhiên",
+      "noRooms": "Không có phòng đang chơi",
+      "total": "Tổng",
+      "rooms": "phòng",
+      "diceControl": "Điều khiển Xúc xắc",
+      "room": "Phòng",
+      "dice1": "Xúc xắc 1",
+      "dice2": "Xúc xắc 2",
+      "currentTurn": "Đang chơi",
+      "save": "Lưu Thay đổi",
+      "saving": "Đang lưu...",
+      "reset": "Đặt lại",
+      "roomNotFound": "Không tìm thấy phòng",
+      "bothDiceRequired": "Cả hai xúc xắc phải được đặt hoặc cả hai ngẫu nhiên"
     }
   },
   "game": {

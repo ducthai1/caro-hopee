@@ -140,6 +140,9 @@ export interface ITinhTuyGame extends Document {
   /** Negotiate cooldowns — slot → round when cooldown expires */
   negotiateCooldowns: Record<string, number>;
 
+  /** Admin dice overrides — slot → forced dice values. Missing/null = random. */
+  diceOverrides?: Record<string, { dice1: number; dice2: number }>;
+
   winner?: ITinhTuyWinner | null;
 
   createdAt: Date;

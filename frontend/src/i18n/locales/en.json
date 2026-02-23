@@ -511,6 +511,29 @@
       "saveError": "Failed to save config",
       "loadError": "Failed to load user config",
       "userNotFound": "User not found"
+    },
+    "tinhTuy": {
+      "title": "TinhTuy Dice Control",
+      "roomCode": "Room Code",
+      "round": "Round",
+      "players": "Players",
+      "diceOverride": "Dice Override",
+      "actions": "Actions",
+      "active": "Active",
+      "random": "Random",
+      "noRooms": "No active rooms",
+      "total": "Total",
+      "rooms": "rooms",
+      "diceControl": "Dice Control",
+      "room": "Room",
+      "dice1": "Dice 1",
+      "dice2": "Dice 2",
+      "currentTurn": "Current",
+      "save": "Save Changes",
+      "saving": "Saving...",
+      "reset": "Reset",
+      "roomNotFound": "Room not found",
+      "bothDiceRequired": "Both dice must be set or both random"
     }
   },
   "game": {

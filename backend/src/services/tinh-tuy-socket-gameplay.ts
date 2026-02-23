@@ -1555,7 +1555,11 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
 
       clearTurnTimer(roomId);
-      const dice = rollDice();
+      // Check admin dice override for current player
+      const override = game.diceOverrides?.[String(player.slot)];
+      const dice = override
+        ? { dice1: override.dice1, dice2: override.dice2, total: override.dice1 + override.dice2, isDouble: override.dice1 === override.dice2 }
+        : rollDice();
       game.lastDiceResult = { dice1: dice.dice1, dice2: dice.dice2 };
       game.markModified('lastDiceResult');
 

@@ -338,6 +338,23 @@ export const adminApi = {
     });
     return response.data;
   },
+
+  // TinhTuy admin
+  listTinhTuyRooms: async (page: number = 1, limit: number = 50): Promise<{
+    rooms: any[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> => {
+    const response = await api.get(`/admin/tinh-tuy/rooms?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+  getTinhTuyRoomConfig: async (roomId: string): Promise<any> => {
+    const response = await api.get(`/admin/tinh-tuy/rooms/${roomId}`);
+    return response.data;
+  },
+  updateTinhTuyDice: async (roomId: string, overrides: Record<string, { dice1: number; dice2: number } | null>): Promise<any> => {
+    const response = await api.put(`/admin/tinh-tuy/rooms/${roomId}/dice`, { overrides });
+    return response.data;
+  },
 };
 
 // Xi Dach Session APIs
