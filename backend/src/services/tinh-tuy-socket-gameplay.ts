@@ -210,6 +210,15 @@ async function advanceTurnOrDoubles(
     return;
   }
 
+  // Check win condition BEFORE granting any extra turn (doubles or card).
+  // Without this, a player who completes edge domination mid-doubles
+  // would have to finish all double rolls before the game ends.
+  const endCheck = checkGameEnd(game);
+  if (endCheck.ended) {
+    await finishGame(io, game, endCheck.winner, endCheck.reason || 'edgeDomination');
+    return;
+  }
+
   // Extra turn from card (ch-22) — give another turn, no consecutive doubles check
   if (player.extraTurn) {
     player.extraTurn = false;
