@@ -198,7 +198,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
           {t('tinhTuy.characters.selectCharacter')}
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: { xs: 1, sm: 1.5 } }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: { xs: 1, sm: 1.5 }, maxHeight: 280, overflowY: 'auto' }}>
           {VALID_CHARACTERS.map((char) => {
             const isMyChoice = myPlayer?.character === char;
             const takenByPlayer = state.players.find(p => p.character === char && p.slot !== state.mySlot);
