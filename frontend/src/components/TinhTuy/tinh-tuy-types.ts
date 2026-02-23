@@ -220,7 +220,6 @@ export interface TinhTuyState {
     goToIsland?: boolean;
     houseRemoved?: { slot: number; cellIndex: number };
     swapPosition?: { slot: number; targetSlot: number; myNewPos: number; targetNewPos: number };
-    swapOldPositions?: { myOldPos: number; targetOldPos: number };
     stolenProperty?: { fromSlot: number; toSlot: number; cellIndex: number; houses?: number };
     allHousesRemoved?: Array<{ slot: number; cellIndex: number }>;
   } | null;

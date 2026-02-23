@@ -289,10 +289,7 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
   if (nextPlayer?.doubleRentTurns && nextPlayer.doubleRentTurns > 0) {
     nextPlayer.doubleRentTurns--;
   }
-  // Decrement buyBlocked buff
-  if (nextPlayer?.buyBlockedTurns && nextPlayer.buyBlockedTurns > 0) {
-    nextPlayer.buyBlockedTurns--;
-  }
+  // buyBlockedTurns now decrements when the blocked player passes GO (not per turn)
 
   // skipNextTurn takes priority — keep pendingTravel for next non-skipped turn
   if (nextPlayer?.skipNextTurn) {
@@ -351,7 +348,10 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
         const passedGo = dest < oldPos;
         p.position = dest;
         const goSalary = getEffectiveGoSalary(g.round || 1);
-        if (passedGo) p.points += goSalary;
+        if (passedGo) {
+          p.points += goSalary;
+          if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--;
+        }
         g.markModified('players');
         await g.save();
         io.to(g.roomId).emit('tinh-tuy:player-moved', {
@@ -383,7 +383,11 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
   // Move player
   if (effect.playerMoved) {
     const p = game.players.find(pp => pp.slot === effect.playerMoved!.slot);
-    if (p) p.position = effect.playerMoved.to;
+    if (p) {
+      p.position = effect.playerMoved.to;
+      // Decrement buyBlocked on GO pass (card movement)
+      if (effect.playerMoved.passedGo && p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--;
+    }
   }
 
   // Hold card
@@ -832,7 +836,6 @@ async function handleCardDraw(
         targets: opponents.map(p => ({ slot: p.slot, displayName: p.guestName || `Player ${p.slot}` })),
         turns: effect.buyBlockedTurns || 2,
       });
-      const activePlayers = game.players.filter(p => !p.isBankrupt).length;
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
@@ -841,7 +844,7 @@ async function handleCardDraw(
           const randomTarget = opponents[crypto.randomInt(0, opponents.length)];
           const target = g.players.find(p => p.slot === randomTarget.slot);
           if (target) {
-            target.buyBlockedTurns = (effect.buyBlockedTurns || 2) * activePlayers;
+            target.buyBlockedTurns = effect.buyBlockedTurns || 2;
             g.markModified('players');
           }
           g.turnPhase = 'END_TURN';
@@ -1587,7 +1590,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
           player.position = newPos;
           const goSalary1 = getEffectiveGoSalary(game.round || 1);
-          if (passedGo) player.points += goSalary1;
+          if (passedGo) {
+            player.points += goSalary1;
+            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+          }
           await game.save();
 
           io.to(roomId).emit('tinh-tuy:player-moved', {
@@ -1639,7 +1645,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       player.position = newPos;
 
       const goSalary2 = getEffectiveGoSalary(game.round || 1);
-      if (passedGo) player.points += goSalary2;
+      if (passedGo) {
+        player.points += goSalary2;
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+      }
 
       await game.save();
 
@@ -1833,7 +1842,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const passedGo = cellIndex < oldPos; // forward wrap = passed GO
       player.position = cellIndex;
       const goSalary3 = getEffectiveGoSalary(game.round || 1);
-      if (passedGo) player.points += goSalary3;
+      if (passedGo) {
+        player.points += goSalary3;
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+      }
       await game.save();
 
       io.to(roomId).emit('tinh-tuy:player-moved', {
@@ -2185,8 +2197,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
 
       clearTurnTimer(roomId);
 
-      const activePlayers = game.players.filter(p => !p.isBankrupt).length;
-      target.buyBlockedTurns = (data?.turns || 2) * activePlayers;
+      target.buyBlockedTurns = data?.turns || 2;
       game.markModified('players');
       game.turnPhase = 'END_TURN';
       await game.save();

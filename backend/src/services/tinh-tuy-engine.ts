@@ -133,6 +133,19 @@ export function getNextActivePlayer(
   return currentSlot;
 }
 
+// ─── Domination Helpers ──────────────────────────────────────
+
+/** Check if player has at least 1 house (or hotel) on every PROPERTY cell in the list.
+ *  STATION/UTILITY cells are exempt (they don't have houses). */
+function hasHousesOnAllProperties(player: ITinhTuyPlayer, cellIndices: number[]): boolean {
+  for (const idx of cellIndices) {
+    const cell = getCell(idx);
+    if (!cell || cell.type !== 'PROPERTY') continue;
+    if (!player.hotels[String(idx)] && (player.houses[String(idx)] || 0) < 1) return false;
+  }
+  return true;
+}
+
 // ─── Game End Check ───────────────────────────────────────────
 
 /** Check if game should end */
@@ -149,14 +162,20 @@ export function checkGameEnd(game: ITinhTuyGame): {
   }
 
   // Monopoly domination: 6/8 completed color groups OR all ownable cells on one edge
+  // Every PROPERTY cell in winning group(s)/edge must have at least 1 house (or hotel)
   const allGroups = Object.keys(PROPERTY_GROUPS) as Array<keyof typeof PROPERTY_GROUPS>;
   for (const p of activePlayers) {
-    const completedGroups = allGroups.filter(g => ownsFullGroup(g, p.properties)).length;
-    if (completedGroups >= MONOPOLY_WIN_THRESHOLD) {
-      return { ended: true, winner: p, reason: 'monopolyGroupDomination' };
+    const completedGroupNames = allGroups.filter(g => ownsFullGroup(g, p.properties));
+    if (completedGroupNames.length >= MONOPOLY_WIN_THRESHOLD) {
+      const allGroupCells = completedGroupNames.flatMap(g => PROPERTY_GROUPS[g]);
+      if (hasHousesOnAllProperties(p, allGroupCells)) {
+        return { ended: true, winner: p, reason: 'monopolyGroupDomination' };
+      }
     }
-    // Check full-edge ownership (all ownable cells on one board edge)
-    if (EDGE_OWNABLE_CELLS.some(edge => edge.every(idx => p.properties.includes(idx)))) {
+    // Check full-edge ownership (all ownable cells on one board edge) + houses
+    if (EDGE_OWNABLE_CELLS.some(edge =>
+      edge.every(idx => p.properties.includes(idx)) && hasHousesOnAllProperties(p, edge)
+    )) {
       return { ended: true, winner: p, reason: 'edgeDomination' };
     }
   }
@@ -185,20 +204,26 @@ export function checkNearWin(player: ITinhTuyPlayer): {
   completedGroups?: number;
   edgeIndex?: number;
 } | null {
-  // Check edge domination: owns all but 1 cell on an edge
+  // Check edge domination: owns all but 1 cell on an edge + houses on owned properties
   for (let i = 0; i < EDGE_OWNABLE_CELLS.length; i++) {
     const edge = EDGE_OWNABLE_CELLS[i];
     const missing = edge.filter(idx => !player.properties.includes(idx));
     if (missing.length === 1) {
-      return { type: 'nearEdgeDomination', missingCells: missing, edgeIndex: i };
+      const ownedEdgeCells = edge.filter(idx => player.properties.includes(idx));
+      if (hasHousesOnAllProperties(player, ownedEdgeCells)) {
+        return { type: 'nearEdgeDomination', missingCells: missing, edgeIndex: i };
+      }
     }
   }
 
-  // Check monopoly group domination: completed 5/8 groups (one more = 6 = win)
+  // Check monopoly group domination: completed 5/8 groups (one more = 6 = win) + houses
   const allGroups = Object.keys(PROPERTY_GROUPS) as Array<keyof typeof PROPERTY_GROUPS>;
-  const completedGroups = allGroups.filter(g => ownsFullGroup(g, player.properties)).length;
-  if (completedGroups === MONOPOLY_WIN_THRESHOLD - 1) {
-    return { type: 'nearMonopolyGroupDomination', completedGroups };
+  const completedGroupNames = allGroups.filter(g => ownsFullGroup(g, player.properties));
+  if (completedGroupNames.length === MONOPOLY_WIN_THRESHOLD - 1) {
+    const allGroupCells = completedGroupNames.flatMap(g => PROPERTY_GROUPS[g]);
+    if (hasHousesOnAllProperties(player, allGroupCells)) {
+      return { type: 'nearMonopolyGroupDomination', completedGroups: completedGroupNames.length };
+    }
   }
 
   return null;

@@ -319,8 +319,10 @@ export function executeCardEffect(
     }
 
     case 'SWAP_POSITION': {
-      // Pick random non-bankrupt opponent to swap positions with
-      const swapCandidates = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
+      // Island players can't swap out
+      if (player.islandTurns > 0) break;
+      // Pick random non-bankrupt, non-island opponent to swap positions with
+      const swapCandidates = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot && p.islandTurns === 0);
       if (swapCandidates.length > 0) {
         const target = swapCandidates[crypto.randomInt(0, swapCandidates.length)];
         result.swapPosition = {

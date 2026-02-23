@@ -310,18 +310,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === fcEff.slot ? { ...p, skipNextTurn: true } : p
           );
         }
-        // Swap: restore pre-swap positions, defer actual swap via pendingSwapAnim (matches CLEAR_CARD)
-        if (fcEff.swapPosition) {
-          const sw = fcEff.swapPosition;
-          const oldPos = fcEff.swapOldPositions;
-          if (oldPos) {
-            fcPlayers = fcPlayers.map(p => {
-              if (p.slot === sw.slot) return { ...p, position: oldPos.myOldPos };
-              if (p.slot === sw.targetSlot) return { ...p, position: oldPos.targetOldPos };
-              return p;
-            });
-          }
-        }
+        // Swap: defer actual swap via pendingSwapAnim (matches CLEAR_CARD — no position restore)
+        // SWAP_ANIM_DONE will teleport both to final positions in one clean step.
         if (fcEff.stolenProperty) {
           const st = fcEff.stolenProperty;
           const key = String(st.cellIndex);
@@ -732,6 +722,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         pendingAction: null,
         buildPrompt: null,
         freeHousePrompt: null,
+        freeHotelPrompt: null,
         sellPrompt: null,
         buybackPrompt: null,
         attackPrompt: null,
@@ -993,10 +984,6 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         goToIsland: effect.goToIsland,
         houseRemoved: effect.houseRemoved,
         swapPosition: effect.swapPosition,
-        swapOldPositions: effect.swapPosition ? {
-          myOldPos: state.players.find(p => p.slot === slot)?.position ?? 0,
-          targetOldPos: state.players.find(p => p.slot === effect.swapPosition!.targetSlot)?.position ?? 0,
-        } : undefined,
         stolenProperty: effect.stolenProperty,
         allHousesRemoved: effect.allHousesRemoved,
       } : null;
@@ -1091,18 +1078,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
             p.slot === eff.slot ? { ...p, skipNextTurn: true } : p
           );
         }
-        // Swap: restore pre-swap positions (defense against early position leak),
-        // then defer the actual position swap via pendingSwapAnim
+        // Swap: defer actual position swap via pendingSwapAnim (fires 1s after card modal closes).
+        // Don't restore old positions — keep players where they are (drawer at card cell, target at their cell)
+        // and let SWAP_ANIM_DONE teleport both to final positions in one clean step.
         if (eff.swapPosition) {
           const sw = eff.swapPosition;
-          const oldPos = eff.swapOldPositions;
-          if (oldPos) {
-            clearPlayers = clearPlayers.map(p => {
-              if (p.slot === sw.slot) return { ...p, position: oldPos.myOldPos };
-              if (p.slot === sw.targetSlot) return { ...p, position: oldPos.targetOldPos };
-              return p;
-            });
-          }
           clearSwapAnim = { slot: sw.slot, targetSlot: sw.targetSlot, myNewPos: sw.myNewPos, targetNewPos: sw.targetNewPos };
         }
         if (eff.stolenProperty) {
@@ -1637,8 +1617,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
     const handleBuyBlocked = (data: any) => {
       // Update target's buyBlockedTurns locally
-      const activePlayers = stateRef.current.players.filter(p => !p.isBankrupt).length;
-      const turnsRaw = (data.turns || 2) * activePlayers;
+      const turnsRaw = data.turns || 2;
       const updated = stateRef.current.players.map(p =>
         p.slot === data.targetSlot ? { ...p, buyBlockedTurns: turnsRaw } : p
       );

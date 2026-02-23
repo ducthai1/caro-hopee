@@ -29,6 +29,7 @@ const TinhTuyPlayerSchema = new Schema({
   extraTurn: { type: Boolean, default: false },
   immunityNextRent: { type: Boolean, default: false },
   doubleRentTurns: { type: Number, default: 0 },
+  buyBlockedTurns: { type: Number, default: 0 },
   pendingTravel: { type: Boolean, default: false },
   deviceType: { type: String, default: 'desktop' },
 }, { _id: false });

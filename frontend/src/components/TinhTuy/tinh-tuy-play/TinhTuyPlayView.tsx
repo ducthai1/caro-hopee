@@ -158,7 +158,7 @@ const PlayerCard: React.FC<{
           <Chip label={`⚡ ${(t as any)('tinhTuy.game.buffDoubleRent', { turns: Math.ceil(player.doubleRentTurns / activePlayers) })}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155,89,182,0.12)', color: '#8e44ad' }} />
         )}
         {player.buyBlockedTurns > 0 && (
-          <Chip label={`🚫 ${(t as any)('tinhTuy.game.buffBuyBlocked', { turns: Math.ceil(player.buyBlockedTurns / activePlayers) })}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#c0392b' }} />
+          <Chip label={`🚫 ${(t as any)('tinhTuy.game.buffBuyBlocked', { turns: player.buyBlockedTurns })}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#c0392b' }} />
         )}
         {player.skipNextTurn && (
           <Chip label={`⏭️ ${t('tinhTuy.game.buffSkipTurn')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#e74c3c' }} />
