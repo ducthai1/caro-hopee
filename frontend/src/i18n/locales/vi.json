@@ -902,7 +902,10 @@
       "timed": "Giới Hạn Thời Gian",
       "rounds": "Giới Hạn Vòng",
       "edit": "Chỉnh sửa",
-      "save": "Lưu"
+      "save": "Lưu",
+      "abilities": "Kỹ năng nhân vật",
+      "abilitiesOn": "Bật",
+      "abilitiesOff": "Tắt"
     },
     "game": {
       "rollDice": "Tung Xúc Xắc",
@@ -1234,6 +1237,140 @@
       "missingCell": "Ô đất còn thiếu:",
       "missingHouse": "Ô đất cần xây nhà:",
       "groupProgress": "{{current}}/{{target}} nhóm màu hoàn thành"
+    },
+    "guide": {
+      "title": "Cẩm nang nhân vật",
+      "tabCharacters": "Nhân vật",
+      "tabBalance": "Phân tích sức mạnh",
+      "balanceNote": "Ước tính giá trị qua 60 lượt",
+      "character": "Nhân vật",
+      "passiveTT": "Nội tại ~TT",
+      "activeTT": "Chủ động ~TT",
+      "totalTT": "Tổng",
+      "sweetSpot": "Điểm mạnh",
+      "sweetSpots": {
+        "shiba": "Game dài, thu nhập ổn định",
+        "kungfu": "Nhiều đất, phá đối thủ",
+        "fox": "Khu đắt tiền, né thuê",
+        "elephant": "Rush xây hotel sớm",
+        "trau": "Bị thuê/thuế nhiều, survive",
+        "horse": "Di chuyển chính xác",
+        "canoc": "Nhiều building, game 4 người",
+        "seahorse": "Game nhiều ô thẻ, thích RNG",
+        "pigfish": "Khu hotel đắt, cần bảo hiểm",
+        "chicken": "Game 4 người (drain x3)",
+        "rabbit": "Mua đất cụ thể, né nguy hiểm",
+        "sloth": "Chiến thuật monopoly, hồi máu",
+        "owl": "Kiểm soát, ép đối thủ"
+      }
+    },
+    "abilities": {
+      "title": "Kỹ năng nhân vật",
+      "enabled": "Kỹ năng nhân vật",
+      "cooldown": "Hồi chiêu: {{turns}} lượt",
+      "ready": "Sẵn sàng",
+      "onCooldown": "Hồi chiêu ({{turns}})",
+      "used": "Đã dùng",
+      "useAbility": "Dùng kỹ năng",
+      "selectTarget": "Chọn mục tiêu",
+      "selectCell": "Chọn ô",
+      "selectSteps": "Chọn số bước (2-12)",
+      "selectDeck": "Chọn bộ thẻ",
+      "passive": "Nội tại",
+      "active": "Chủ động",
+      "disabled": "Kỹ năng tắt",
+      "keepOriginal": "Giữ kết quả cũ",
+      "keepNew": "Chọn kết quả mới",
+      "adjustPlus": "+1 ô",
+      "adjustMinus": "-1 ô",
+      "adjustKeep": "Giữ nguyên",
+      "pickCard": "Chọn thẻ",
+      "ui": {
+        "owlPickTitle": "Thông thái: Chọn 1 thẻ",
+        "horseAdjust": "Nhanh nhẹn: Điều chỉnh bước đi?",
+        "horseAdjustKeep": "Giữ",
+        "shibaRerollTitle": "Sủa may mắn: Chọn xúc xắc",
+        "shibaOriginal": "Kết quả cũ",
+        "shibaRerolled": "Kết quả mới"
+      },
+      "roles": {
+        "income": "Thu nhập",
+        "attack": "Tấn công",
+        "defense": "Phòng thủ",
+        "build": "Xây dựng",
+        "movement": "Di chuyển",
+        "tactical": "Chiến thuật"
+      },
+      "shiba": {
+        "passive": { "name": "Trung thành", "desc": "Qua GO +500 TT" },
+        "active": { "name": "Sủa may mắn", "desc": "Tung lại xúc xắc, chọn giữ cũ hoặc mới" }
+      },
+      "kungfu": {
+        "passive": { "name": "Võ công", "desc": "Thu thuê +15%" },
+        "active": { "name": "Song phi", "desc": "Phá 1 nhà đối thủ (hoàn 50%)" }
+      },
+      "fox": {
+        "passive": { "name": "Xảo quyệt", "desc": "Trả thuê -15%" },
+        "active": { "name": "Hoán đổi", "desc": "Đổi vị trí với 1 đối thủ" }
+      },
+      "elephant": {
+        "passive": { "name": "Sức mạnh", "desc": "Xây nhà/hotel -15% chi phí" },
+        "active": { "name": "Giậm chân", "desc": "Xây 1 nhà miễn phí" }
+      },
+      "trau": {
+        "passive": { "name": "Chịu đựng", "desc": "-10% mọi khoản mất tiền" },
+        "active": { "name": "Cày bừa", "desc": "+1000 TT từ ngân hàng" }
+      },
+      "horse": {
+        "passive": { "name": "Nhanh nhẹn", "desc": "Sau tung xúc xắc ±1 ô" },
+        "active": { "name": "Phi nước đại", "desc": "Chọn đi 2-12 ô thay tung xúc xắc" }
+      },
+      "canoc": {
+        "passive": { "name": "Mai phục", "desc": "Đất có nhà → +300 TT thuê" },
+        "active": { "name": "Cắn", "desc": "Lấy 1000 TT từ 1 đối thủ" }
+      },
+      "seahorse": {
+        "passive": { "name": "Phước lành", "desc": "Thẻ +tiền +25%, thẻ -tiền -25%" },
+        "active": { "name": "Triệu hồi", "desc": "Rút thêm 1 thẻ (chọn bộ)" }
+      },
+      "pigfish": {
+        "passive": { "name": "Trơn tuột", "desc": "Đảo max 1 lượt (thay vì 3)" },
+        "active": { "name": "Lặn", "desc": "Miễn thuê lần trả tiếp" }
+      },
+      "chicken": {
+        "passive": { "name": "Gáy sáng", "desc": "Đầu lượt, đối thủ -200 TT → vào túi mình" },
+        "active": { "name": "Quấy rối", "desc": "Skip 1 lượt đối thủ" }
+      },
+      "rabbit": {
+        "passive": { "name": "Nhảy xa", "desc": "Tung double → +3 ô bonus" },
+        "active": { "name": "Nhảy thần tốc", "desc": "Dịch chuyển đến bất kỳ ô nào" }
+      },
+      "sloth": {
+        "passive": { "name": "Lười biếng", "desc": "Hoàn thành nhóm màu → tự xây 1 nhà" },
+        "active": { "name": "Ngủ đông", "desc": "Skip lượt, +1500 TT" }
+      },
+      "owl": {
+        "passive": { "name": "Thông thái", "desc": "Rút thẻ → xem 2, chọn 1" },
+        "active": { "name": "Phán xét", "desc": "Buộc 1 đối thủ rút thẻ Khí Vận" }
+      },
+      "notifications": {
+        "abilityUsed": "{{name}} đã dùng {{ability}}",
+        "chickenDrain": "{{name}} lấy {{amount}} TT từ đối thủ",
+        "slothBuild": "{{name}} tự xây nhà tại {{cell}}",
+        "foxSwap": "{{name}} đổi chỗ với {{target}}",
+        "kungfuDestroy": "{{name}} phá nhà tại {{cell}}",
+        "canocSteal": "{{name}} lấy {{amount}} TT từ {{target}}",
+        "chickenSkip": "{{name}} bỏ lượt {{target}}",
+        "owlForce": "{{name}} buộc {{target}} rút thẻ",
+        "rabbitTeleport": "{{name}} dịch chuyển đến {{cell}}",
+        "shibaReroll": "{{name}} tung lại xúc xắc",
+        "horseGallop": "{{name}} chọn đi {{steps}} bước",
+        "seahorseDraw": "{{name}} rút thêm 1 thẻ",
+        "pigfishDive": "{{name}} miễn thuê lần tiếp",
+        "slothHibernate": "{{name}} ngủ đông +1500 TT",
+        "trauPlow": "{{name}} +1000 TT từ ngân hàng",
+        "elephantBuild": "{{name}} xây nhà miễn phí"
+      }
     }
   }
 }

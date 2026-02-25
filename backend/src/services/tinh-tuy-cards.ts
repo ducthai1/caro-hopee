@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { ITinhTuyCard, CardEffectResult, ITinhTuyGame, ITinhTuyPlayer } from '../types/tinh-tuy.types';
 import { BOARD_CELLS, BOARD_SIZE, PROPERTY_GROUPS, ownsFullGroup } from './tinh-tuy-board';
 import { getEffectiveGoSalary } from './tinh-tuy-engine';
+import { getCardMoneyMultiplier, getMoneyLossMultiplier } from './tinh-tuy-abilities';
 
 // ─── 16 Khi Van Cards ────────────────────────────────────────
 
@@ -192,13 +193,20 @@ export function executeCardEffect(
   const action = card.action;
 
   switch (action.type) {
-    case 'GAIN_POINTS':
-      result.pointsChanged[playerSlot] = action.amount;
+    case 'GAIN_POINTS': {
+      // Seahorse passive: +25% card gains
+      const gainMult = getCardMoneyMultiplier(game, player, true);
+      result.pointsChanged[playerSlot] = Math.floor(action.amount * gainMult);
       break;
+    }
 
-    case 'LOSE_POINTS':
-      result.pointsChanged[playerSlot] = -action.amount;
+    case 'LOSE_POINTS': {
+      // Seahorse passive: -25% card losses; Suu Nhi: -10% losses
+      const lossMult = getCardMoneyMultiplier(game, player, false);
+      const trauMult = getMoneyLossMultiplier(game, player);
+      result.pointsChanged[playerSlot] = -Math.floor(action.amount * lossMult * trauMult);
       break;
+    }
 
     case 'GAIN_FROM_EACH': {
       const active = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);

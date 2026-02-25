@@ -32,6 +32,12 @@ const TinhTuyPlayerSchema = new Schema({
   buyBlockedTurns: { type: Number, default: 0 },
   pendingTravel: { type: Boolean, default: false },
   deviceType: { type: String, default: 'desktop' },
+  // Ability fields
+  abilityCooldown: { type: Number, default: 0 },
+  abilityUsedThisTurn: { type: Boolean, default: false },
+  owlPendingCards: { type: [String], default: undefined },
+  horseAdjustPending: { type: Boolean, default: false },
+  shibaRerollPending: { type: Schema.Types.Mixed, default: null },
 }, { _id: false });
 
 const TinhTuySettingsSchema = new Schema({
@@ -42,6 +48,7 @@ const TinhTuySettingsSchema = new Schema({
   maxRounds: { type: Number, default: null },
   turnDuration: { type: Number, default: 60, min: 30, max: 120 },
   password: { type: String, default: null, select: false },
+  abilitiesEnabled: { type: Boolean, default: true },
 }, { _id: false });
 
 // ─── Main Schema ───────────────────────────────────────────────
@@ -69,7 +76,7 @@ const TinhTuyGameSchema = new Schema({
   currentPlayerSlot: { type: Number, default: 1 },
   turnPhase: {
     type: String,
-    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_BUILD', 'AWAITING_FREE_HOUSE', 'AWAITING_FREE_HOTEL', 'AWAITING_CARD', 'AWAITING_CARD_DISPLAY', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'AWAITING_SELL', 'AWAITING_DESTROY_PROPERTY', 'AWAITING_DOWNGRADE_BUILDING', 'AWAITING_BUYBACK', 'AWAITING_CARD_DESTINATION', 'AWAITING_FORCED_TRADE', 'AWAITING_RENT_FREEZE', 'AWAITING_BUY_BLOCK_TARGET', 'AWAITING_EMINENT_DOMAIN', 'ISLAND_TURN', 'END_TURN'],
+    enum: ['ROLL_DICE', 'MOVING', 'AWAITING_ACTION', 'AWAITING_BUILD', 'AWAITING_FREE_HOUSE', 'AWAITING_FREE_HOTEL', 'AWAITING_CARD', 'AWAITING_CARD_DISPLAY', 'AWAITING_TRAVEL', 'AWAITING_FESTIVAL', 'AWAITING_SELL', 'AWAITING_DESTROY_PROPERTY', 'AWAITING_DOWNGRADE_BUILDING', 'AWAITING_BUYBACK', 'AWAITING_CARD_DESTINATION', 'AWAITING_FORCED_TRADE', 'AWAITING_RENT_FREEZE', 'AWAITING_BUY_BLOCK_TARGET', 'AWAITING_EMINENT_DOMAIN', 'AWAITING_ABILITY_CHOICE', 'AWAITING_OWL_PICK', 'AWAITING_HORSE_ADJUST', 'AWAITING_HORSE_MOVE', 'AWAITING_SHIBA_REROLL_PICK', 'ISLAND_TURN', 'END_TURN'],
     default: 'ROLL_DICE',
   },
   turnStartedAt: { type: Date, default: null },

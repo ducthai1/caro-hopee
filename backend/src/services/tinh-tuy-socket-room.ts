@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import TinhTuyGame from '../models/TinhTuyGame';
 import { TinhTuyCallback, TinhTuyCharacter, VALID_CHARACTERS, ITinhTuyPlayer } from '../types/tinh-tuy.types';
 import { generateUniqueRoomCode } from './tinh-tuy-engine';
-import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds } from './tinh-tuy-cards';
+import { shuffleDeck, getKhiVanDeckIds, getCoHoiDeckIds, getCardById } from './tinh-tuy-cards';
 import {
   activePlayerSockets, disconnectTimers, roomPlayerNames, activeTimers,
   resolvePlayerName, cachePlayerName, cachePlayerDevice,
@@ -147,10 +147,20 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
 
         io.to(game.roomId).emit('tinh-tuy:player-reconnected', { slot: existingPlayer.slot });
 
-        // Send full state for reconnect
+        // Send full state for reconnect — enrich owl pending cards with display data
+        const gameObj = game.toObject();
+        if (game.turnPhase === 'AWAITING_OWL_PICK') {
+          const owlPlayer = game.players.find(p => p.owlPendingCards?.length);
+          if (owlPlayer?.owlPendingCards) {
+            (gameObj as any)._owlPendingCardsData = owlPlayer.owlPendingCards
+              .map(id => getCardById(id))
+              .filter(Boolean)
+              .map(c => ({ id: c!.id, type: c!.type, nameKey: c!.nameKey, descriptionKey: c!.descriptionKey }));
+          }
+        }
         callback({
           success: true, roomId: game.roomId, roomCode: game.roomCode,
-          reconnected: true, game: game.toObject(),
+          reconnected: true, game: gameObj,
         });
 
         // ── Timer recovery after server restart ──

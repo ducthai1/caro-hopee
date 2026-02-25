@@ -16,6 +16,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import EditIcon from '@mui/icons-material/Edit';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import TabletMacIcon from '@mui/icons-material/TabletMac';
 import LaptopMacIcon from '@mui/icons-material/LaptopMac';
@@ -26,7 +27,9 @@ import GuestNameDialog from '../../GuestNameDialog/GuestNameDialog';
 import { useToast } from '../../../contexts/ToastContext';
 import { TinhTuySettingsForm } from './TinhTuySettingsForm';
 import { TinhTuyGameMode, TinhTuyCharacter, PLAYER_COLORS, VALID_CHARACTERS, CHARACTER_IMAGES } from '../tinh-tuy-types';
+import { CHARACTER_ABILITIES } from '../tinh-tuy-abilities';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
+import { TinhTuyCharacterGuide } from './TinhTuyCharacterGuide';
 import {
   TinhTuyChatButton,
   TinhTuyFloatingMessage,
@@ -42,12 +45,14 @@ export const TinhTuyWaitingRoom: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Edit settings
   const [editMaxPlayers, setEditMaxPlayers] = useState(state.settings?.maxPlayers || 4);
   const [editStartingPoints, setEditStartingPoints] = useState(state.settings?.startingPoints || 20000);
   const [editGameMode, setEditGameMode] = useState<TinhTuyGameMode>(state.settings?.gameMode || 'classic');
   const [editTurnDuration, setEditTurnDuration] = useState(state.settings?.turnDuration || 60);
+  const [editAbilitiesEnabled, setEditAbilitiesEnabled] = useState(state.settings?.abilitiesEnabled ?? true);
   const [editPassword, setEditPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -83,6 +88,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
     setEditStartingPoints(state.settings?.startingPoints || 20000);
     setEditGameMode(state.settings?.gameMode || 'classic');
     setEditTurnDuration(state.settings?.turnDuration || 60);
+    setEditAbilitiesEnabled(state.settings?.abilitiesEnabled ?? true);
     setEditPassword('');
     setShowSettings(true);
   };
@@ -95,6 +101,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
         startingPoints: editStartingPoints,
         gameMode: editGameMode,
         turnDuration: editTurnDuration,
+        abilitiesEnabled: editAbilitiesEnabled,
       },
     });
     setIsSaving(false);
@@ -141,6 +148,11 @@ export const TinhTuyWaitingRoom: React.FC = () => {
       >
         {/* Top right: Chat + Settings */}
         <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Tooltip title={t('tinhTuy.guide.title')}>
+            <IconButton onClick={() => setShowGuide(true)} size="small" sx={{ color: '#9b59b6' }}>
+              <MenuBookIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
           <TinhTuyChatButton onSend={sendChat} />
           {state.isHost && (
             <Tooltip title={t('tinhTuy.settings.edit')}>
@@ -190,6 +202,13 @@ export const TinhTuyWaitingRoom: React.FC = () => {
             size="small"
             sx={{ fontWeight: 600, bgcolor: 'rgba(46, 204, 113, 0.12)', color: '#27ae60' }}
           />
+          {state.settings?.abilitiesEnabled && (
+            <Chip
+              label={t('tinhTuy.settings.abilities')}
+              size="small"
+              sx={{ fontWeight: 600, bgcolor: 'rgba(155, 89, 182, 0.12)', color: '#8e44ad' }}
+            />
+          )}
         </Box>
       </Paper>
 
@@ -231,6 +250,13 @@ export const TinhTuyWaitingRoom: React.FC = () => {
                 <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mt: 0.5, color: isMyChoice ? '#9b59b6' : 'text.primary' }}>
                   {t(`tinhTuy.characters.${char}`)}
                 </Typography>
+                {state.settings?.abilitiesEnabled && (
+                  <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary', display: 'block', lineHeight: 1.3, mt: 0.25 }}>
+                    {CHARACTER_ABILITIES[char]?.passive.icon} {t(CHARACTER_ABILITIES[char]?.passive.nameKey)}
+                    {' · '}
+                    {CHARACTER_ABILITIES[char]?.active.icon} {t(CHARACTER_ABILITIES[char]?.active.nameKey)}
+                  </Typography>
+                )}
                 {isTaken && (
                   <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.disabled', display: 'block' }}>
                     {t('tinhTuy.characters.characterTaken')} {takenByPlayer.displayName}
@@ -382,6 +408,7 @@ export const TinhTuyWaitingRoom: React.FC = () => {
             gameMode={editGameMode} setGameMode={setEditGameMode}
             turnDuration={editTurnDuration} setTurnDuration={setEditTurnDuration}
             password={editPassword} setPassword={setEditPassword}
+            abilitiesEnabled={editAbilitiesEnabled} setAbilitiesEnabled={setEditAbilitiesEnabled}
             minMaxPlayers={state.players.length}
           />
         </DialogContent>
@@ -397,6 +424,9 @@ export const TinhTuyWaitingRoom: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Character Guide */}
+      <TinhTuyCharacterGuide open={showGuide} onClose={() => setShowGuide(false)} abilitiesEnabled={state.settings?.abilitiesEnabled ?? true} />
 
       {/* Guest Name Edit Dialog */}
       <GuestNameDialog

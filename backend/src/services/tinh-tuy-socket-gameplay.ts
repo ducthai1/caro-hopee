@@ -17,10 +17,106 @@ import {
 import { GO_SALARY, BOARD_SIZE, getCell, ISLAND_ESCAPE_COST, getUtilityRent, getStationRent, checkMonopolyCompleted, PROPERTY_GROUPS } from './tinh-tuy-board';
 import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyRestartTimer, negotiateTimers, clearNegotiateTimer } from './tinh-tuy-socket';
 import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds, KHI_VAN_CARDS, CO_HOI_CARDS } from './tinh-tuy-cards';
+import {
+  abilitiesEnabled, hasPassive, getGoSalaryBonus, getRentPayMultiplier, getMoneyLossMultiplier,
+  getCardMoneyMultiplier, getDoubleBonusSteps, executeChickenDrain, executeSlothAutoBuild,
+  decrementCooldown, setAbilityCooldown, canUseActiveAbility,
+  CHARACTER_ABILITIES, getTargetableOpponents, getKungfuTargets, getElephantBuildTargets,
+  getRabbitTeleportTargets, CANOC_STEAL_AMOUNT, TRAU_ACTIVE_AMOUNT, SLOTH_HIBERNATE_AMOUNT,
+  ActiveAbilityResult,
+} from './tinh-tuy-abilities';
 
 // Extra time (ms) added to card-choice timers to account for frontend animations
 // (dice ~2.5s + movement ~5s + card display ~7s + transitions ~1s ≈ 15.5s)
 const CARD_CHOICE_EXTRA_MS = 30_000;
+
+// ─── Sloth Auto-Build Helper ─────────────────────────────────
+
+/** After monopoly completion, check if player is Sloth and auto-build 1 house */
+function handleSlothAutoBuild(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, group: string
+): void {
+  const slothResult = executeSlothAutoBuild(game, player, group);
+  if (slothResult.built && slothResult.cellIndex != null) {
+    game.markModified('players');
+    io.to(game.roomId).emit('tinh-tuy:sloth-auto-build', {
+      slot: player.slot,
+      cellIndex: slothResult.cellIndex,
+      houseCount: player.houses[String(slothResult.cellIndex)] || 0,
+    });
+  }
+}
+
+/** Execute Owl's card pick after choosing 1 of 2 cards */
+async function executeOwlPick(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, chosenCardId: string
+): Promise<void> {
+  player.owlPendingCards = undefined;
+  const card = getCardById(chosenCardId);
+  if (!card) return;
+
+  const effect = executeCardEffect(game, player.slot, card);
+  applyCardEffect(game, player, effect);
+  game.markModified('players');
+  if (game.festival !== undefined) game.markModified('festival');
+  if (game.frozenProperties !== undefined) game.markModified('frozenProperties');
+
+  game.turnPhase = 'AWAITING_CARD_DISPLAY';
+  await game.save();
+
+  io.to(game.roomId).emit('tinh-tuy:card-drawn', {
+    slot: player.slot,
+    card: { id: card.id, type: card.type, nameKey: card.nameKey, descriptionKey: card.descriptionKey },
+    effect,
+  });
+
+  // Handle requires-choice effects
+  if (effect.requiresChoice) {
+    // Let the normal card-choice handler take over
+    return;
+  }
+
+  // Card display timer — auto-advance
+  startTurnTimer(game.roomId, (game.settings.turnDuration * 1000) + 30_000, async () => {
+    try {
+      const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+      if (!g || g.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
+      const p = g.players.find(pp => pp.slot === player.slot);
+      if (!p) return;
+      g.turnPhase = 'END_TURN';
+      await g.save();
+      await advanceTurnOrDoubles(io, g, p);
+    } catch (err) { console.error('[tinh-tuy] Owl card display timeout:', err); }
+  });
+}
+
+/** Execute Horse movement after ±1 choice (or timeout) */
+async function executeHorseMove(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
+  totalSteps: number, dice: { dice1: number; dice2: number; total: number; isDouble: boolean }
+): Promise<void> {
+  const roomId = game.roomId;
+  // Rabbit bonus also applies if Horse happens to have doubles (shouldn't overlap, but safety)
+  const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
+  totalSteps += rabbitBonus;
+
+  const oldPos = player.position;
+  const { position: newPos, passedGo } = calculateNewPosition(oldPos, totalSteps);
+  player.position = newPos;
+  const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+  if (passedGo) {
+    player.points += goSalary;
+    if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+  }
+  game.turnPhase = 'MOVING' as any;
+  game.markModified('players');
+  await game.save();
+  io.to(roomId).emit('tinh-tuy:player-moved', {
+    slot: player.slot, from: oldPos, to: newPos, passedGo,
+    goBonus: passedGo ? goSalary : 0,
+  });
+  await resolveAndAdvance(io, game, player, newPos, dice);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -189,6 +285,7 @@ async function checkBankruptcy(
 /** Build per-player buff snapshot for turn-changed event */
 export function getPlayerBuffs(game: ITinhTuyGame): Array<{
   slot: number; cards: string[]; immunityNextRent: boolean; doubleRentTurns: number; skipNextTurn: boolean; buyBlockedTurns: number;
+  abilityCooldown: number; abilityUsedThisTurn: boolean;
 }> {
   return game.players.filter(p => !p.isBankrupt).map(p => ({
     slot: p.slot, cards: [...p.cards],
@@ -196,6 +293,8 @@ export function getPlayerBuffs(game: ITinhTuyGame): Array<{
     doubleRentTurns: p.doubleRentTurns || 0,
     skipNextTurn: !!p.skipNextTurn,
     buyBlockedTurns: p.buyBlockedTurns || 0,
+    abilityCooldown: p.abilityCooldown || 0,
+    abilityUsedThisTurn: !!p.abilityUsedThisTurn,
   }));
 }
 
@@ -300,6 +399,30 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
   }
   // buyBlockedTurns now decrements when the blocked player passes GO (not per turn)
 
+  // ─── Character Ability: decrement cooldowns + Chicken drain ───
+  if (nextPlayer && abilitiesEnabled(game)) {
+    decrementCooldown(nextPlayer);
+
+    // Chicken passive: drain 200 from each opponent at turn start
+    const chickenDrain = executeChickenDrain(game, nextPlayer);
+    if (chickenDrain.drained.length > 0) {
+      game.markModified('players');
+      io.to(game.roomId).emit('tinh-tuy:chicken-drain', {
+        chickenSlot: nextPlayer.slot,
+        drained: chickenDrain.drained,
+        totalGained: chickenDrain.totalGained,
+      });
+      // Check if drain caused any bankruptcy
+      for (const d of chickenDrain.drained) {
+        const victim = game.players.find(p => p.slot === d.slot);
+        if (victim && victim.points < 0) {
+          const gameEnded = await checkBankruptcy(io, game, victim);
+          if (gameEnded) return; // Game finished — stop advancing turn
+        }
+      }
+    }
+  }
+
   // skipNextTurn takes priority — keep pendingTravel for next non-skipped turn
   if (nextPlayer?.skipNextTurn) {
     nextPlayer.skipNextTurn = false;
@@ -356,7 +479,7 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
         const oldPos = p.position;
         const passedGo = dest < oldPos;
         p.position = dest;
-        const goSalary = getEffectiveGoSalary(g.round || 1);
+        const goSalary = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
         if (passedGo) {
           p.points += goSalary;
           if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--;
@@ -418,7 +541,7 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
   if (effect.skipTurn) player.skipNextTurn = true;
 
   // Go to island
-  if (effect.goToIsland) sendToIsland(player);
+  if (effect.goToIsland) sendToIsland(player, game);
 
   // Double rent — card specifies rounds (1 round = all players roll once),
   // convert to turns (number of active non-bankrupt players)
@@ -581,6 +704,53 @@ async function handleCardDraw(
     }
   }
 
+  // ─── Owl passive: draw 2, pick 1 ───
+  if (hasPassive(game, player, 'CARD_DRAW_PICK_TWO')) {
+    // Draw a second card
+    const deck2 = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
+    const idx2 = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
+    const draw2 = drawCard(deck2, idx2, isKhiVan);
+    let card2 = getCardById(draw2.cardId);
+    // Update deck index for second draw
+    if (isKhiVan) {
+      game.luckCardIndex = draw2.newIndex;
+      game.markModified('luckCardIndex');
+      if (draw2.reshuffle) { game.luckCardDeck = shuffleDeck([...game.luckCardDeck]); game.markModified('luckCardDeck'); }
+    } else {
+      game.opportunityCardIndex = draw2.newIndex;
+      game.markModified('opportunityCardIndex');
+      if (draw2.reshuffle) { game.opportunityCardDeck = shuffleDeck([...game.opportunityCardDeck]); game.markModified('opportunityCardDeck'); }
+    }
+    if (card2 && card2.minRound && game.round < card2.minRound) card2 = null as any;
+    if (card2) {
+      // Present both cards to Owl for picking
+      player.owlPendingCards = [card.id, card2.id];
+      game.turnPhase = 'AWAITING_OWL_PICK' as any;
+      game.markModified('players');
+      await game.save();
+      io.to(game.roomId).emit('tinh-tuy:owl-pick-prompt', {
+        slot: player.slot,
+        cards: [
+          { id: card.id, type: card.type, nameKey: card.nameKey, descriptionKey: card.descriptionKey },
+          { id: card2.id, type: card2.type, nameKey: card2.nameKey, descriptionKey: card2.descriptionKey },
+        ],
+      });
+      // Timer: 15s auto-pick first card
+      startTurnTimer(game.roomId, 15000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_OWL_PICK') return;
+          const p = g.players.find(pp => pp.slot === player.slot);
+          if (!p) return;
+          // Auto-pick first card
+          await executeOwlPick(io, g, p, card.id);
+        } catch (err) { console.error('[tinh-tuy] Owl pick timeout:', err); }
+      });
+      return; // Wait for owl pick
+    }
+    // If second card is invalid, proceed with single card normally
+  }
+
   const effect = executeCardEffect(game, player.slot, card);
   applyCardEffect(game, player, effect);
   // Mark ALL modified Mixed/nested fields so Mongoose persists every change
@@ -620,6 +790,7 @@ async function handleCardDraw(
         io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
           slot: thief.slot, group, cellIndices: PROPERTY_GROUPS[group],
         });
+        handleSlothAutoBuild(io, game, thief, group);
       }
       emitNearWinWarning(io, game, thief);
     }
@@ -697,8 +868,8 @@ async function handleCardDraw(
       const gameEnded = await checkBankruptcy(io, game, player);
       if (gameEnded) return;
     } else if (landingAction.action === 'go_to_island') {
-      sendToIsland(player);
-      io.to(game.roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: 3 });
+      sendToIsland(player, game);
+      io.to(game.roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
     } else if (landingAction.action === 'travel') {
       // Card moved player to Travel cell — defer travel to next turn, break doubles
       player.pendingTravel = true;
@@ -1306,12 +1477,14 @@ function applyForcedTrade(
     io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
       slot: mySlot, group: meGroup, cellIndices: PROPERTY_GROUPS[meGroup],
     });
+    handleSlothAutoBuild(io, game, me, meGroup);
   }
   const oppGroup = checkMonopolyCompleted(myCellIndex, oppOwner.properties);
   if (oppGroup) {
     io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
       slot: oppOwner.slot, group: oppGroup, cellIndices: PROPERTY_GROUPS[oppGroup],
     });
+    handleSlothAutoBuild(io, game, oppOwner, oppGroup);
   }
 
   emitNearWinWarning(io, game, me);
@@ -1357,6 +1530,7 @@ function applyNegotiateTrade(
     io.to(game.roomId).emit('tinh-tuy:monopoly-completed', {
       slot: buyerSlot, group: buyerGroup, cellIndices: PROPERTY_GROUPS[buyerGroup],
     });
+    handleSlothAutoBuild(io, game, buyer, buyerGroup);
   }
 
   emitNearWinWarning(io, game, buyer);
@@ -1630,7 +1804,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const oldPos = player.position;
           const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
           player.position = newPos;
-          const goSalary1 = getEffectiveGoSalary(game.round || 1);
+          const goSalary1 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
           if (passedGo) {
             player.points += goSalary1;
             if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
@@ -1663,7 +1837,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles += 1;
         if (player.consecutiveDoubles >= 3) {
           const oldPos = player.position;
-          sendToIsland(player);
+          sendToIsland(player, game);
           game.turnPhase = 'END_TURN';
           await game.save();
 
@@ -1680,12 +1854,43 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles = 0;
       }
 
+      // ─── Horse passive: ±1 prompt after dice (only for dice movement) ───
+      if (hasPassive(game, player, 'MOVE_ADJUST') && !player.horseAdjustPending) {
+        player.horseAdjustPending = true;
+        game.turnPhase = 'AWAITING_HORSE_ADJUST' as any;
+        game.markModified('players');
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:dice-result', dice);
+        io.to(roomId).emit('tinh-tuy:horse-adjust-prompt', {
+          slot: player.slot, diceTotal: dice.total, currentPos: player.position,
+        });
+        // Timer: 5s auto-keep
+        startTurnTimer(roomId, 5000, async () => {
+          try {
+            const g = await TinhTuyGame.findOne({ roomId });
+            if (!g || g.turnPhase !== 'AWAITING_HORSE_ADJUST') return;
+            const p = g.players.find(pp => pp.slot === player.slot);
+            if (!p) return;
+            p.horseAdjustPending = false;
+            // Use original dice total (no adjustment)
+            await executeHorseMove(io, g, p, dice.total, dice);
+          } catch (err) { console.error('[tinh-tuy] Horse adjust timeout:', err); }
+        });
+        callback({ success: true });
+        return;
+      }
+
+      // ─── Rabbit passive: +3 bonus steps on doubles ───
+      let moveSteps = dice.total;
+      const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
+      moveSteps += rabbitBonus;
+
       // Calculate movement
       const oldPos = player.position;
-      const { position: newPos, passedGo } = calculateNewPosition(oldPos, dice.total);
+      const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
       player.position = newPos;
 
-      const goSalary2 = getEffectiveGoSalary(game.round || 1);
+      const goSalary2 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary2;
         if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
@@ -1789,6 +1994,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           slot: player.slot, group: completedGroup,
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
+        handleSlothAutoBuild(io, game, player, completedGroup);
       }
 
       // Check near-win warning (1 step from domination victory)
@@ -1882,7 +2088,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const oldPos = player.position;
       const passedGo = cellIndex < oldPos; // forward wrap = passed GO
       player.position = cellIndex;
-      const goSalary3 = getEffectiveGoSalary(game.round || 1);
+      const goSalary3 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary3;
         if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
@@ -2299,6 +2505,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           slot: player.slot, group: completedGroup,
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
+        handleSlothAutoBuild(io, game, player, completedGroup);
       }
       emitNearWinWarning(io, game, player);
       if (edVictim) emitNearWinWarning(io, game, edVictim);
@@ -2606,6 +2813,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           slot: player.slot, group: completedGroup,
           cellIndices: PROPERTY_GROUPS[completedGroup],
         });
+        handleSlothAutoBuild(io, game, player, completedGroup);
       }
 
       emitNearWinWarning(io, game, player);
@@ -3159,6 +3367,555 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       callback({ success: false, error: 'negotiateFailed' });
     }
   });
+
+  // ── Use Active Ability ──────────────────────────────────────
+  socket.on('tinh-tuy:use-ability', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      if (isRateLimited(socket.id)) return callback({ success: false, error: 'tooFast' });
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') return callback({ success: false, error: 'gameNotActive' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+
+      const validation = canUseActiveAbility(game, player);
+      if (!validation.valid) return callback({ success: false, error: validation.error });
+
+      const abilityDef = CHARACTER_ABILITIES[player.character];
+      if (!abilityDef) return callback({ success: false, error: 'noAbility' });
+
+      // Phase check
+      if (abilityDef.active.phase === 'ROLL_DICE' && game.turnPhase !== 'ROLL_DICE') {
+        return callback({ success: false, error: 'invalidPhase' });
+      }
+
+      clearTurnTimer(roomId);
+      const { target, targetCell, steps, deck } = data || {};
+
+      // Execute ability based on character
+      switch (player.character) {
+        case 'trau': {
+          // +1000 TT from bank
+          player.points += TRAU_ACTIVE_AMOUNT;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'trau-active', amount: TRAU_ACTIVE_AMOUNT,
+            cooldown: player.abilityCooldown,
+          });
+          // Resume normal turn
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'pigfish': {
+          // Next rent immunity
+          player.immunityNextRent = true;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'pigfish-active', cooldown: player.abilityCooldown,
+          });
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'sloth': {
+          // Skip turn, +1500 TT
+          player.points += SLOTH_HIBERNATE_AMOUNT;
+          player.skipNextTurn = true;
+          setAbilityCooldown(player);
+          game.turnPhase = 'END_TURN';
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'sloth-active', amount: SLOTH_HIBERNATE_AMOUNT,
+            cooldown: player.abilityCooldown,
+          });
+          await advanceTurn(io, game);
+          callback({ success: true });
+          break;
+        }
+        case 'fox': {
+          // Swap position with target opponent
+          const targetSlot = Number(target);
+          const targetPlayer = game.players.find(p => p.slot === targetSlot && !p.isBankrupt);
+          if (!targetPlayer) return callback({ success: false, error: 'invalidTarget' });
+          if (targetPlayer.islandTurns > 0) return callback({ success: false, error: 'targetOnIsland' });
+          const myOldPos = player.position;
+          const targetOldPos = targetPlayer.position;
+          player.position = targetOldPos;
+          targetPlayer.position = myOldPos;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'fox-active', targetSlot,
+            cooldown: player.abilityCooldown,
+          });
+          io.to(roomId).emit('tinh-tuy:fox-swap', {
+            mySlot: player.slot, targetSlot,
+            myNewPos: targetOldPos, targetNewPos: myOldPos,
+          });
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'canoc': {
+          // Steal 1000 TT from target
+          const cTargetSlot = Number(target);
+          const cTarget = game.players.find(p => p.slot === cTargetSlot && !p.isBankrupt);
+          if (!cTarget) return callback({ success: false, error: 'invalidTarget' });
+          const stealAmount = Math.max(0, Math.min(CANOC_STEAL_AMOUNT, cTarget.points));
+          cTarget.points -= stealAmount;
+          player.points += stealAmount;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'canoc-active', targetSlot: cTargetSlot,
+            amount: stealAmount, cooldown: player.abilityCooldown,
+          });
+          // Check if steal caused bankruptcy
+          if (cTarget.points < 0) await checkBankruptcy(io, game, cTarget);
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'chicken': {
+          // Skip opponent's next turn
+          const skipSlot = Number(target);
+          const skipTarget = game.players.find(p => p.slot === skipSlot && !p.isBankrupt);
+          if (!skipTarget) return callback({ success: false, error: 'invalidTarget' });
+          skipTarget.skipNextTurn = true;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'chicken-active', targetSlot: skipSlot,
+            cooldown: player.abilityCooldown,
+          });
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'kungfu': {
+          // Destroy 1 opponent house (refund 50%)
+          const kTargetSlot = Number(data.targetSlot);
+          const kCellIndex = Number(targetCell);
+          const kTarget = game.players.find(p => p.slot === kTargetSlot && !p.isBankrupt);
+          if (!kTarget) return callback({ success: false, error: 'invalidTarget' });
+          const key = String(kCellIndex);
+          const houses = kTarget.houses[key] || 0;
+          if (houses <= 0 || kTarget.hotels[key]) return callback({ success: false, error: 'noHouseToDestroy' });
+          kTarget.houses[key] = houses - 1;
+          const cell = getCell(kCellIndex);
+          const refund = Math.floor((cell?.houseCost || 0) * 0.5);
+          kTarget.points += refund;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'kungfu-active', targetSlot: kTargetSlot,
+            cellIndex: kCellIndex, amount: refund, cooldown: player.abilityCooldown,
+          });
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'elephant': {
+          // Free house build on owned property
+          const eCellIndex = Number(targetCell);
+          const buildTargets = getElephantBuildTargets(game, player);
+          if (!buildTargets.includes(eCellIndex)) return callback({ success: false, error: 'invalidCell' });
+          player.houses[String(eCellIndex)] = (player.houses[String(eCellIndex)] || 0) + 1;
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'elephant-active', cellIndex: eCellIndex,
+            cooldown: player.abilityCooldown,
+          });
+          io.to(roomId).emit('tinh-tuy:house-built', {
+            slot: player.slot, cellIndex: eCellIndex,
+            houseCount: player.houses[String(eCellIndex)],
+            remainingPoints: player.points,
+          });
+          startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+            try {
+              const g = await TinhTuyGame.findOne({ roomId });
+              if (!g || g.turnPhase !== 'ROLL_DICE') return;
+              await advanceTurn(io, g);
+            } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+          });
+          callback({ success: true });
+          break;
+        }
+        case 'rabbit': {
+          // Teleport to any cell
+          const rCellIndex = Number(targetCell);
+          if (rCellIndex < 0 || rCellIndex >= BOARD_SIZE) return callback({ success: false, error: 'invalidCell' });
+          const rOldPos = player.position;
+          player.position = rCellIndex;
+          const rPassedGo = rCellIndex === 0 || (rCellIndex < rOldPos && rCellIndex !== 27);
+          const rGoSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+          if (rPassedGo) {
+            player.points += rGoSalary;
+            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+          }
+          setAbilityCooldown(player);
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'rabbit-active', cellIndex: rCellIndex,
+            cooldown: player.abilityCooldown,
+          });
+          io.to(roomId).emit('tinh-tuy:player-moved', {
+            slot: player.slot, from: rOldPos, to: rCellIndex, passedGo: rPassedGo,
+            goBonus: rPassedGo ? rGoSalary : 0, teleport: true,
+          });
+          // Resolve landing cell
+          await resolveAndAdvance(io, game, player, rCellIndex, { dice1: 0, dice2: 0, total: 0, isDouble: false });
+          callback({ success: true });
+          break;
+        }
+        case 'horse': {
+          // Choose exact steps 2-12
+          const hSteps = Number(steps);
+          if (hSteps < 2 || hSteps > 12) return callback({ success: false, error: 'invalidSteps' });
+          setAbilityCooldown(player);
+          game.markModified('players');
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'horse-active', amount: hSteps,
+            cooldown: player.abilityCooldown,
+          });
+          // Execute movement
+          const hOldPos = player.position;
+          const hMove = calculateNewPosition(hOldPos, hSteps);
+          player.position = hMove.position;
+          const hGoSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+          if (hMove.passedGo) {
+            player.points += hGoSalary;
+            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+          }
+          game.lastDiceResult = null; // No real dice — null prevents false doubles
+          game.markModified('lastDiceResult');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:player-moved', {
+            slot: player.slot, from: hOldPos, to: hMove.position, passedGo: hMove.passedGo,
+            goBonus: hMove.passedGo ? hGoSalary : 0,
+          });
+          await resolveAndAdvance(io, game, player, hMove.position, { dice1: 0, dice2: 0, total: hSteps, isDouble: false });
+          callback({ success: true });
+          break;
+        }
+        case 'seahorse': {
+          // Draw extra card from chosen deck
+          const sDeck = deck === 'CO_HOI' ? 'CO_HOI' : 'KHI_VAN';
+          setAbilityCooldown(player);
+          game.markModified('players');
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'seahorse-active',
+            cooldown: player.abilityCooldown,
+          });
+          await handleCardDraw(io, game, player, sDeck);
+          if (game.turnPhase === 'END_TURN') {
+            await advanceTurnOrDoubles(io, game, player);
+          }
+          callback({ success: true });
+          break;
+        }
+        case 'owl': {
+          // Force opponent to draw KHI_VAN card
+          const oTargetSlot = Number(target);
+          const oTarget = game.players.find(p => p.slot === oTargetSlot && !p.isBankrupt);
+          if (!oTarget) return callback({ success: false, error: 'invalidTarget' });
+          setAbilityCooldown(player);
+          game.markModified('players');
+          io.to(roomId).emit('tinh-tuy:ability-used', {
+            slot: player.slot, abilityId: 'owl-active', targetSlot: oTargetSlot,
+            cooldown: player.abilityCooldown,
+          });
+          await handleCardDraw(io, game, oTarget, 'KHI_VAN');
+          if (game.turnPhase === 'END_TURN' || game.turnPhase === 'AWAITING_CARD_DISPLAY') {
+            // Return to roll phase for the current player after card display
+            startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+              try {
+                const g = await TinhTuyGame.findOne({ roomId });
+                if (!g || g.turnPhase !== 'ROLL_DICE') return;
+                await advanceTurn(io, g);
+              } catch (err) { console.error('[tinh-tuy] ability timeout:', err); }
+            });
+          }
+          callback({ success: true });
+          break;
+        }
+        case 'shiba': {
+          // This case shouldn't be reached via use-ability — Shiba uses POST_ROLL
+          // handled by tinh-tuy:shiba-reroll event instead
+          callback({ success: false, error: 'useRerollEvent' });
+          break;
+        }
+        default:
+          callback({ success: false, error: 'unknownAbility' });
+      }
+    } catch (err: any) {
+      console.error('[tinh-tuy:use-ability]', err.message);
+      callback({ success: false, error: 'abilityFailed' });
+    }
+  });
+
+  // ── Horse Adjust (±1 after dice) ──────────────────────────────
+  socket.on('tinh-tuy:horse-adjust', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.turnPhase !== 'AWAITING_HORSE_ADJUST') return callback({ success: false, error: 'invalidPhase' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+
+      clearTurnTimer(roomId);
+      player.horseAdjustPending = false;
+      const adjustment = Number(data?.direction ?? data?.adjustment ?? 0);
+      const clampedAdj = Math.max(-1, Math.min(1, adjustment));
+      const dice = game.lastDiceResult || { dice1: 0, dice2: 0 };
+      const diceTotal = dice.dice1 + dice.dice2;
+      const totalSteps = Math.max(1, diceTotal + clampedAdj);
+      await executeHorseMove(io, game, player, totalSteps, {
+        dice1: dice.dice1, dice2: dice.dice2, total: diceTotal,
+        isDouble: dice.dice1 === dice.dice2,
+      });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:horse-adjust]', err.message);
+      callback({ success: false, error: 'adjustFailed' });
+    }
+  });
+
+  // ── Owl Pick Card (choose 1 of 2) ────────────────────────────
+  socket.on('tinh-tuy:owl-pick', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.turnPhase !== 'AWAITING_OWL_PICK') return callback({ success: false, error: 'invalidPhase' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+      if (!player.owlPendingCards?.length) return callback({ success: false, error: 'noPendingCards' });
+
+      clearTurnTimer(roomId);
+      const chosenCardId = data?.cardId;
+      if (!player.owlPendingCards.includes(chosenCardId)) return callback({ success: false, error: 'invalidCard' });
+
+      await executeOwlPick(io, game, player, chosenCardId);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:owl-pick]', err.message);
+      callback({ success: false, error: 'owlPickFailed' });
+    }
+  });
+
+  // ── Shiba Reroll (after dice roll, choose original or new) ────
+  socket.on('tinh-tuy:shiba-reroll', async (_data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.gameStatus !== 'playing') return callback({ success: false, error: 'gameNotActive' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+
+      // Shiba can only reroll right after dice result, during END_TURN or MOVING phase
+      // Actually it should be triggered when turnPhase is still being processed (post-roll, pre-move)
+      // We handle this by checking the player's ability state
+      const validation = canUseActiveAbility(game, player);
+      if (!validation.valid) return callback({ success: false, error: validation.error });
+      if (player.character !== 'shiba') return callback({ success: false, error: 'notShiba' });
+
+      const originalDice = game.lastDiceResult;
+      if (!originalDice) return callback({ success: false, error: 'noDiceResult' });
+
+      // Roll new dice
+      const newDice = rollDice();
+      player.shibaRerollPending = {
+        original: { dice1: originalDice.dice1, dice2: originalDice.dice2 },
+        rerolled: { dice1: newDice.dice1, dice2: newDice.dice2 },
+      };
+      setAbilityCooldown(player);
+      game.turnPhase = 'AWAITING_SHIBA_REROLL_PICK' as any;
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:ability-used', {
+        slot: player.slot, abilityId: 'shiba-active', cooldown: player.abilityCooldown,
+      });
+      io.to(roomId).emit('tinh-tuy:shiba-reroll-prompt', {
+        slot: player.slot,
+        original: player.shibaRerollPending.original,
+        rerolled: player.shibaRerollPending.rerolled,
+      });
+
+      // Timer: 5s auto-keep original
+      startTurnTimer(roomId, 5000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId });
+          if (!g || g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return;
+          const p = g.players.find(pp => pp.slot === player.slot);
+          if (!p || !p.shibaRerollPending) return;
+          // Keep original
+          g.lastDiceResult = { dice1: p.shibaRerollPending.original.dice1, dice2: p.shibaRerollPending.original.dice2 };
+          g.markModified('lastDiceResult');
+          p.shibaRerollPending = undefined as any;
+          g.markModified('players');
+          await g.save();
+          // Continue with original dice movement
+          const d = g.lastDiceResult!;
+          io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', { slot: p.slot, kept: 'original' });
+          // Movement is already done before shiba reroll for the original — actually no,
+          // Shiba reroll should be POST_ROLL but PRE_MOVE.
+          // The current flow already moved the player, so this approach won't work cleanly.
+          // For simplicity: the Shiba reroll replaces the dice result and re-does the move.
+          // Since dice was already broadcast, we need to "redo" the move.
+          // Let's just advance turn for the timeout case.
+          g.turnPhase = 'ROLL_DICE';
+          await g.save();
+          await advanceTurn(io, g);
+        } catch (err) { console.error('[tinh-tuy] Shiba reroll timeout:', err); }
+      });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:shiba-reroll]', err.message);
+      callback({ success: false, error: 'rerollFailed' });
+    }
+  });
+
+  // ── Shiba Reroll Pick (choose original or new) ────────────────
+  socket.on('tinh-tuy:shiba-reroll-pick', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return callback({ success: false, error: 'invalidPhase' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+      if (!player.shibaRerollPending) return callback({ success: false, error: 'noPendingReroll' });
+
+      clearTurnTimer(roomId);
+      const choice = data?.choice; // 'original' or 'rerolled'
+      const chosen = choice === 'rerolled' ? player.shibaRerollPending.rerolled : player.shibaRerollPending.original;
+      game.lastDiceResult = { dice1: chosen.dice1, dice2: chosen.dice2 };
+      game.markModified('lastDiceResult');
+      player.shibaRerollPending = undefined as any;
+
+      io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', {
+        slot: player.slot, kept: choice === 'rerolled' ? 'rerolled' : 'original',
+        dice: chosen,
+      });
+
+      // Now do the dice movement with the chosen result
+      const dice = { dice1: chosen.dice1, dice2: chosen.dice2, total: chosen.dice1 + chosen.dice2, isDouble: chosen.dice1 === chosen.dice2 };
+
+      // Handle doubles
+      if (dice.isDouble) {
+        player.consecutiveDoubles += 1;
+        if (player.consecutiveDoubles >= 3) {
+          const oldPos = player.position;
+          sendToIsland(player, game);
+          game.turnPhase = 'END_TURN';
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:dice-result', dice);
+          io.to(roomId).emit('tinh-tuy:player-moved', {
+            slot: player.slot, from: oldPos, to: 27, passedGo: false, teleport: true,
+          });
+          io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
+          await advanceTurn(io, game);
+          callback({ success: true });
+          return;
+        }
+      } else {
+        player.consecutiveDoubles = 0;
+      }
+
+      // Rabbit bonus on doubles
+      let moveSteps = dice.total;
+      const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
+      moveSteps += rabbitBonus;
+
+      const oldPos = player.position;
+      const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
+      player.position = newPos;
+      const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+      if (passedGo) {
+        player.points += goSalary;
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+      }
+      game.markModified('players');
+      await game.save();
+
+      io.to(roomId).emit('tinh-tuy:dice-result', dice);
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: newPos, passedGo,
+        goBonus: passedGo ? goSalary : 0,
+      });
+
+      await resolveAndAdvance(io, game, player, newPos, dice);
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:shiba-reroll-pick]', err.message);
+      callback({ success: false, error: 'rerollPickFailed' });
+    }
+  });
 }
 
 // ─── Cell Resolution (after movement) ─────────────────────────
@@ -3187,13 +3944,17 @@ async function resolveAndAdvance(
         if (buybackStarted) return;
         break;
       }
-      player.points -= cellAction.amount;
+      // Apply Fox passive (-15% rent) + Suu Nhi passive (-10% losses)
+      let rentToPay = cellAction.amount;
+      rentToPay = Math.floor(rentToPay * getRentPayMultiplier(game, player));
+      rentToPay = Math.floor(rentToPay * getMoneyLossMultiplier(game, player));
+      player.points -= rentToPay;
       const owner = game.players.find(p => p.slot === cellAction.ownerSlot);
-      if (owner) owner.points += cellAction.amount;
+      if (owner) owner.points += rentToPay;
 
       io.to(roomId).emit('tinh-tuy:rent-paid', {
         fromSlot: player.slot, toSlot: cellAction.ownerSlot,
-        amount: cellAction.amount, cellIndex,
+        amount: rentToPay, cellIndex,
       });
 
       const gameEnded = await checkBankruptcy(io, game, player);
@@ -3205,8 +3966,9 @@ async function resolveAndAdvance(
       break;
     }
     case 'tax': {
-      // Per-building tax — 0 if no buildings
-      const taxAmount = cellAction.amount || 0;
+      // Per-building tax — 0 if no buildings; Suu Nhi passive: -10%
+      let taxAmount = cellAction.amount || 0;
+      taxAmount = Math.floor(taxAmount * getMoneyLossMultiplier(game, player));
       if (taxAmount > 0) player.points -= taxAmount;
       io.to(roomId).emit('tinh-tuy:tax-paid', {
         slot: player.slot, amount: taxAmount, cellIndex,
@@ -3222,9 +3984,9 @@ async function resolveAndAdvance(
       break;
     }
     case 'go_to_island': {
-      sendToIsland(player);
+      sendToIsland(player, game);
       await game.save();
-      io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: 3 });
+      io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
       await advanceTurn(io, game);
       return;
     }

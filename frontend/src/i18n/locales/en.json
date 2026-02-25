@@ -902,7 +902,10 @@
       "timed": "Time Limited",
       "rounds": "Round Limited",
       "edit": "Edit settings",
-      "save": "Save"
+      "save": "Save",
+      "abilities": "Character Abilities",
+      "abilitiesOn": "On",
+      "abilitiesOff": "Off"
     },
     "game": {
       "rollDice": "Roll Dice",
@@ -1234,6 +1237,140 @@
       "missingCell": "Missing property:",
       "missingHouse": "Needs house on:",
       "groupProgress": "{{current}}/{{target}} color groups completed"
+    },
+    "guide": {
+      "title": "Character Guide",
+      "tabCharacters": "Characters",
+      "tabBalance": "Power Analysis",
+      "balanceNote": "Estimated value over 60 turns",
+      "character": "Character",
+      "passiveTT": "Passive ~TT",
+      "activeTT": "Active ~TT",
+      "totalTT": "Total",
+      "sweetSpot": "Sweet Spot",
+      "sweetSpots": {
+        "shiba": "Long games, stable income",
+        "kungfu": "Many properties, disrupt opponents",
+        "fox": "Expensive areas, dodge rent",
+        "elephant": "Rush hotel builds early",
+        "trau": "Heavy rent/tax, survival",
+        "horse": "Precise movement",
+        "canoc": "Many buildings, 4-player games",
+        "seahorse": "Card-heavy boards, RNG lover",
+        "pigfish": "Expensive hotels, need insurance",
+        "chicken": "4-player games (drain x3)",
+        "rabbit": "Target specific properties, avoid danger",
+        "sloth": "Monopoly strategy, self-heal",
+        "owl": "Control, pressure opponents"
+      }
+    },
+    "abilities": {
+      "title": "Character Abilities",
+      "enabled": "Character Abilities",
+      "cooldown": "Cooldown: {{turns}} turns",
+      "ready": "Ready",
+      "onCooldown": "Cooldown ({{turns}})",
+      "used": "Used",
+      "useAbility": "Use Ability",
+      "selectTarget": "Select Target",
+      "selectCell": "Select Cell",
+      "selectSteps": "Select Steps (2-12)",
+      "selectDeck": "Select Deck",
+      "passive": "Passive",
+      "active": "Active",
+      "disabled": "Abilities Off",
+      "keepOriginal": "Keep Original",
+      "keepNew": "Choose New Result",
+      "adjustPlus": "+1 cell",
+      "adjustMinus": "-1 cell",
+      "adjustKeep": "Keep",
+      "pickCard": "Pick Card",
+      "ui": {
+        "owlPickTitle": "Wisdom: Pick 1 Card",
+        "horseAdjust": "Nimble: Adjust your move?",
+        "horseAdjustKeep": "Keep",
+        "shibaRerollTitle": "Lucky Bark: Choose Dice",
+        "shibaOriginal": "Original",
+        "shibaRerolled": "Rerolled"
+      },
+      "roles": {
+        "income": "Income",
+        "attack": "Attack",
+        "defense": "Defense",
+        "build": "Build",
+        "movement": "Movement",
+        "tactical": "Tactical"
+      },
+      "shiba": {
+        "passive": { "name": "Loyal", "desc": "Pass GO +500 TT" },
+        "active": { "name": "Lucky Bark", "desc": "Reroll dice, choose to keep old or new" }
+      },
+      "kungfu": {
+        "passive": { "name": "Martial Arts", "desc": "Collect rent +15%" },
+        "active": { "name": "Flying Kick", "desc": "Destroy 1 opponent's house (50% refund)" }
+      },
+      "fox": {
+        "passive": { "name": "Cunning", "desc": "Pay rent -15%" },
+        "active": { "name": "Swap", "desc": "Swap position with an opponent" }
+      },
+      "elephant": {
+        "passive": { "name": "Strength", "desc": "Build house/hotel -15% cost" },
+        "active": { "name": "Stomp", "desc": "Build 1 house for free" }
+      },
+      "trau": {
+        "passive": { "name": "Endurance", "desc": "-10% all money losses" },
+        "active": { "name": "Plow", "desc": "+1000 TT from bank" }
+      },
+      "horse": {
+        "passive": { "name": "Agile", "desc": "After dice roll ±1 cell" },
+        "active": { "name": "Gallop", "desc": "Choose to move 2-12 cells instead of rolling" }
+      },
+      "canoc": {
+        "passive": { "name": "Ambush", "desc": "Property with building → +300 TT rent" },
+        "active": { "name": "Bite", "desc": "Take 1000 TT from an opponent" }
+      },
+      "seahorse": {
+        "passive": { "name": "Blessed", "desc": "Card +money +25%, card -money -25%" },
+        "active": { "name": "Summon", "desc": "Draw 1 extra card (choose deck)" }
+      },
+      "pigfish": {
+        "passive": { "name": "Slippery", "desc": "Island max 1 turn (instead of 3)" },
+        "active": { "name": "Dive", "desc": "Immune to next rent payment" }
+      },
+      "chicken": {
+        "passive": { "name": "Morning Call", "desc": "Start of turn, opponents -200 TT → into your pocket" },
+        "active": { "name": "Harass", "desc": "Skip 1 opponent's turn" }
+      },
+      "rabbit": {
+        "passive": { "name": "Long Jump", "desc": "Roll double → +3 bonus cells" },
+        "active": { "name": "Flash Jump", "desc": "Teleport to any cell" }
+      },
+      "sloth": {
+        "passive": { "name": "Lazy", "desc": "Complete color group → auto build 1 house" },
+        "active": { "name": "Hibernate", "desc": "Skip turn, +1500 TT" }
+      },
+      "owl": {
+        "passive": { "name": "Wise", "desc": "Draw card → see 2, pick 1" },
+        "active": { "name": "Judgment", "desc": "Force 1 opponent to draw a Luck card" }
+      },
+      "notifications": {
+        "abilityUsed": "{{name}} used {{ability}}",
+        "chickenDrain": "{{name}} drained {{amount}} TT from opponents",
+        "slothBuild": "{{name}} auto-built house at {{cell}}",
+        "foxSwap": "{{name}} swapped positions with {{target}}",
+        "kungfuDestroy": "{{name}} destroyed house at {{cell}}",
+        "canocSteal": "{{name}} took {{amount}} TT from {{target}}",
+        "chickenSkip": "{{name}} skipped {{target}}'s turn",
+        "owlForce": "{{name}} forced {{target}} to draw a card",
+        "rabbitTeleport": "{{name}} teleported to {{cell}}",
+        "shibaReroll": "{{name}} rerolled the dice",
+        "horseGallop": "{{name}} chose to move {{steps}} steps",
+        "seahorseDraw": "{{name}} drew an extra card",
+        "pigfishDive": "{{name}} gained rent immunity",
+        "slothHibernate": "{{name}} hibernated +1500 TT",
+        "trauPlow": "{{name}} gained +1000 TT from bank",
+        "elephantBuild": "{{name}} built a house for free"
+      }
     }
   }
 }

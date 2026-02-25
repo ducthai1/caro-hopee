@@ -25,11 +25,12 @@ export const TinhTuyCreateRoom: React.FC<Props> = ({ open, onClose }) => {
   const [startingPoints, setStartingPoints] = useState(DEFAULT_SETTINGS.startingPoints);
   const [gameMode, setGameMode] = useState<TinhTuyGameMode>(DEFAULT_SETTINGS.gameMode);
   const [turnDuration, setTurnDuration] = useState(DEFAULT_SETTINGS.turnDuration);
+  const [abilitiesEnabled, setAbilitiesEnabled] = useState(DEFAULT_SETTINGS.abilitiesEnabled);
   const [password, setPassword] = useState('');
 
   const handleCreate = () => {
     createRoom({
-      settings: { maxPlayers, startingPoints, gameMode, turnDuration },
+      settings: { maxPlayers, startingPoints, gameMode, turnDuration, abilitiesEnabled },
       password: password.trim() || undefined,
     });
     onClose();
@@ -50,6 +51,7 @@ export const TinhTuyCreateRoom: React.FC<Props> = ({ open, onClose }) => {
           gameMode={gameMode} setGameMode={setGameMode}
           turnDuration={turnDuration} setTurnDuration={setTurnDuration}
           password={password} setPassword={setPassword}
+          abilitiesEnabled={abilitiesEnabled} setAbilitiesEnabled={setAbilitiesEnabled}
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

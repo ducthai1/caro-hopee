@@ -12,7 +12,7 @@ export const VALID_CHARACTERS: TinhTuyCharacter[] = ['shiba', 'kungfu', 'fox', '
 // ─── Enums ────────────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_BUY_BLOCK_TARGET' | 'AWAITING_EMINENT_DOMAIN' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_FREE_HOUSE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_CARD' | 'AWAITING_CARD_DISPLAY' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_BUY_BLOCK_TARGET' | 'AWAITING_EMINENT_DOMAIN' | 'AWAITING_ABILITY_CHOICE' | 'AWAITING_OWL_PICK' | 'AWAITING_HORSE_ADJUST' | 'AWAITING_HORSE_MOVE' | 'AWAITING_SHIBA_REROLL_PICK' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO'            // cell 0: Xuat Phat
@@ -40,6 +40,7 @@ export interface ITinhTuySettings {
   maxRounds?: number;           // rounds mode
   turnDuration: number;         // seconds: 30, 60, 90, 120
   password?: string;            // hashed
+  abilitiesEnabled: boolean;    // character abilities ON/OFF (default true)
 }
 
 // ─── Player ───────────────────────────────────────────────────
@@ -68,6 +69,15 @@ export interface ITinhTuyPlayer {
   buyBlockedTurns?: number;          // remaining turns where player cannot buy properties
   pendingTravel?: boolean;           // deferred travel — next turn starts as AWAITING_TRAVEL
   deviceType?: string;
+  // ─── Ability fields ─────────────────────────────────
+  abilityCooldown: number;           // turns remaining before active ability can be used
+  abilityUsedThisTurn: boolean;      // prevent double-use in same turn
+  owlPendingCards?: string[];        // Owl: 2 card IDs for pick-one
+  horseAdjustPending?: boolean;      // Horse: awaiting ±1 choice after dice
+  shibaRerollPending?: {             // Shiba: awaiting pick between original/rerolled
+    original: { dice1: number; dice2: number };
+    rerolled: { dice1: number; dice2: number };
+  };
 }
 
 // ─── Winner ───────────────────────────────────────────────────

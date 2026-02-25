@@ -28,7 +28,7 @@ export type TinhTuyView = 'lobby' | 'waiting' | 'playing' | 'result';
 // ─── Enums ────────────────────────────────────────────
 export type TinhTuyGameStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
 export type TinhTuyGameMode = 'classic' | 'timed' | 'rounds';
-export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_BUY_BLOCK_TARGET' | 'AWAITING_EMINENT_DOMAIN' | 'ISLAND_TURN' | 'END_TURN';
+export type TurnPhase = 'ROLL_DICE' | 'MOVING' | 'AWAITING_ACTION' | 'AWAITING_BUILD' | 'AWAITING_CARD' | 'AWAITING_TRAVEL' | 'AWAITING_FESTIVAL' | 'AWAITING_SELL' | 'AWAITING_DESTROY_PROPERTY' | 'AWAITING_DOWNGRADE_BUILDING' | 'AWAITING_BUYBACK' | 'AWAITING_CARD_DESTINATION' | 'AWAITING_FORCED_TRADE' | 'AWAITING_RENT_FREEZE' | 'AWAITING_FREE_HOTEL' | 'AWAITING_BUY_BLOCK_TARGET' | 'AWAITING_EMINENT_DOMAIN' | 'AWAITING_ABILITY_CHOICE' | 'AWAITING_OWL_PICK' | 'AWAITING_HORSE_ADJUST' | 'AWAITING_HORSE_MOVE' | 'AWAITING_SHIBA_REROLL_PICK' | 'ISLAND_TURN' | 'END_TURN';
 
 export type CellType =
   | 'GO' | 'PROPERTY' | 'STATION' | 'UTILITY'
@@ -47,6 +47,7 @@ export interface TinhTuySettings {
   timeLimit?: number;
   maxRounds?: number;
   turnDuration: number;
+  abilitiesEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: TinhTuySettings = {
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS: TinhTuySettings = {
   startingPoints: 20000,
   gameMode: 'classic',
   turnDuration: 60,
+  abilitiesEnabled: true,
 };
 
 // ─── Player ───────────────────────────────────────────
@@ -80,6 +82,9 @@ export interface TinhTuyPlayer {
   isConnected: boolean;
   consecutiveDoubles: number;
   deviceType?: 'mobile' | 'tablet' | 'desktop';
+  // Ability fields
+  abilityCooldown: number;
+  abilityUsedThisTurn: boolean;
 }
 
 // ─── Winner ───────────────────────────────────────────
@@ -288,6 +293,26 @@ export interface TinhTuyState {
   negotiateCooldownUntil: number;
   /** Whether the negotiate wizard (requester) is open */
   negotiateWizardOpen: boolean;
+  // ─── Ability State ───────────────────────────────────
+  /** Ability target modal — pick opponent / cell / house / steps / deck */
+  abilityModal: {
+    type: 'OPPONENT' | 'CELL' | 'OPPONENT_HOUSE' | 'STEPS' | 'DECK';
+    targets?: Array<{ slot: number; displayName: string }>;
+    cells?: number[];
+    houses?: Array<{ slot: number; cellIndex: number; houses: number }>;
+  } | null;
+  /** Owl pick modal — choose 1 of 2 cards */
+  owlPickModal: { cards: Array<{ id: string; type: string; nameKey: string; descriptionKey: string }> } | null;
+  /** Horse adjust prompt — ±1 after dice */
+  horseAdjustPrompt: { diceTotal: number; currentPos: number } | null;
+  /** Shiba reroll pick — choose original or rerolled dice */
+  shibaRerollPrompt: { original: { dice1: number; dice2: number }; rerolled: { dice1: number; dice2: number } } | null;
+  /** Ability used notification — broadcast to all */
+  abilityUsedAlert: { slot: number; abilityId: string; targetSlot?: number; cellIndex?: number; amount?: number } | null;
+  /** Chicken drain notification */
+  chickenDrainAlert: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } | null;
+  /** Sloth auto-build notification */
+  slothAutoBuildAlert: { slot: number; cellIndex: number } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -393,7 +418,22 @@ export type TinhTuyAction =
   | { type: 'NEGOTIATE_COMPLETED'; payload: { accepted: boolean; fromSlot: number; toSlot: number; cellIndex?: number; offerAmount?: number; cooldownUntilRound?: number; festival?: any } }
   | { type: 'NEGOTIATE_CANCELLED'; payload: { fromSlot: number } }
   | { type: 'OPEN_NEGOTIATE_WIZARD' }
-  | { type: 'CLOSE_NEGOTIATE_WIZARD' };
+  | { type: 'CLOSE_NEGOTIATE_WIZARD' }
+  // ─── Ability Actions ───────────────────────────────
+  | { type: 'ABILITY_MODAL'; payload: TinhTuyState['abilityModal'] }
+  | { type: 'CLEAR_ABILITY_MODAL' }
+  | { type: 'OWL_PICK_MODAL'; payload: TinhTuyState['owlPickModal'] }
+  | { type: 'CLEAR_OWL_PICK_MODAL' }
+  | { type: 'HORSE_ADJUST_PROMPT'; payload: TinhTuyState['horseAdjustPrompt'] }
+  | { type: 'CLEAR_HORSE_ADJUST_PROMPT' }
+  | { type: 'SHIBA_REROLL_PROMPT'; payload: TinhTuyState['shibaRerollPrompt'] }
+  | { type: 'CLEAR_SHIBA_REROLL_PROMPT' }
+  | { type: 'ABILITY_USED'; payload: { slot: number; abilityId: string; cooldown: number; targetSlot?: number; cellIndex?: number; amount?: number } }
+  | { type: 'CLEAR_ABILITY_USED_ALERT' }
+  | { type: 'CHICKEN_DRAIN'; payload: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } }
+  | { type: 'CLEAR_CHICKEN_DRAIN' }
+  | { type: 'SLOTH_AUTO_BUILD'; payload: { slot: number; cellIndex: number; houseCount: number } }
+  | { type: 'CLEAR_SLOTH_AUTO_BUILD' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import {
-  Box, Typography, TextField, ToggleButtonGroup, ToggleButton,
+  Box, Typography, TextField, ToggleButtonGroup, ToggleButton, Switch,
 } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { TinhTuyGameMode } from '../tinh-tuy-types';
@@ -19,6 +19,8 @@ interface Props {
   setTurnDuration: (v: number) => void;
   password: string;
   setPassword: (v: string) => void;
+  abilitiesEnabled: boolean;
+  setAbilitiesEnabled: (v: boolean) => void;
   minMaxPlayers?: number;
 }
 
@@ -31,6 +33,7 @@ export const TinhTuySettingsForm: React.FC<Props> = ({
   gameMode, setGameMode,
   turnDuration, setTurnDuration,
   password, setPassword,
+  abilitiesEnabled, setAbilitiesEnabled,
   minMaxPlayers = 2,
 }) => {
   const { t } = useLanguage();
@@ -120,6 +123,19 @@ export const TinhTuySettingsForm: React.FC<Props> = ({
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
+      </Box>
+
+      {/* Character Abilities */}
+      <Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+          {t('tinhTuy.settings.abilities')}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Switch checked={abilitiesEnabled} onChange={(_, v) => setAbilitiesEnabled(v)} color="secondary" />
+          <Typography variant="body2" sx={{ color: abilitiesEnabled ? '#9b59b6' : 'text.secondary' }}>
+            {abilitiesEnabled ? t('tinhTuy.settings.abilitiesOn') : t('tinhTuy.settings.abilitiesOff')}
+          </Typography>
+        </Box>
       </Box>
 
       {/* Password */}

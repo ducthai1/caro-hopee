@@ -49,6 +49,8 @@ function mapPlayers(players: any[]): TinhTuyPlayer[] {
     skipNextTurn: !!p.skipNextTurn,
     displayName: resolveDisplayName(p),
     userId: p.userId?.toString?.() || p.userId,
+    abilityCooldown: p.abilityCooldown || 0,
+    abilityUsedThisTurn: !!p.abilityUsedThisTurn,
   }));
 }
 
@@ -130,6 +132,14 @@ const initialState: TinhTuyState = {
   pendingNegotiate: null,
   negotiateCooldownUntil: 0,
   negotiateWizardOpen: false,
+  // Ability state
+  abilityModal: null,
+  owlPickModal: null,
+  horseAdjustPrompt: null,
+  shibaRerollPrompt: null,
+  abilityUsedAlert: null,
+  chickenDrainAlert: null,
+  slothAutoBuildAlert: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -224,6 +234,18 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           // Restore negotiate state
           pendingNegotiate: g.pendingNegotiate || null,
           negotiateWizardOpen: false,
+          // Restore ability modals on reconnect
+          owlPickModal: g.turnPhase === 'AWAITING_OWL_PICK' && g._owlPendingCardsData?.length
+            ? { cards: g._owlPendingCardsData }
+            : null,
+          horseAdjustPrompt: g.turnPhase === 'AWAITING_HORSE_ADJUST' && g.lastDiceResult
+            ? { diceTotal: g.lastDiceResult.dice1 + g.lastDiceResult.dice2, currentPos: (mapPlayers(g.players).find((p: any) => p.slot === g.currentPlayerSlot)?.position ?? 0) }
+            : null,
+          shibaRerollPrompt: (() => {
+            if (g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return null;
+            const sp = g.players?.find((p: any) => p.slot === g.currentPlayerSlot)?.shibaRerollPending;
+            return sp ? { original: sp.original, rerolled: sp.rerolled } : null;
+          })(),
           error: null,
         };
       }
@@ -706,7 +728,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         updatedPlayers = state.players.map(p => {
           const b = buffsMap.get(p.slot);
           if (!b) return p;
-          return { ...p, cards: b.cards, immunityNextRent: b.immunityNextRent, doubleRentTurns: b.doubleRentTurns, buyBlockedTurns: b.buyBlockedTurns ?? p.buyBlockedTurns, skipNextTurn: b.skipNextTurn };
+          return { ...p, cards: b.cards, immunityNextRent: b.immunityNextRent, doubleRentTurns: b.doubleRentTurns, buyBlockedTurns: b.buyBlockedTurns ?? p.buyBlockedTurns, skipNextTurn: b.skipNextTurn, abilityCooldown: (b as any).abilityCooldown ?? p.abilityCooldown, abilityUsedThisTurn: (b as any).abilityUsedThisTurn ?? false };
         });
       }
       // Don't clear rentAlert/taxAlert/islandAlertSlot — they have their own 4s auto-dismiss timers
@@ -732,6 +754,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         rentFreezePrompt: null,
         buyBlockPrompt: null,
         eminentDomainPrompt: null,
+        // Clear ability modals from the previous turn to prevent stale prompts
+        abilityModal: null,
+        horseAdjustPrompt: null,
+        owlPickModal: null,
+        shibaRerollPrompt: null,
         // GO bonus modal has its own auto-dismiss timer (CLEAR_GO_BONUS) — do NOT
         // clear it here, because turn-changed arrives right after go-bonus and would
         // kill the modal before the user sees it.
@@ -1371,6 +1398,75 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       clearRoomSession();
       return { ...initialState, waitingRooms: state.waitingRooms };
 
+    // ─── Ability Reducer Cases ───────────────────────────
+    case 'ABILITY_MODAL':
+      return { ...state, abilityModal: action.payload };
+
+    case 'CLEAR_ABILITY_MODAL':
+      return { ...state, abilityModal: null };
+
+    case 'OWL_PICK_MODAL':
+      return { ...state, owlPickModal: action.payload };
+
+    case 'CLEAR_OWL_PICK_MODAL':
+      return { ...state, owlPickModal: null };
+
+    case 'HORSE_ADJUST_PROMPT':
+      return { ...state, horseAdjustPrompt: action.payload };
+
+    case 'CLEAR_HORSE_ADJUST_PROMPT':
+      return { ...state, horseAdjustPrompt: null };
+
+    case 'SHIBA_REROLL_PROMPT':
+      return { ...state, shibaRerollPrompt: action.payload };
+
+    case 'CLEAR_SHIBA_REROLL_PROMPT':
+      return { ...state, shibaRerollPrompt: null };
+
+    case 'ABILITY_USED': {
+      const { slot: auSlot, cooldown: auCd } = action.payload;
+      const auPlayers = state.players.map(p =>
+        p.slot === auSlot ? { ...p, abilityCooldown: auCd, abilityUsedThisTurn: true } : p
+      );
+      return { ...state, players: auPlayers, abilityUsedAlert: action.payload };
+    }
+
+    case 'CLEAR_ABILITY_USED_ALERT':
+      return { ...state, abilityUsedAlert: null };
+
+    case 'CHICKEN_DRAIN': {
+      const { chickenSlot, drained, totalGained } = action.payload;
+      const dpCd = freezePoints(state);
+      const cdNotifs: Array<{ slot: number; amount: number }> = [{ slot: chickenSlot, amount: totalGained }];
+      let cdPlayers = state.players.map(p => {
+        if (p.slot === chickenSlot) return { ...p, points: p.points + totalGained };
+        const drain = drained.find((d: any) => d.slot === p.slot);
+        if (drain) {
+          cdNotifs.push({ slot: p.slot, amount: -drain.amount });
+          return { ...p, points: p.points - drain.amount };
+        }
+        return p;
+      });
+      return {
+        ...state, players: cdPlayers, chickenDrainAlert: action.payload,
+        displayPoints: dpCd, pendingNotifs: queueNotifs(state.pendingNotifs, cdNotifs),
+      };
+    }
+
+    case 'CLEAR_CHICKEN_DRAIN':
+      return { ...state, chickenDrainAlert: null };
+
+    case 'SLOTH_AUTO_BUILD': {
+      const { slot: sabSlot, cellIndex: sabCell, houseCount: sabHc } = action.payload;
+      const sabPlayers = state.players.map(p =>
+        p.slot === sabSlot ? { ...p, houses: { ...p.houses, [String(sabCell)]: sabHc } } : p
+      );
+      return { ...state, players: sabPlayers, slothAutoBuildAlert: action.payload };
+    }
+
+    case 'CLEAR_SLOTH_AUTO_BUILD':
+      return { ...state, slothAutoBuildAlert: null };
+
     default:
       return state;
   }
@@ -1427,6 +1523,16 @@ interface TinhTuyContextValue {
   negotiateCancel: () => void;
   openNegotiateWizard: () => void;
   closeNegotiateWizard: () => void;
+  // Ability actions
+  useAbility: (data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => void;
+  horseAdjust: (direction: 1 | -1 | 0) => void;
+  owlPick: (cardIndex: number) => void;
+  shibaReroll: () => void;
+  shibaRerollPick: (choice: 'original' | 'rerolled') => void;
+  clearAbilityModal: () => void;
+  clearAbilityUsedAlert: () => void;
+  clearChickenDrain: () => void;
+  clearSlothAutoBuild: () => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -1666,6 +1772,39 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       dispatch({ type: 'NEGOTIATE_CANCELLED', payload: data });
     };
 
+    // Ability socket listeners
+    const handleAbilityUsed = (data: any) => {
+      dispatch({ type: 'ABILITY_USED', payload: data });
+    };
+    const handleAbilityPrompt = (data: any) => {
+      dispatch({ type: 'ABILITY_MODAL', payload: data });
+    };
+    const handleOwlPickPrompt = (data: any) => {
+      dispatch({ type: 'OWL_PICK_MODAL', payload: data });
+    };
+    const handleHorseAdjustPrompt = (data: any) => {
+      dispatch({ type: 'HORSE_ADJUST_PROMPT', payload: data });
+    };
+    const handleShibaRerollPrompt = (data: any) => {
+      dispatch({ type: 'SHIBA_REROLL_PROMPT', payload: data });
+    };
+    const handleChickenDrain = (data: any) => {
+      dispatch({ type: 'CHICKEN_DRAIN', payload: data });
+    };
+    const handleSlothAutoBuild = (data: any) => {
+      dispatch({ type: 'SLOTH_AUTO_BUILD', payload: data });
+    };
+    const handleFoxSwap = (data: any) => {
+      // Fox swap: update positions for both players
+      const { slot1, pos1, slot2, pos2 } = data;
+      const swapped = stateRef.current.players.map(p => {
+        if (p.slot === slot1) return { ...p, position: pos1 };
+        if (p.slot === slot2) return { ...p, position: pos2 };
+        return p;
+      });
+      dispatch({ type: 'ROOM_UPDATED', payload: { players: swapped } });
+    };
+
     const handlePlayerNameUpdated = (data: any) => {
       dispatch({ type: 'PLAYER_NAME_UPDATED', payload: data });
     };
@@ -1747,6 +1886,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:negotiate-incoming' as any, handleNegotiateIncoming);
     socket.on('tinh-tuy:negotiate-completed' as any, handleNegotiateCompleted);
     socket.on('tinh-tuy:negotiate-cancelled' as any, handleNegotiateCancelled);
+    socket.on('tinh-tuy:ability-used' as any, handleAbilityUsed);
+    socket.on('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
+    socket.on('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
+    socket.on('tinh-tuy:horse-adjust-prompt' as any, handleHorseAdjustPrompt);
+    socket.on('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
+    socket.on('tinh-tuy:chicken-drain' as any, handleChickenDrain);
+    socket.on('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
+    socket.on('tinh-tuy:fox-swap' as any, handleFoxSwap);
     socket.on('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -1802,6 +1949,14 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:negotiate-incoming' as any, handleNegotiateIncoming);
       socket.off('tinh-tuy:negotiate-completed' as any, handleNegotiateCompleted);
       socket.off('tinh-tuy:negotiate-cancelled' as any, handleNegotiateCancelled);
+      socket.off('tinh-tuy:ability-used' as any, handleAbilityUsed);
+      socket.off('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
+      socket.off('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
+      socket.off('tinh-tuy:horse-adjust-prompt' as any, handleHorseAdjustPrompt);
+      socket.off('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
+      socket.off('tinh-tuy:chicken-drain' as any, handleChickenDrain);
+      socket.off('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
+      socket.off('tinh-tuy:fox-swap' as any, handleFoxSwap);
       socket.off('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
@@ -2260,6 +2415,67 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLOSE_NEGOTIATE_WIZARD' });
   }, []);
 
+  // ─── Ability Actions ────────────────────────────────
+  const useAbility = useCallback((data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:use-ability' as any, data || {}, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+    dispatch({ type: 'CLEAR_ABILITY_MODAL' });
+  }, []);
+
+  const horseAdjust = useCallback((direction: 1 | -1 | 0) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:horse-adjust' as any, { direction }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+    dispatch({ type: 'CLEAR_HORSE_ADJUST_PROMPT' });
+  }, []);
+
+  const owlPick = useCallback((cardIndex: number) => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:owl-pick' as any, { cardIndex }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+    dispatch({ type: 'CLEAR_OWL_PICK_MODAL' });
+  }, []);
+
+  const shibaReroll = useCallback(() => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:shiba-reroll' as any, {}, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
+  const shibaRerollPick = useCallback((choice: 'original' | 'rerolled') => {
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:shiba-reroll-pick' as any, { choice }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+    dispatch({ type: 'CLEAR_SHIBA_REROLL_PROMPT' });
+  }, []);
+
+  const clearAbilityModal = useCallback(() => {
+    dispatch({ type: 'CLEAR_ABILITY_MODAL' });
+  }, []);
+
+  const clearAbilityUsedAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_ABILITY_USED_ALERT' });
+  }, []);
+
+  const clearChickenDrain = useCallback(() => {
+    dispatch({ type: 'CLEAR_CHICKEN_DRAIN' });
+  }, []);
+
+  const clearSlothAutoBuild = useCallback(() => {
+    dispatch({ type: 'CLEAR_SLOTH_AUTO_BUILD' });
+  }, []);
+
   // Auto-refresh rooms on lobby view
   useEffect(() => {
     if (state.view === 'lobby') refreshRooms();
@@ -2568,6 +2784,27 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.queuedTurnChange, isTurnChangeBusy, state.queuedGameFinished]);
 
+  // Ability used alert auto-dismiss after 5s
+  useEffect(() => {
+    if (!state.abilityUsedAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_ABILITY_USED_ALERT' }), 5000);
+    return () => clearTimeout(timer);
+  }, [state.abilityUsedAlert]);
+
+  // Chicken drain alert auto-dismiss after 5s
+  useEffect(() => {
+    if (!state.chickenDrainAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_CHICKEN_DRAIN' }), 5000);
+    return () => clearTimeout(timer);
+  }, [state.chickenDrainAlert]);
+
+  // Sloth auto-build alert auto-dismiss after 5s
+  useEffect(() => {
+    if (!state.slothAutoBuildAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_SLOTH_AUTO_BUILD' }), 5000);
+    return () => clearTimeout(timer);
+  }, [state.slothAutoBuildAlert]);
+
   // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
   useEffect(() => {
     const handleInit = () => tinhTuySounds.init();
@@ -2603,6 +2840,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
+    useAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -2611,6 +2849,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
+    useAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
   ]);
 
   return (

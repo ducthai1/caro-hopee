@@ -10,6 +10,10 @@ import {
   EDGE_OWNABLE_CELLS, MONOPOLY_WIN_THRESHOLD,
   getCell, ownsFullGroup, countStationsOwned, getStationRent, getUtilityRent,
 } from './tinh-tuy-board';
+import {
+  getGoSalaryBonus, getRentCollectMultiplier, getRentFlatBonus,
+  getBuildCostMultiplier, getMaxIslandTurns,
+} from './tinh-tuy-abilities';
 
 // ─── Late-Game Acceleration (Round 60+) ──────────────────────
 export const LATE_GAME_START = 60;
@@ -114,6 +118,12 @@ export function calculateRent(
 
   // Late-game rent escalation: +5%/round after round 60
   rent = Math.floor(rent * getLateGameMultiplier(game.round || 1, LATE_GAME_RENT_RATE));
+
+  // ─── Character Ability: Kungfu +15% rent collected ───
+  rent = Math.floor(rent * getRentCollectMultiplier(game, owner));
+
+  // ─── Character Ability: Ca Sau +300 flat on buildings ───
+  rent += getRentFlatBonus(game, owner, cellIndex);
 
   return rent;
 }
@@ -296,10 +306,11 @@ export async function generateUniqueRoomCode(
 
 // ─── Island / Jail Mechanics ─────────────────────────────────
 
-/** Send player to island (jail). Resets consecutiveDoubles. */
-export function sendToIsland(player: ITinhTuyPlayer): void {
+/** Send player to island (jail). Resets consecutiveDoubles.
+ *  Pass game for Pigfish passive (max 1 island turn). */
+export function sendToIsland(player: ITinhTuyPlayer, game?: ITinhTuyGame): void {
   player.position = 27;
-  player.islandTurns = MAX_ISLAND_TURNS;
+  player.islandTurns = game ? getMaxIslandTurns(game, player) : MAX_ISLAND_TURNS;
   player.consecutiveDoubles = 0;
 }
 
@@ -355,7 +366,8 @@ export function canBuildHouse(
   if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable', cost: 0 };
   if (!player.properties.includes(cellIndex)) return { valid: false, error: 'notOwned', cost: 0 };
 
-  const cost = cell.houseCost || 0;
+  // Elephant passive: -15% build cost
+  const cost = Math.floor((cell.houseCost || 0) * getBuildCostMultiplier(game, player));
   const currentHouses = player.houses[String(cellIndex)] || 0;
   if (currentHouses >= 4) return { valid: false, error: 'maxHouses', cost };
   if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel', cost };
@@ -385,7 +397,8 @@ export function canBuildHotel(
   const cell = getCell(cellIndex);
   if (!cell || cell.type !== 'PROPERTY' || !cell.group) return { valid: false, error: 'notBuildable', cost: 0 };
 
-  const cost = cell.hotelCost || 0;
+  // Elephant passive: -15% build cost
+  const cost = Math.floor((cell.hotelCost || 0) * getBuildCostMultiplier(game, player));
   const currentHouses = player.houses[String(cellIndex)] || 0;
   if (currentHouses !== 4) return { valid: false, error: 'need4Houses', cost };
   if (player.hotels[String(cellIndex)]) return { valid: false, error: 'hasHotel', cost };

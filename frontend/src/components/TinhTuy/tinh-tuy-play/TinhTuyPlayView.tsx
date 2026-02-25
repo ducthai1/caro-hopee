@@ -47,6 +47,11 @@ import { TinhTuyBuyBlockModal } from './TinhTuyBuyBlockModal';
 import { TinhTuyEminentDomainModal } from './TinhTuyEminentDomainModal';
 import { TinhTuyNegotiateWizard } from './TinhTuyNegotiateWizard';
 import { TinhTuyNegotiateModal } from './TinhTuyNegotiateModal';
+import { TinhTuyAbilityButton } from './TinhTuyAbilityButton';
+import { TinhTuyAbilityModal } from './TinhTuyAbilityModal';
+import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
+import { TinhTuyHorseAdjustPrompt } from './TinhTuyHorseAdjustPrompt';
+import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
@@ -143,7 +148,7 @@ const PlayerCard: React.FC<{
       )}
     </Box>
     {/* Active buffs / held cards */}
-    {!player.isBankrupt && (player.cards?.length > 0 || player.immunityNextRent || player.doubleRentTurns > 0 || player.buyBlockedTurns > 0 || player.skipNextTurn) && (
+    {!player.isBankrupt && (player.cards?.length > 0 || player.immunityNextRent || player.doubleRentTurns > 0 || player.buyBlockedTurns > 0 || player.skipNextTurn || player.abilityCooldown > 0) && (
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
         {player.cards?.includes('shield') && (
           <Chip label={`🛡️ ${t('tinhTuy.game.buffShield')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(52,152,219,0.12)', color: '#2980b9' }} />
@@ -162,6 +167,9 @@ const PlayerCard: React.FC<{
         )}
         {player.skipNextTurn && (
           <Chip label={`⏭️ ${t('tinhTuy.game.buffSkipTurn')}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.12)', color: '#e74c3c' }} />
+        )}
+        {player.abilityCooldown > 0 && (
+          <Chip label={`⏳ CD ${player.abilityCooldown}`} size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(155,89,182,0.12)', color: '#8e44ad' }} />
         )}
       </Box>
     )}
@@ -424,6 +432,11 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyEminentDomainModal />
       <TinhTuyNegotiateWizard />
       <TinhTuyNegotiateModal />
+      <TinhTuyAbilityButton />
+      <TinhTuyAbilityModal />
+      <TinhTuyOwlPickModal />
+      <TinhTuyHorseAdjustPrompt />
+      <TinhTuyShibaRerollModal />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}
