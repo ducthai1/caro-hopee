@@ -1,6 +1,6 @@
 /**
  * TinhTuyAbilityButton — Floating action button for the player's active ability.
- * Shows cooldown badge, disabled states, and emits useAbility() on click.
+ * Shows cooldown badge, disabled states, and emits activateAbility() on click.
  */
 import React from 'react';
 import { Fab, Badge, Tooltip } from '@mui/material';
@@ -12,7 +12,7 @@ const PURPLE = '#9b59b6';
 
 export const TinhTuyAbilityButton: React.FC = () => {
   const { t } = useLanguage();
-  const { state, useAbility } = useTinhTuy();
+  const { state, activateAbility } = useTinhTuy();
 
   // Guard: only show during an active game with abilities enabled
   if (state.gameStatus !== 'playing') return null;
@@ -44,7 +44,7 @@ export const TinhTuyAbilityButton: React.FC = () => {
 
   const handleClick = () => {
     if (disabled) return;
-    useAbility();
+    activateAbility();
   };
 
   const fabSx = {

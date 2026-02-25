@@ -1524,7 +1524,7 @@ interface TinhTuyContextValue {
   openNegotiateWizard: () => void;
   closeNegotiateWizard: () => void;
   // Ability actions
-  useAbility: (data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => void;
+  activateAbility: (data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => void;
   horseAdjust: (direction: 1 | -1 | 0) => void;
   owlPick: (cardIndex: number) => void;
   shibaReroll: () => void;
@@ -2416,7 +2416,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   // ─── Ability Actions ────────────────────────────────
-  const useAbility = useCallback((data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => {
+  const activateAbility = useCallback((data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => {
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:use-ability' as any, data || {}, (res: any) => {
@@ -2840,7 +2840,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    useAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
+    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -2849,7 +2849,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    useAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
+    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
   ]);
 
   return (

@@ -17,7 +17,7 @@ const AUTO_DISMISS_MS = 15_000;
 
 export const TinhTuyAbilityModal: React.FC = () => {
   const { t } = useLanguage();
-  const { state, useAbility, clearAbilityModal } = useTinhTuy();
+  const { state, activateAbility, clearAbilityModal } = useTinhTuy();
   const modal = state.abilityModal;
 
   const [steps, setSteps] = useState<number>(7);
@@ -41,22 +41,22 @@ export const TinhTuyAbilityModal: React.FC = () => {
 
   const handleSelectOpponent = (slot: number) => {
     clearTimer();
-    useAbility({ targetSlot: slot });
+    activateAbility({ targetSlot: slot });
   };
 
   const handleSelectCell = (cellIndex: number) => {
     clearTimer();
-    useAbility({ cellIndex });
+    activateAbility({ cellIndex });
   };
 
   const handleSelectSteps = () => {
     clearTimer();
-    useAbility({ steps });
+    activateAbility({ steps });
   };
 
   const handleSelectDeck = (deck: 'KHI_VAN' | 'CO_HOI') => {
     clearTimer();
-    useAbility({ deck });
+    activateAbility({ deck });
   };
 
   const handleCancel = () => {
@@ -232,7 +232,7 @@ export const TinhTuyAbilityModal: React.FC = () => {
               onClick={handleSelectSteps}
               sx={{ mt: 2, bgcolor: ACCENT, '&:hover': { bgcolor: '#8e44ad' }, textTransform: 'none', fontWeight: 700 }}
             >
-              {(t as any)('tinhTuy.abilities.useAbility')}
+              {(t as any)('tinhTuy.abilities.activateAbility')}
             </Button>
           </Box>
         );
