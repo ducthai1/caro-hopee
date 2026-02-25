@@ -25,6 +25,9 @@ export const TinhTuyAbilityButton: React.FC = () => {
   const abilityDef = CHARACTER_ABILITIES[myPlayer.character];
   if (!abilityDef) return null;
 
+  // Shiba reroll is auto-triggered PRE-MOVE, no manual button needed
+  if (myPlayer.character === 'shiba') return null;
+
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
 
   // Phase gate

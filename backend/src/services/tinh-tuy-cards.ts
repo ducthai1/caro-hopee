@@ -120,7 +120,7 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
   { id: 'ch-28', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch28.name', descriptionKey: 'tinhTuy.cards.ch28.desc',
     action: { type: 'FREE_HOTEL' }, minRound: 40 },
   { id: 'ch-29', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch29.name', descriptionKey: 'tinhTuy.cards.ch29.desc',
-    action: { type: 'BUY_BLOCKED', turns: 2 } },
+    action: { type: 'BUY_BLOCKED', turns: 1 } },
   { id: 'ch-30', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch30.name', descriptionKey: 'tinhTuy.cards.ch30.desc',
     action: { type: 'EMINENT_DOMAIN' } },
   { id: 'ch-31', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch31.name', descriptionKey: 'tinhTuy.cards.ch31.desc',

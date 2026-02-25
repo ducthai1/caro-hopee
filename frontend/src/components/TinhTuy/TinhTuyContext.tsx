@@ -15,6 +15,7 @@ import {
   TinhTuySettings, WaitingRoomInfo, CreateRoomPayload, DEFAULT_SETTINGS,
 } from './tinh-tuy-types';
 import { tinhTuySounds } from './tinh-tuy-sounds';
+import { CHARACTER_ABILITIES } from './tinh-tuy-abilities';
 
 // ─── Session Storage ──────────────────────────────────
 const TT_SESSION_KEY = 'tinhtuy_room';
@@ -2417,9 +2418,89 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // ─── Ability Actions ────────────────────────────────
   const activateAbility = useCallback((data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => {
+    const st = stateRef.current;
+    const myPlayer = st.players.find(p => p.slot === st.mySlot);
+    if (!myPlayer) return;
+
+    // If no data provided, check if ability needs target selection → open modal
+    if (!data) {
+      const abilityDef = CHARACTER_ABILITIES[myPlayer.character];
+      if (!abilityDef) return;
+      const targetType = abilityDef.active.targetType;
+
+      if (targetType === 'OPPONENT') {
+        const targets = st.players
+          .filter(p => p.slot !== st.mySlot && !p.isBankrupt && !(p.islandTurns > 0))
+          .map(p => ({ slot: p.slot, displayName: p.displayName || p.guestName || `Player ${p.slot}` }));
+        if (targets.length === 0) return;
+        dispatch({ type: 'ABILITY_MODAL', payload: { type: 'OPPONENT', targets } });
+        return;
+      }
+      if (targetType === 'CELL') {
+        let cells: number[];
+        if (myPlayer.character === 'elephant') {
+          // Elephant: own properties where houses < 4 and no hotel
+          cells = myPlayer.properties.filter(idx => {
+            const key = String(idx);
+            if (myPlayer.hotels[key]) return false;
+            if ((myPlayer.houses[key] || 0) >= 4) return false;
+            return true;
+          });
+        } else {
+          // Rabbit: all cells except Island (27)
+          cells = Array.from({ length: 40 }, (_, i) => i).filter(i => i !== 27);
+        }
+        if (cells.length === 0) return;
+        dispatch({ type: 'ABILITY_MODAL', payload: { type: 'CELL', cells } });
+        return;
+      }
+      if (targetType === 'OPPONENT_HOUSE') {
+        // Kungfu: opponents' properties with houses > 0 (no hotel)
+        const houses: Array<{ slot: number; cellIndex: number; houses: number }> = [];
+        for (const p of st.players) {
+          if (p.slot === st.mySlot || p.isBankrupt) continue;
+          for (const idx of p.properties) {
+            const key = String(idx);
+            const h = p.houses[key] || 0;
+            if (h > 0 && !p.hotels[key]) houses.push({ slot: p.slot, cellIndex: idx, houses: h });
+          }
+        }
+        if (houses.length === 0) return;
+        dispatch({ type: 'ABILITY_MODAL', payload: { type: 'OPPONENT_HOUSE', houses } });
+        return;
+      }
+      if (targetType === 'STEPS') {
+        dispatch({ type: 'ABILITY_MODAL', payload: { type: 'STEPS' } });
+        return;
+      }
+      if (targetType === 'DECK') {
+        dispatch({ type: 'ABILITY_MODAL', payload: { type: 'DECK' } });
+        return;
+      }
+      // NONE — fall through to emit directly
+    }
+
     const socket = socketService.getSocket();
     if (!socket) return;
-    socket.emit('tinh-tuy:use-ability' as any, data || {}, (res: any) => {
+    // Map frontend field names to backend: targetSlot→target, cellIndex→targetCell
+    const payload: any = {};
+    if (data) {
+      if (data.targetSlot != null) {
+        payload.target = data.targetSlot;
+        payload.targetSlot = data.targetSlot;
+      }
+      if (data.cellIndex != null) {
+        payload.targetCell = data.cellIndex;
+        // Kungfu OPPONENT_HOUSE: also pass owner slot from modal houses data
+        if (myPlayer.character === 'kungfu') {
+          const house = st.abilityModal?.houses?.find(h => h.cellIndex === data.cellIndex);
+          if (house) payload.targetSlot = house.slot;
+        }
+      }
+      if (data.steps != null) payload.steps = data.steps;
+      if (data.deck != null) payload.deck = data.deck;
+    }
+    socket.emit('tinh-tuy:use-ability' as any, payload, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
     dispatch({ type: 'CLEAR_ABILITY_MODAL' });

@@ -118,6 +118,56 @@ async function executeHorseMove(
   await resolveAndAdvance(io, game, player, newPos, dice);
 }
 
+/** After Shiba picks original or rerolled dice, execute movement + resolve */
+async function executeShibaPostPick(
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
+  dice: { dice1: number; dice2: number; total: number; isDouble: boolean }
+): Promise<void> {
+  const roomId = game.roomId;
+
+  // Handle doubles → possible island
+  if (dice.isDouble) {
+    player.consecutiveDoubles += 1;
+    if (player.consecutiveDoubles >= 3) {
+      const oldPos = player.position;
+      sendToIsland(player, game);
+      game.turnPhase = 'END_TURN';
+      game.markModified('players');
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: 27, passedGo: false, teleport: true,
+      });
+      io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
+      await advanceTurn(io, game);
+      return;
+    }
+  } else {
+    player.consecutiveDoubles = 0;
+  }
+
+  // Rabbit bonus on doubles
+  let moveSteps = dice.total;
+  const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
+  moveSteps += rabbitBonus;
+
+  const oldPos = player.position;
+  const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
+  player.position = newPos;
+  const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+  if (passedGo) {
+    player.points += goSalary;
+    if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+  }
+  game.turnPhase = 'MOVING' as any;
+  game.markModified('players');
+  await game.save();
+  io.to(roomId).emit('tinh-tuy:player-moved', {
+    slot: player.slot, from: oldPos, to: newPos, passedGo,
+    goBonus: passedGo ? goSalary : 0,
+  });
+  await resolveAndAdvance(io, game, player, newPos, dice);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 function findPlayerBySocket(game: ITinhTuyGame, socket: Socket): ITinhTuyPlayer | undefined {
@@ -1017,7 +1067,7 @@ async function handleCardDraw(
       io.to(game.roomId).emit('tinh-tuy:buy-block-prompt', {
         slot: player.slot,
         targets: opponents.map(p => ({ slot: p.slot, displayName: p.guestName || `Player ${p.slot}` })),
-        turns: effect.buyBlockedTurns || 2,
+        turns: effect.buyBlockedTurns || 1,
       });
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
@@ -1027,14 +1077,14 @@ async function handleCardDraw(
           const randomTarget = opponents[crypto.randomInt(0, opponents.length)];
           const target = g.players.find(p => p.slot === randomTarget.slot);
           if (target) {
-            target.buyBlockedTurns = effect.buyBlockedTurns || 2;
+            target.buyBlockedTurns = effect.buyBlockedTurns || 1;
             g.markModified('players');
           }
           g.turnPhase = 'END_TURN';
           await g.save();
           io.to(game.roomId).emit('tinh-tuy:buy-blocked', {
             blockerSlot: player.slot, targetSlot: randomTarget.slot,
-            turns: effect.buyBlockedTurns || 2,
+            turns: effect.buyBlockedTurns || 1,
           });
           const p = g.players.find(pp => pp.slot === player.slot)!;
           await advanceTurnOrDoubles(io, g, p);
@@ -1698,6 +1748,8 @@ async function emitBuybackPrompt(
 ): Promise<boolean> {
   const owner = game.players.find(p => p.slot === ownerSlot);
   if (!owner || owner.isBankrupt) return false;
+  // Buy-blocked players cannot buy back either
+  if (player.buyBlockedTurns && player.buyBlockedTurns > 0) return false;
   // Hotel properties cannot be bought back
   if (owner.hotels[String(cellIndex)]) return false;
   const completedRounds = Math.max((game.round || 1) - 1, 0);
@@ -1875,6 +1927,50 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             // Use original dice total (no adjustment)
             await executeHorseMove(io, g, p, dice.total, dice);
           } catch (err) { console.error('[tinh-tuy] Horse adjust timeout:', err); }
+        });
+        callback({ success: true });
+        return;
+      }
+
+      // ─── Shiba passive-like: reroll prompt after dice (PRE-MOVE) ───
+      if (player.character === 'shiba' && !player.abilityUsedThisTurn
+          && player.abilityCooldown <= 0 && abilitiesEnabled(game)) {
+        const newDice = rollDice();
+        player.shibaRerollPending = {
+          original: { dice1: dice.dice1, dice2: dice.dice2 },
+          rerolled: { dice1: newDice.dice1, dice2: newDice.dice2 },
+        };
+        setAbilityCooldown(player);
+        game.turnPhase = 'AWAITING_SHIBA_REROLL_PICK' as any;
+        game.markModified('players');
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:dice-result', dice);
+        io.to(roomId).emit('tinh-tuy:ability-used', {
+          slot: player.slot, abilityId: 'shiba-active', cooldown: player.abilityCooldown,
+        });
+        io.to(roomId).emit('tinh-tuy:shiba-reroll-prompt', {
+          slot: player.slot,
+          original: player.shibaRerollPending.original,
+          rerolled: player.shibaRerollPending.rerolled,
+        });
+        // Timer: 5s auto-keep original
+        startTurnTimer(roomId, 5000, async () => {
+          try {
+            const g = await TinhTuyGame.findOne({ roomId });
+            if (!g || g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return;
+            const p = g.players.find(pp => pp.slot === player.slot);
+            if (!p || !p.shibaRerollPending) return;
+            // Keep original — resume movement
+            g.lastDiceResult = { dice1: p.shibaRerollPending.original.dice1, dice2: p.shibaRerollPending.original.dice2 };
+            g.markModified('lastDiceResult');
+            p.shibaRerollPending = undefined as any;
+            g.markModified('players');
+            io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', { slot: p.slot, kept: 'original', dice: g.lastDiceResult });
+            // Execute movement with original dice
+            const d = g.lastDiceResult!;
+            const dFull = { dice1: d.dice1, dice2: d.dice2, total: d.dice1 + d.dice2, isDouble: d.dice1 === d.dice2 };
+            await executeShibaPostPick(io, g, p, dFull);
+          } catch (err) { console.error('[tinh-tuy] Shiba reroll timeout:', err); }
         });
         callback({ success: true });
         return;
@@ -2444,7 +2540,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
 
       clearTurnTimer(roomId);
 
-      target.buyBlockedTurns = data?.turns || 2;
+      target.buyBlockedTurns = data?.turns || 1;
       game.markModified('players');
       game.turnPhase = 'END_TURN';
       await game.save();
@@ -2736,6 +2832,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       }
       if (game.turnPhase !== 'AWAITING_BUYBACK') {
         return callback({ success: false, error: 'invalidPhase' });
+      }
+      if (player.buyBlockedTurns && player.buyBlockedTurns > 0) {
+        return callback({ success: false, error: 'buyBlocked' });
       }
 
       const { accept, cellIndex } = data || {};
@@ -3392,8 +3491,22 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return callback({ success: false, error: 'invalidPhase' });
       }
 
-      clearTurnTimer(roomId);
       const { target, targetCell, steps, deck } = data || {};
+
+      // Pre-validate target data for targeted abilities to avoid clearing timer on bad input
+      const needsTarget = ['fox', 'canoc', 'chicken', 'owl'];
+      const needsCell = ['kungfu', 'elephant', 'rabbit'];
+      if (needsTarget.includes(player.character) && target == null) {
+        return callback({ success: false, error: 'invalidTarget' });
+      }
+      if (needsCell.includes(player.character) && targetCell == null) {
+        return callback({ success: false, error: 'invalidCell' });
+      }
+      if (player.character === 'horse' && (steps == null || steps < 2 || steps > 12)) {
+        return callback({ success: false, error: 'invalidSteps' });
+      }
+
+      clearTurnTimer(roomId);
 
       // Execute ability based on character
       switch (player.character) {
@@ -3710,9 +3823,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           break;
         }
         case 'shiba': {
-          // This case shouldn't be reached via use-ability — Shiba uses POST_ROLL
-          // handled by tinh-tuy:shiba-reroll event instead
-          callback({ success: false, error: 'useRerollEvent' });
+          // Shiba reroll is auto-triggered PRE-MOVE in roll-dice handler, not via use-ability
+          callback({ success: false, error: 'shibaAutoTriggered' });
           break;
         }
         default:
@@ -3779,83 +3891,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     }
   });
 
-  // ── Shiba Reroll (after dice roll, choose original or new) ────
-  socket.on('tinh-tuy:shiba-reroll', async (_data: any, callback: TinhTuyCallback) => {
-    try {
-      const roomId = socket.data.tinhTuyRoomId as string;
-      if (!roomId) return callback({ success: false, error: 'notInRoom' });
-
-      const game = await TinhTuyGame.findOne({ roomId });
-      if (!game || game.gameStatus !== 'playing') return callback({ success: false, error: 'gameNotActive' });
-
-      const player = findPlayerBySocket(game, socket);
-      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
-
-      // Shiba can only reroll right after dice result, during END_TURN or MOVING phase
-      // Actually it should be triggered when turnPhase is still being processed (post-roll, pre-move)
-      // We handle this by checking the player's ability state
-      const validation = canUseActiveAbility(game, player);
-      if (!validation.valid) return callback({ success: false, error: validation.error });
-      if (player.character !== 'shiba') return callback({ success: false, error: 'notShiba' });
-
-      const originalDice = game.lastDiceResult;
-      if (!originalDice) return callback({ success: false, error: 'noDiceResult' });
-
-      // Roll new dice
-      const newDice = rollDice();
-      player.shibaRerollPending = {
-        original: { dice1: originalDice.dice1, dice2: originalDice.dice2 },
-        rerolled: { dice1: newDice.dice1, dice2: newDice.dice2 },
-      };
-      setAbilityCooldown(player);
-      game.turnPhase = 'AWAITING_SHIBA_REROLL_PICK' as any;
-      game.markModified('players');
-      await game.save();
-
-      io.to(roomId).emit('tinh-tuy:ability-used', {
-        slot: player.slot, abilityId: 'shiba-active', cooldown: player.abilityCooldown,
-      });
-      io.to(roomId).emit('tinh-tuy:shiba-reroll-prompt', {
-        slot: player.slot,
-        original: player.shibaRerollPending.original,
-        rerolled: player.shibaRerollPending.rerolled,
-      });
-
-      // Timer: 5s auto-keep original
-      startTurnTimer(roomId, 5000, async () => {
-        try {
-          const g = await TinhTuyGame.findOne({ roomId });
-          if (!g || g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return;
-          const p = g.players.find(pp => pp.slot === player.slot);
-          if (!p || !p.shibaRerollPending) return;
-          // Keep original
-          g.lastDiceResult = { dice1: p.shibaRerollPending.original.dice1, dice2: p.shibaRerollPending.original.dice2 };
-          g.markModified('lastDiceResult');
-          p.shibaRerollPending = undefined as any;
-          g.markModified('players');
-          await g.save();
-          // Continue with original dice movement
-          const d = g.lastDiceResult!;
-          io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', { slot: p.slot, kept: 'original' });
-          // Movement is already done before shiba reroll for the original — actually no,
-          // Shiba reroll should be POST_ROLL but PRE_MOVE.
-          // The current flow already moved the player, so this approach won't work cleanly.
-          // For simplicity: the Shiba reroll replaces the dice result and re-does the move.
-          // Since dice was already broadcast, we need to "redo" the move.
-          // Let's just advance turn for the timeout case.
-          g.turnPhase = 'ROLL_DICE';
-          await g.save();
-          await advanceTurn(io, g);
-        } catch (err) { console.error('[tinh-tuy] Shiba reroll timeout:', err); }
-      });
-      callback({ success: true });
-    } catch (err: any) {
-      console.error('[tinh-tuy:shiba-reroll]', err.message);
-      callback({ success: false, error: 'rerollFailed' });
-    }
-  });
-
   // ── Shiba Reroll Pick (choose original or new) ────────────────
+  // Note: shiba-reroll trigger event removed — reroll is now auto-triggered PRE-MOVE in roll-dice handler
   socket.on('tinh-tuy:shiba-reroll-pick', async (data: any, callback: TinhTuyCallback) => {
     try {
       const roomId = socket.data.tinhTuyRoomId as string;
@@ -3880,54 +3917,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         dice: chosen,
       });
 
-      // Now do the dice movement with the chosen result
+      // Execute movement with chosen dice
       const dice = { dice1: chosen.dice1, dice2: chosen.dice2, total: chosen.dice1 + chosen.dice2, isDouble: chosen.dice1 === chosen.dice2 };
-
-      // Handle doubles
-      if (dice.isDouble) {
-        player.consecutiveDoubles += 1;
-        if (player.consecutiveDoubles >= 3) {
-          const oldPos = player.position;
-          sendToIsland(player, game);
-          game.turnPhase = 'END_TURN';
-          game.markModified('players');
-          await game.save();
-          io.to(roomId).emit('tinh-tuy:dice-result', dice);
-          io.to(roomId).emit('tinh-tuy:player-moved', {
-            slot: player.slot, from: oldPos, to: 27, passedGo: false, teleport: true,
-          });
-          io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
-          await advanceTurn(io, game);
-          callback({ success: true });
-          return;
-        }
-      } else {
-        player.consecutiveDoubles = 0;
-      }
-
-      // Rabbit bonus on doubles
-      let moveSteps = dice.total;
-      const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
-      moveSteps += rabbitBonus;
-
-      const oldPos = player.position;
-      const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
-      player.position = newPos;
-      const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
-      if (passedGo) {
-        player.points += goSalary;
-        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
-      }
-      game.markModified('players');
-      await game.save();
-
-      io.to(roomId).emit('tinh-tuy:dice-result', dice);
-      io.to(roomId).emit('tinh-tuy:player-moved', {
-        slot: player.slot, from: oldPos, to: newPos, passedGo,
-        goBonus: passedGo ? goSalary : 0,
-      });
-
-      await resolveAndAdvance(io, game, player, newPos, dice);
+      await executeShibaPostPick(io, game, player, dice);
       callback({ success: true });
     } catch (err: any) {
       console.error('[tinh-tuy:shiba-reroll-pick]', err.message);
