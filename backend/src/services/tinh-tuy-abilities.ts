@@ -377,10 +377,10 @@ export function getElephantBuildTargets(game: ITinhTuyGame, player: ITinhTuyPlay
   });
 }
 
-/** Get cells where Rabbit can teleport */
+/** Get cells where Rabbit can teleport (exclude Island cell 27 and GO_TO_ISLAND) */
 export function getRabbitTeleportTargets(): number[] {
-  // Can go to any cell 0-35
-  return Array.from({ length: BOARD_SIZE }, (_, i) => i);
+  const BLOCKED_CELLS = [27]; // Island — teleporting here would jail the rabbit
+  return Array.from({ length: BOARD_SIZE }, (_, i) => i).filter(i => !BLOCKED_CELLS.includes(i));
 }
 
 /** Execute Sloth auto-build on monopoly completion */

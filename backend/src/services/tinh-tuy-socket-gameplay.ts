@@ -3540,6 +3540,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const kCellIndex = Number(targetCell);
           const kTarget = game.players.find(p => p.slot === kTargetSlot && !p.isBankrupt);
           if (!kTarget) return callback({ success: false, error: 'invalidTarget' });
+          if (!kTarget.properties.includes(kCellIndex)) return callback({ success: false, error: 'invalidTarget' });
           const key = String(kCellIndex);
           const houses = kTarget.houses[key] || 0;
           if (houses <= 0 || kTarget.hotels[key]) return callback({ success: false, error: 'noHouseToDestroy' });
@@ -3593,9 +3594,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           break;
         }
         case 'rabbit': {
-          // Teleport to any cell
+          // Teleport to any cell (except Island cell 27)
           const rCellIndex = Number(targetCell);
-          if (rCellIndex < 0 || rCellIndex >= BOARD_SIZE) return callback({ success: false, error: 'invalidCell' });
+          if (rCellIndex < 0 || rCellIndex >= BOARD_SIZE || rCellIndex === 27) return callback({ success: false, error: 'invalidCell' });
           const rOldPos = player.position;
           player.position = rCellIndex;
           const rPassedGo = rCellIndex === 0 || (rCellIndex < rOldPos && rCellIndex !== 27);
@@ -3678,8 +3679,25 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             cooldown: player.abilityCooldown,
           });
           await handleCardDraw(io, game, oTarget, 'KHI_VAN');
-          if (game.turnPhase === 'END_TURN' || game.turnPhase === 'AWAITING_CARD_DISPLAY') {
+          // Guard: if handleCardDraw left game in a choice phase meant for the opponent
+          // (e.g. CHOOSE_DESTINATION), the opponent can't respond since it's not their turn.
+          // Reset to ROLL_DICE for the current player to prevent stuck game.
+          const stuckPhases = [
+            'AWAITING_CARD_DESTINATION', 'AWAITING_FREE_HOUSE', 'AWAITING_FREE_HOTEL',
+            'AWAITING_FORCED_TRADE', 'AWAITING_RENT_FREEZE', 'AWAITING_BUY_BLOCK_TARGET',
+            'AWAITING_EMINENT_DOMAIN', 'AWAITING_DESTROY_PROPERTY', 'AWAITING_DOWNGRADE_BUILDING',
+          ];
+          if (stuckPhases.includes(game.turnPhase)) {
+            game.turnPhase = 'ROLL_DICE';
+            game.markModified('turnPhase');
+            await game.save();
+          }
+          if (game.turnPhase === 'END_TURN' || game.turnPhase === 'AWAITING_CARD_DISPLAY' || game.turnPhase === 'ROLL_DICE') {
             // Return to roll phase for the current player after card display
+            if (game.turnPhase !== 'ROLL_DICE') {
+              game.turnPhase = 'ROLL_DICE';
+              await game.save();
+            }
             startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
               try {
                 const g = await TinhTuyGame.findOne({ roomId });
