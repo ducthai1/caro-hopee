@@ -313,6 +313,8 @@ export interface TinhTuyState {
   chickenDrainAlert: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } | null;
   /** Sloth auto-build notification */
   slothAutoBuildAlert: { slot: number; cellIndex: number } | null;
+  /** Fox swap notification — shown to both swapped players */
+  foxSwapAlert: { foxSlot: number; targetSlot: number; foxNewPos: number; targetNewPos: number } | null;
 }
 
 // ─── Reducer Actions ──────────────────────────────────
@@ -433,7 +435,9 @@ export type TinhTuyAction =
   | { type: 'CHICKEN_DRAIN'; payload: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } }
   | { type: 'CLEAR_CHICKEN_DRAIN' }
   | { type: 'SLOTH_AUTO_BUILD'; payload: { slot: number; cellIndex: number; houseCount: number } }
-  | { type: 'CLEAR_SLOTH_AUTO_BUILD' };
+  | { type: 'CLEAR_SLOTH_AUTO_BUILD' }
+  | { type: 'FOX_SWAP_ALERT'; payload: { foxSlot: number; targetSlot: number; foxNewPos: number; targetNewPos: number } }
+  | { type: 'CLEAR_FOX_SWAP_ALERT' };
 
 // ─── Card Types ──────────────────────────────────────
 export interface CardInfo {

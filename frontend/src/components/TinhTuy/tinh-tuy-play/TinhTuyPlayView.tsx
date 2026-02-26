@@ -52,6 +52,7 @@ import { TinhTuyAbilityModal } from './TinhTuyAbilityModal';
 import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
 import { TinhTuyHorseAdjustPrompt } from './TinhTuyHorseAdjustPrompt';
 import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
+import { TinhTuyFoxSwapAlert } from './TinhTuyFoxSwapAlert';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
@@ -437,6 +438,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyOwlPickModal />
       <TinhTuyHorseAdjustPrompt />
       <TinhTuyShibaRerollModal />
+      <TinhTuyFoxSwapAlert />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

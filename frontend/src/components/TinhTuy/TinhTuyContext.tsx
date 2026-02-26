@@ -141,6 +141,7 @@ const initialState: TinhTuyState = {
   abilityUsedAlert: null,
   chickenDrainAlert: null,
   slothAutoBuildAlert: null,
+  foxSwapAlert: null,
 };
 
 // ─── Point notification helpers ───────────────────────
@@ -1468,6 +1469,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_SLOTH_AUTO_BUILD':
       return { ...state, slothAutoBuildAlert: null };
 
+    case 'FOX_SWAP_ALERT':
+      return { ...state, foxSwapAlert: action.payload };
+
+    case 'CLEAR_FOX_SWAP_ALERT':
+      return { ...state, foxSwapAlert: null };
+
     default:
       return state;
   }
@@ -1534,6 +1541,7 @@ interface TinhTuyContextValue {
   clearAbilityUsedAlert: () => void;
   clearChickenDrain: () => void;
   clearSlothAutoBuild: () => void;
+  clearFoxSwapAlert: () => void;
 }
 
 const TinhTuyContext = createContext<TinhTuyContextValue | undefined>(undefined);
@@ -1804,6 +1812,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
         return p;
       });
       dispatch({ type: 'ROOM_UPDATED', payload: { players: swapped } });
+      dispatch({ type: 'FOX_SWAP_ALERT', payload: { foxSlot: mySlot, targetSlot, foxNewPos: myNewPos, targetNewPos } });
     };
 
     const handlePlayerNameUpdated = (data: any) => {
@@ -2552,6 +2561,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_SLOTH_AUTO_BUILD' });
   }, []);
 
+  const clearFoxSwapAlert = useCallback(() => {
+    dispatch({ type: 'CLEAR_FOX_SWAP_ALERT' });
+  }, []);
+
   // Auto-refresh rooms on lobby view
   useEffect(() => {
     if (state.view === 'lobby') refreshRooms();
@@ -2881,6 +2894,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.slothAutoBuildAlert]);
 
+  // Fox swap alert auto-dismiss after 5s
+  useEffect(() => {
+    if (!state.foxSwapAlert) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_FOX_SWAP_ALERT' }), 5000);
+    return () => clearTimeout(timer);
+  }, [state.foxSwapAlert]);
+
   // Sound: iOS AudioContext unlock on first user gesture + Page Visibility
   useEffect(() => {
     const handleInit = () => tinhTuySounds.init();
@@ -2916,7 +2936,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
+    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -2925,7 +2945,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild,
+    activateAbility, horseAdjust, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   ]);
 
   return (
