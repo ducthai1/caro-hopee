@@ -1797,10 +1797,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
     const handleFoxSwap = (data: any) => {
       // Fox swap: update positions for both players
-      const { slot1, pos1, slot2, pos2 } = data;
+      const { mySlot, targetSlot, myNewPos, targetNewPos } = data;
       const swapped = stateRef.current.players.map(p => {
-        if (p.slot === slot1) return { ...p, position: pos1 };
-        if (p.slot === slot2) return { ...p, position: pos2 };
+        if (p.slot === mySlot) return { ...p, position: myNewPos };
+        if (p.slot === targetSlot) return { ...p, position: targetNewPos };
         return p;
       });
       dispatch({ type: 'ROOM_UPDATED', payload: { players: swapped } });
