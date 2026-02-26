@@ -2554,12 +2554,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const owlPick = useCallback((cardId: string) => {
+    // Always clear modal immediately — even if socket is disconnected
+    dispatch({ type: 'CLEAR_OWL_PICK_MODAL' });
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:owl-pick' as any, { cardId }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
-    dispatch({ type: 'CLEAR_OWL_PICK_MODAL' });
   }, []);
 
   const shibaReroll = useCallback(() => {
@@ -2571,12 +2572,13 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const shibaRerollPick = useCallback((choice: 'original' | 'rerolled') => {
+    // Always clear prompt immediately — even if socket is disconnected
+    dispatch({ type: 'CLEAR_SHIBA_REROLL_PROMPT' });
     const socket = socketService.getSocket();
     if (!socket) return;
     socket.emit('tinh-tuy:shiba-reroll-pick' as any, { choice }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
-    dispatch({ type: 'CLEAR_SHIBA_REROLL_PROMPT' });
   }, []);
 
   const clearAbilityModal = useCallback(() => {
