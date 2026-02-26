@@ -943,10 +943,13 @@ async function handleCardDraw(
     });
     if (buildableCells.length > 0) {
       game.turnPhase = 'AWAITING_FREE_HOUSE';
-      await game.save();
+      // Emit prompt BEFORE save — ensures frontend receives it even if save fails
       io.to(game.roomId).emit('tinh-tuy:free-house-prompt', {
         slot: player.slot, buildableCells,
       });
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] FREE_HOUSE save failed:', err);
+      }
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
@@ -978,10 +981,13 @@ async function handleCardDraw(
     });
     if (hotelCells.length > 0) {
       game.turnPhase = 'AWAITING_FREE_HOTEL';
-      await game.save();
+      // Emit prompt BEFORE save — ensures frontend receives it even if save fails
       io.to(game.roomId).emit('tinh-tuy:free-hotel-prompt', {
         slot: player.slot, buildableCells: hotelCells,
       });
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] FREE_HOTEL save failed:', err);
+      }
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
@@ -1008,12 +1014,15 @@ async function handleCardDraw(
     const opponents = game.players.filter(p => !p.isBankrupt && p.slot !== player.slot);
     if (opponents.length > 0) {
       game.turnPhase = 'AWAITING_BUY_BLOCK_TARGET';
-      await game.save();
+      // Emit prompt BEFORE save — ensures frontend receives it even if save fails
       io.to(game.roomId).emit('tinh-tuy:buy-block-prompt', {
         slot: player.slot,
         targets: opponents.map(p => ({ slot: p.slot, displayName: p.guestName || `Player ${p.slot}` })),
         turns: effect.buyBlockedTurns || 1,
       });
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] BUY_BLOCK_TARGET save failed:', err);
+      }
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
@@ -1044,10 +1053,12 @@ async function handleCardDraw(
     const targetCells = effect.targetableCells || [];
     if (targetCells.length > 0) {
       game.turnPhase = 'AWAITING_EMINENT_DOMAIN';
-      await game.save();
       io.to(game.roomId).emit('tinh-tuy:eminent-domain-prompt', {
         slot: player.slot, targetCells,
       });
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] EMINENT_DOMAIN save failed:', err);
+      }
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
           const g = await TinhTuyGame.findOne({ roomId: game.roomId });
@@ -1072,10 +1083,12 @@ async function handleCardDraw(
     if (targetCells.length > 0) {
       const phase = effect.requiresChoice === 'DESTROY_PROPERTY' ? 'AWAITING_DESTROY_PROPERTY' : 'AWAITING_DOWNGRADE_BUILDING';
       game.turnPhase = phase;
-      await game.save();
       io.to(game.roomId).emit('tinh-tuy:attack-property-prompt', {
         slot: player.slot, attackType: effect.requiresChoice, targetCells,
       });
+      try { await game.save(); } catch (err) {
+        console.error(`[tinh-tuy] ${phase} save failed:`, err);
+      }
       // Auto-pick random on timeout (extra time for frontend animations: dice + move + card display)
       startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
         try {
@@ -1097,8 +1110,10 @@ async function handleCardDraw(
   // CHOOSE_DESTINATION: let player pick any cell on the board
   if (effect.requiresChoice === 'CHOOSE_DESTINATION') {
     game.turnPhase = 'AWAITING_CARD_DESTINATION';
-    await game.save();
     io.to(game.roomId).emit('tinh-tuy:card-destination-prompt', { slot: player.slot });
+    try { await game.save(); } catch (err) {
+      console.error('[tinh-tuy] CHOOSE_DESTINATION save failed:', err);
+    }
     // Auto-pick random on timeout (extra time for frontend animations: dice + move + card display)
     startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {
@@ -1124,10 +1139,13 @@ async function handleCardDraw(
   if (effect.requiresChoice === 'RENT_FREEZE') {
     const freezeTargets = effect.targetableCells || [];
     game.turnPhase = 'AWAITING_RENT_FREEZE';
-    await game.save();
+    // Emit prompt BEFORE save — ensures frontend receives it even if save fails
     io.to(game.roomId).emit('tinh-tuy:rent-freeze-prompt', {
       slot: player.slot, targetCells: freezeTargets,
     });
+    try { await game.save(); } catch (err) {
+      console.error('[tinh-tuy] RENT_FREEZE save failed:', err);
+    }
     // Auto-pick random on timeout (extra time for frontend animations)
     startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {
@@ -1161,10 +1179,13 @@ async function handleCardDraw(
       .filter(p => !p.isBankrupt && p.slot !== player.slot)
       .flatMap(p => p.properties.filter(ci => !p.hotels?.[String(ci)]));
     game.turnPhase = 'AWAITING_FORCED_TRADE';
-    await game.save();
+    // Emit prompt BEFORE save — ensures frontend receives it even if save fails
     io.to(game.roomId).emit('tinh-tuy:forced-trade-prompt', {
       slot: player.slot, myCells, opponentCells,
     });
+    try { await game.save(); } catch (err) {
+      console.error('[tinh-tuy] FORCED_TRADE save failed:', err);
+    }
     // Auto-pick random on timeout (extra time for frontend animations)
     startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
       try {

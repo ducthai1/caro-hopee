@@ -2804,6 +2804,23 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     return () => clearTimeout(timer);
   }, [state.pendingSwapAnim]);
 
+  // Auto-dismiss card modal early when a requiresChoice prompt arrives.
+  // Normally the card auto-dismisses after 5s, but choice modals (ForcedTrade, EminentDomain, etc.)
+  // are blocked by `state.drawnCard`. If the 5s timer fails (browser throttle, React edge case),
+  // the game gets permanently stuck. This safety effect clears the card after 1.5s when a choice is needed.
+  useEffect(() => {
+    if (!state.drawnCard) return;
+    const hasChoicePrompt = !!(
+      state.forcedTradePrompt || state.eminentDomainPrompt ||
+      state.rentFreezePrompt || state.buyBlockPrompt || state.attackPrompt ||
+      state.turnPhase === 'AWAITING_CARD_DESTINATION'
+    );
+    if (!hasChoicePrompt) return;
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_CARD' }), 1500);
+    return () => clearTimeout(timer);
+  }, [state.drawnCard, state.forcedTradePrompt, state.eminentDomainPrompt,
+      state.rentFreezePrompt, state.buyBlockPrompt, state.attackPrompt, state.turnPhase]);
+
   // Apply queued GO bonus after walk animation finishes (wait for pendingMove + animatingToken only)
   useEffect(() => {
     if (!state.queuedGoBonus) return;
