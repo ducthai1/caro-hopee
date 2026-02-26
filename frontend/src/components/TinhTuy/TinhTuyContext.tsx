@@ -1426,10 +1426,38 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, shibaRerollPrompt: null };
 
     case 'ABILITY_USED': {
-      const { slot: auSlot, cooldown: auCd } = action.payload;
-      const auPlayers = state.players.map(p =>
-        p.slot === auSlot ? { ...p, abilityCooldown: auCd, abilityUsedThisTurn: true } : p
-      );
+      const { slot: auSlot, cooldown: auCd, abilityId, targetSlot, cellIndex, amount } = action.payload;
+      const auPlayers = state.players.map(p => {
+        let u = p;
+        // Caster: cooldown + flag
+        if (p.slot === auSlot) {
+          u = { ...u, abilityCooldown: auCd, abilityUsedThisTurn: true };
+        }
+        // Ability-specific state changes
+        switch (abilityId) {
+          case 'kungfu-active':
+            // Target loses 1 house, gains refund
+            if (p.slot === targetSlot && cellIndex != null) {
+              const newH = { ...u.houses, [String(cellIndex)]: Math.max(0, (u.houses[String(cellIndex)] || 0) - 1) };
+              u = { ...u, houses: newH, points: u.points + (amount || 0) };
+            }
+            break;
+          case 'trau-active':
+          case 'sloth-active':
+            // Caster gains points
+            if (p.slot === auSlot && amount) u = { ...u, points: u.points + amount };
+            break;
+          case 'canoc-active':
+            // Caster steals from target
+            if (p.slot === auSlot && amount != null) u = { ...u, points: u.points + amount };
+            else if (p.slot === targetSlot && amount != null) u = { ...u, points: u.points - amount };
+            break;
+          case 'pigfish-active':
+            if (p.slot === auSlot) u = { ...u, immunityNextRent: true };
+            break;
+        }
+        return u;
+      });
       return { ...state, players: auPlayers, abilityUsedAlert: action.payload };
     }
 
