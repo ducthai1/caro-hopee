@@ -1326,7 +1326,7 @@
         "active": { "name": "Plow", "desc": "+1200 TT from bank" }
       },
       "horse": {
-        "passive": { "name": "Agile", "desc": "Dice rolls always +1 cell" },
+        "passive": { "name": "Agile", "desc": "Dice rolls randomly -1/0/+1 cell" },
         "active": { "name": "Gallop", "desc": "Choose to move 2-12 cells instead of rolling" }
       },
       "canoc": {

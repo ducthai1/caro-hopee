@@ -1861,9 +1861,10 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles = 0;
       }
 
-      // ─── Horse passive: auto +1 step (fully passive, no prompt) ───
+      // ─── Horse passive: random -1/0/+1 step (fully passive) ───
       if (hasPassive(game, player, 'MOVE_ADJUST')) {
-        dice.total += 1;
+        const horseAdj = [-1, 0, 1][Math.floor(Math.random() * 3)];
+        dice.total = Math.max(2, dice.total + horseAdj);
       }
 
       // ─── Shiba passive-like: reroll prompt after dice (PRE-MOVE) ───
