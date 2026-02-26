@@ -736,17 +736,7 @@ async function handleCardDraw(
           { id: card2.id, type: card2.type, nameKey: card2.nameKey, descriptionKey: card2.descriptionKey },
         ],
       });
-      // Timer: 15s auto-pick first card
-      startTurnTimer(game.roomId, 15000, async () => {
-        try {
-          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
-          if (!g || g.turnPhase !== 'AWAITING_OWL_PICK') return;
-          const p = g.players.find(pp => pp.slot === player.slot);
-          if (!p) return;
-          // Auto-pick first card
-          await executeOwlPick(io, g, p, card!.id);
-        } catch (err) { console.error('[tinh-tuy] Owl pick timeout:', err); }
-      });
+      // No auto-dismiss timer — user picks manually. Backend turn timer is the safety net.
       return; // Wait for owl pick
     }
     // If second card is invalid, proceed with single card normally
