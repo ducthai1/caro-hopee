@@ -1270,6 +1270,7 @@
       "cooldown": "Hồi chiêu: {{turns}} lượt",
       "ready": "Sẵn sàng",
       "onCooldown": "Hồi chiêu ({{turns}})",
+      "noValidTargets": "Không có mục tiêu hợp lệ",
       "used": "Đã dùng",
       "useAbility": "Dùng kỹ năng",
       "selectTarget": "Chọn mục tiêu",

@@ -271,6 +271,7 @@ export const TinhTuyPlayView: React.FC = () => {
 
         {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', mt: 'auto' }}>
+          <TinhTuyAbilityButton />
           {isMyTurn && hasProperties && state.turnPhase === 'END_TURN' && (
             <Button
               size="small"
@@ -433,7 +434,6 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyEminentDomainModal />
       <TinhTuyNegotiateWizard />
       <TinhTuyNegotiateModal />
-      <TinhTuyAbilityButton />
       <TinhTuyAbilityModal />
       <TinhTuyOwlPickModal />
       <TinhTuyHorseAdjustPrompt />

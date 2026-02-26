@@ -1270,6 +1270,7 @@
       "cooldown": "Cooldown: {{turns}} turns",
       "ready": "Ready",
       "onCooldown": "Cooldown ({{turns}})",
+      "noValidTargets": "No valid targets",
       "used": "Used",
       "useAbility": "Use Ability",
       "selectTarget": "Select Target",

@@ -1,9 +1,10 @@
 /**
- * TinhTuyAbilityButton — Floating action button for the player's active ability.
+ * TinhTuyAbilityButton — Inline ability button in the left panel action area.
  * Shows cooldown badge, disabled states, and emits activateAbility() on click.
+ * Shows snackbar feedback when ability has no valid targets.
  */
-import React from 'react';
-import { Fab, Badge, Tooltip } from '@mui/material';
+import React, { useState } from 'react';
+import { Button, Badge, Tooltip, Snackbar } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
 import { CHARACTER_ABILITIES } from '../tinh-tuy-abilities';
@@ -13,6 +14,7 @@ const PURPLE = '#9b59b6';
 export const TinhTuyAbilityButton: React.FC = () => {
   const { t } = useLanguage();
   const { state, activateAbility } = useTinhTuy();
+  const [noTargetMsg, setNoTargetMsg] = useState(false);
 
   // Guard: only show during an active game with abilities enabled
   if (state.gameStatus !== 'playing') return null;
@@ -43,53 +45,89 @@ export const TinhTuyAbilityButton: React.FC = () => {
   const usedThisTurn = myPlayer.abilityUsedThisTurn;
   const disabled = !isMyTurn || onCooldown || usedThisTurn || phaseDisabled;
 
-  const tooltipLabel = (t as any)(`tinhTuy.abilities.${myPlayer.character}.active.name`) as string;
+  const abilityName = (t as any)(`tinhTuy.abilities.${myPlayer.character}.active.name`) as string;
+
+  // Check if ability has valid targets before activating
+  const hasValidTargets = (): boolean => {
+    const targetType = abilityDef.active.targetType;
+    if (targetType === 'NONE' || targetType === 'STEPS' || targetType === 'DECK') return true;
+
+    if (targetType === 'OPPONENT') {
+      return state.players.some(p => p.slot !== state.mySlot && !p.isBankrupt && !(p.islandTurns > 0));
+    }
+    if (targetType === 'CELL') {
+      if (myPlayer.character === 'elephant') {
+        return myPlayer.properties.some(idx => {
+          const key = String(idx);
+          return !myPlayer.hotels[key] && (myPlayer.houses[key] || 0) < 4;
+        });
+      }
+      return true; // Rabbit: all cells except island
+    }
+    if (targetType === 'OPPONENT_HOUSE') {
+      // Kungfu: opponents with houses > 0 (no hotel)
+      for (const p of state.players) {
+        if (p.slot === state.mySlot || p.isBankrupt) continue;
+        for (const idx of p.properties) {
+          const key = String(idx);
+          if ((p.houses[key] || 0) > 0 && !p.hotels[key]) return true;
+        }
+      }
+      return false;
+    }
+    return true;
+  };
 
   const handleClick = () => {
     if (disabled) return;
+    if (!hasValidTargets()) {
+      setNoTargetMsg(true);
+      return;
+    }
     activateAbility();
   };
 
-  const fabSx = {
-    position: 'fixed' as const,
-    bottom: 80,
-    right: 16,
-    zIndex: 1000,
-    bgcolor: disabled ? 'grey.500' : PURPLE,
-    color: '#fff',
-    opacity: disabled ? 0.55 : 1,
-    fontSize: 24,
-    '&:hover': {
-      bgcolor: disabled ? 'grey.500' : '#8e44ad',
-    },
-    '&.Mui-disabled': {
-      bgcolor: 'grey.500',
-      color: '#fff',
-      opacity: 0.55,
-    },
-  };
+  // Cooldown text for tooltip
+  let tooltipText = abilityName;
+  if (onCooldown) tooltipText += ` (${myPlayer.abilityCooldown} ${(t as any)('tinhTuy.abilities.cooldown') || 'lượt'})`;
 
   return (
-    <Tooltip title={tooltipLabel} placement="left" arrow>
-      <span style={{ position: 'fixed', bottom: 80, right: 16, zIndex: 1000 }}>
-        <Badge
-          badgeContent={onCooldown ? myPlayer.abilityCooldown : 0}
-          color="warning"
-          invisible={!onCooldown}
-          overlap="circular"
-          sx={{ '& .MuiBadge-badge': { fontWeight: 700, fontSize: '0.7rem', minWidth: 18, height: 18 } }}
-        >
-          <Fab
-            size="medium"
-            disabled={disabled}
-            onClick={handleClick}
-            sx={fabSx}
-            aria-label={tooltipLabel}
+    <>
+      <Tooltip title={tooltipText} placement="right" arrow>
+        <span>
+          <Badge
+            badgeContent={onCooldown ? myPlayer.abilityCooldown : 0}
+            color="warning"
+            invisible={!onCooldown}
+            sx={{ width: '100%', '& .MuiBadge-badge': { fontWeight: 700, fontSize: '0.7rem', minWidth: 18, height: 18 } }}
           >
-            <span style={{ fontSize: 24, lineHeight: 1 }}>{abilityDef.active.icon}</span>
-          </Fab>
-        </Badge>
-      </span>
-    </Tooltip>
+            <Button
+              size="small"
+              variant="outlined"
+              fullWidth
+              disabled={disabled}
+              onClick={handleClick}
+              sx={{
+                borderColor: disabled ? 'rgba(155,89,182,0.3)' : PURPLE,
+                color: disabled ? 'text.disabled' : PURPLE,
+                fontWeight: 600,
+                '&:hover': { borderColor: '#8e44ad', bgcolor: 'rgba(155,89,182,0.08)' },
+                '&.Mui-disabled': { borderColor: 'rgba(155,89,182,0.2)', color: 'text.disabled' },
+              }}
+              startIcon={<span style={{ fontSize: 18, lineHeight: 1 }}>{abilityDef.active.icon}</span>}
+            >
+              {abilityName}
+            </Button>
+          </Badge>
+        </span>
+      </Tooltip>
+      <Snackbar
+        open={noTargetMsg}
+        autoHideDuration={3000}
+        onClose={() => setNoTargetMsg(false)}
+        message={(t as any)('tinhTuy.abilities.noValidTargets') || 'Không có mục tiêu hợp lệ'}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
+    </>
   );
 };
