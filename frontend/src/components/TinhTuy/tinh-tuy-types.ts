@@ -430,6 +430,7 @@ export type TinhTuyAction =
   | { type: 'CLEAR_HORSE_ADJUST_PROMPT' }
   | { type: 'SHIBA_REROLL_PROMPT'; payload: TinhTuyState['shibaRerollPrompt'] }
   | { type: 'CLEAR_SHIBA_REROLL_PROMPT' }
+  | { type: 'SHIBA_REROLL_PICKED'; payload: { slot: number; kept: string; dice: { dice1: number; dice2: number } } }
   | { type: 'ABILITY_USED'; payload: { slot: number; abilityId: string; cooldown: number; targetSlot?: number; cellIndex?: number; amount?: number } }
   | { type: 'CLEAR_ABILITY_USED_ALERT' }
   | { type: 'CHICKEN_DRAIN'; payload: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } }

@@ -1422,6 +1422,15 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_SHIBA_REROLL_PROMPT':
       return { ...state, shibaRerollPrompt: null };
 
+    case 'SHIBA_REROLL_PICKED':
+      // Update displayed dice to the chosen result and close the modal
+      return {
+        ...state,
+        lastDiceResult: { dice1: action.payload.dice.dice1, dice2: action.payload.dice.dice2 },
+        shibaRerollPrompt: null,
+        diceAnimating: true,
+      };
+
     case 'ABILITY_USED': {
       const { slot: auSlot, cooldown: auCd, abilityId, targetSlot, cellIndex, amount } = action.payload;
       const auPlayers = state.players.map(p => {
@@ -1828,6 +1837,9 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleShibaRerollPrompt = (data: any) => {
       dispatch({ type: 'SHIBA_REROLL_PROMPT', payload: data });
     };
+    const handleShibaRerollPicked = (data: any) => {
+      dispatch({ type: 'SHIBA_REROLL_PICKED', payload: data });
+    };
     const handleChickenDrain = (data: any) => {
       dispatch({ type: 'CHICKEN_DRAIN', payload: data });
     };
@@ -1931,6 +1943,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
     socket.on('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
     socket.on('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
+    socket.on('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
     socket.on('tinh-tuy:chicken-drain' as any, handleChickenDrain);
     socket.on('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
     socket.on('tinh-tuy:fox-swap' as any, handleFoxSwap);
@@ -1993,6 +2006,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
       socket.off('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
       socket.off('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
+      socket.off('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
       socket.off('tinh-tuy:chicken-drain' as any, handleChickenDrain);
       socket.off('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
       socket.off('tinh-tuy:fox-swap' as any, handleFoxSwap);
