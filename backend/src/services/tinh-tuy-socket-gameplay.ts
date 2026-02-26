@@ -3560,6 +3560,11 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const targetOldPos = targetPlayer.position;
           player.position = targetOldPos;
           targetPlayer.position = myOldPos;
+          // Transfer pendingTravel: if target had it (was on travel cell), give it to fox
+          if (targetPlayer.pendingTravel) {
+            targetPlayer.pendingTravel = false;
+            player.pendingTravel = true;
+          }
           setAbilityCooldown(player);
           game.markModified('players');
           await game.save();
