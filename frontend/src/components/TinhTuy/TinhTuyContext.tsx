@@ -579,7 +579,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
           return p;
         });
         const ngFestival = action.payload.festival !== undefined ? action.payload.festival : state.festival;
-        return { ...state, players: ngPlayers, pendingNegotiate: null, negotiateWizardOpen: false, festival: ngFestival };
+        const ngNotifs = addNotifs(state.pointNotifs, [{ slot: fromSlot, amount: -negPrice! }, { slot: toSlot, amount: negPrice! }]);
+        return { ...state, players: ngPlayers, pendingNegotiate: null, negotiateWizardOpen: false, festival: ngFestival, pointNotifs: ngNotifs };
       }
       // Rejected
       const ngCooldown = action.payload.cooldownUntilRound && action.payload.fromSlot === state.mySlot
