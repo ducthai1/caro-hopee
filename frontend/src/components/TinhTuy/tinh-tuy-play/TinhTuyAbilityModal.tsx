@@ -1,9 +1,9 @@
 /**
  * TinhTuyAbilityModal — Target selection dialog for active abilities.
- * Shows when state.abilityModal is not null. Auto-dismisses after 15s.
+ * Shows when state.abilityModal is not null. No auto-dismiss — user picks manually.
  * Handles OPPONENT / CELL / OPPONENT_HOUSE / STEPS / DECK target types.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Typography, Box, Divider, Slider,
@@ -13,7 +13,6 @@ import { useLanguage } from '../../../i18n';
 import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
 
 const ACCENT = '#9b59b6';
-const AUTO_DISMISS_MS = 15_000;
 
 export const TinhTuyAbilityModal: React.FC = () => {
   const { t } = useLanguage();
@@ -21,32 +20,14 @@ export const TinhTuyAbilityModal: React.FC = () => {
   const modal = state.abilityModal;
 
   const [steps, setSteps] = useState<number>(7);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Auto-dismiss after 15s
-  useEffect(() => {
-    if (!modal) return;
-    timerRef.current = setTimeout(() => clearAbilityModal(), AUTO_DISMISS_MS);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modal]);
 
   if (!modal) return null;
 
-  const clearTimer = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  };
-
   const handleSelectOpponent = (slot: number) => {
-    clearTimer();
     activateAbility({ targetSlot: slot });
   };
 
   const handleSelectCell = (cellIndex: number, ownerSlot?: number) => {
-    clearTimer();
-    // For OPPONENT_HOUSE (kungfu), pass both cellIndex and owner slot
     if (ownerSlot != null) {
       activateAbility({ cellIndex, targetSlot: ownerSlot });
     } else {
@@ -55,17 +36,14 @@ export const TinhTuyAbilityModal: React.FC = () => {
   };
 
   const handleSelectSteps = () => {
-    clearTimer();
     activateAbility({ steps });
   };
 
   const handleSelectDeck = (deck: 'KHI_VAN' | 'CO_HOI') => {
-    clearTimer();
     activateAbility({ deck });
   };
 
   const handleCancel = () => {
-    clearTimer();
     clearAbilityModal();
   };
 

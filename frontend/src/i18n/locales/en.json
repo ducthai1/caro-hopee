@@ -1296,7 +1296,8 @@
         "horseAdjustKeep": "Keep",
         "shibaRerollTitle": "Lucky Bark: Choose Dice",
         "shibaOriginal": "Original",
-        "shibaRerolled": "Rerolled"
+        "shibaRerolled": "Rerolled",
+        "tapToChoose": "Tap to choose"
       },
       "roles": {
         "income": "Income",

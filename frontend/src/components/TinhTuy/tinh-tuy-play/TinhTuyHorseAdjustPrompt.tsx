@@ -1,14 +1,12 @@
 /**
  * TinhTuyHorseAdjustPrompt — Horse passive: adjust dice total ±1 after rolling.
  * Snackbar-style fixed overlay at bottom of screen (only for current player).
- * 5s timeout — auto-dismisses and backend timer keeps original.
+ * No auto-dismiss — user picks manually. Backend turn timer is the safety net.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
-
-const ADJUST_TIMEOUT_MS = 5000;
 
 export const TinhTuyHorseAdjustPrompt: React.FC = () => {
   const { t } = useLanguage();
@@ -16,53 +14,18 @@ export const TinhTuyHorseAdjustPrompt: React.FC = () => {
 
   const prompt = state.horseAdjustPrompt;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
-
-  const [secondsLeft, setSecondsLeft] = useState(5);
-  const timerRef = useRef<number | null>(null);
-  const intervalRef = useRef<number | null>(null);
   const resolvedRef = useRef(false);
-
-  const clearTimers = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  };
 
   const handleAdjust = (direction: 1 | -1 | 0) => {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
-    clearTimers();
     horseAdjust(direction);
   };
 
-  useEffect(() => {
-    if (!prompt || !isMyTurn) return;
-
-    // Reset on new prompt
-    resolvedRef.current = false;
-    setSecondsLeft(5);
-
-    intervalRef.current = window.setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    timerRef.current = window.setTimeout(() => {
-      if (!resolvedRef.current) {
-        resolvedRef.current = true;
-        // Auto-dismiss — backend timer handles keeping original
-      }
-    }, ADJUST_TIMEOUT_MS);
-
-    return clearTimers;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt, isMyTurn]);
-
   if (!prompt || !isMyTurn) return null;
+
+  // Reset resolved flag when prompt changes
+  resolvedRef.current = false;
 
   const total = prompt.diceTotal;
 
@@ -152,20 +115,6 @@ export const TinhTuyHorseAdjustPrompt: React.FC = () => {
             +1
           </Button>
         </Box>
-
-        {/* Countdown */}
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            textAlign: 'center',
-            mt: 1,
-            color: secondsLeft <= 2 ? '#e74c3c' : 'text.disabled',
-            fontWeight: secondsLeft <= 2 ? 700 : 400,
-          }}
-        >
-          {secondsLeft}s
-        </Typography>
       </Paper>
     </Box>
   );

@@ -1,14 +1,12 @@
 /**
  * TinhTuyOwlPickModal — Owl passive: draw 2 cards, pick 1.
  * Shows when state.owlPickModal is non-null (only for current player).
- * 15s countdown — auto-picks index 0 on timeout.
+ * No auto-dismiss — user picks manually. Backend turn timer is the safety net.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, Box, Paper, Typography } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
-
-const PICK_TIMEOUT_MS = 15000;
 
 const CARD_TYPE_EMOJI: Record<string, string> = {
   KHI_VAN: '🔮',
@@ -22,51 +20,15 @@ export const TinhTuyOwlPickModal: React.FC = () => {
   const modal = state.owlPickModal;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
 
-  const [secondsLeft, setSecondsLeft] = useState(15);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const intervalRef = useRef<number | null>(null);
   const pickedRef = useRef(false);
 
   const handlePick = (cardId: string, index: number) => {
     if (pickedRef.current) return;
     pickedRef.current = true;
     setSelectedIndex(index);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
     owlPick(cardId);
   };
-
-  useEffect(() => {
-    if (!modal || !isMyTurn) return;
-
-    // Reset state when modal opens
-    pickedRef.current = false;
-    setSelectedIndex(null);
-    setSecondsLeft(15);
-
-    intervalRef.current = window.setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    timerRef.current = window.setTimeout(() => {
-      if (!pickedRef.current && modal.cards?.[0]) {
-        handlePick(modal.cards[0].id, 0);
-      }
-    }, PICK_TIMEOUT_MS);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modal, isMyTurn]);
 
   if (!modal || !isMyTurn) return null;
 
@@ -133,19 +95,10 @@ export const TinhTuyOwlPickModal: React.FC = () => {
           })}
         </Box>
 
-        {/* Countdown */}
-        <Box sx={{ textAlign: 'center', mt: 2 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: secondsLeft <= 5 ? '#e74c3c' : 'text.secondary',
-              fontWeight: secondsLeft <= 5 ? 700 : 400,
-              transition: 'color 0.3s',
-            }}
-          >
-            {secondsLeft}s
-          </Typography>
-        </Box>
+        {/* Hint */}
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1.5, color: 'text.secondary' }}>
+          {(t as any)('tinhTuy.abilities.ui.tapToChoose')}
+        </Typography>
       </DialogContent>
     </Dialog>
   );

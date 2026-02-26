@@ -1296,7 +1296,8 @@
         "horseAdjustKeep": "Giữ",
         "shibaRerollTitle": "Sủa may mắn: Chọn xúc xắc",
         "shibaOriginal": "Kết quả cũ",
-        "shibaRerolled": "Kết quả mới"
+        "shibaRerolled": "Kết quả mới",
+        "tapToChoose": "Bấm để chọn"
       },
       "roles": {
         "income": "Thu nhập",

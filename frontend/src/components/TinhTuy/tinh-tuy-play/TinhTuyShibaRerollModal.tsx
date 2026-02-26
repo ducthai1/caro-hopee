@@ -1,14 +1,12 @@
 /**
  * TinhTuyShibaRerollModal — Shiba active: reroll dice then choose original or new result.
  * Shows when state.shibaRerollPrompt is non-null (only for current player).
- * 5s countdown — auto-picks 'original' on timeout.
+ * No auto-dismiss — user picks manually. Backend turn timer is the safety net.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, Box, Paper, Typography } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
-
-const PICK_TIMEOUT_MS = 5000;
 
 /** Map dice value 1-6 to Unicode die face emoji */
 const DICE_EMOJI: Record<number, string> = {
@@ -95,50 +93,15 @@ export const TinhTuyShibaRerollModal: React.FC = () => {
   const prompt = state.shibaRerollPrompt;
   const isMyTurn = state.currentPlayerSlot === state.mySlot;
 
-  const [secondsLeft, setSecondsLeft] = useState(5);
   const [selected, setSelected] = useState<'original' | 'rerolled' | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const intervalRef = useRef<number | null>(null);
   const pickedRef = useRef(false);
 
   const handlePick = (choice: 'original' | 'rerolled') => {
     if (pickedRef.current) return;
     pickedRef.current = true;
     setSelected(choice);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
     shibaRerollPick(choice);
   };
-
-  useEffect(() => {
-    if (!prompt || !isMyTurn) return;
-
-    pickedRef.current = false;
-    setSelected(null);
-    setSecondsLeft(5);
-
-    intervalRef.current = window.setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    timerRef.current = window.setTimeout(() => {
-      if (!pickedRef.current) {
-        handlePick('original');
-      }
-    }, PICK_TIMEOUT_MS);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt, isMyTurn]);
 
   if (!prompt || !isMyTurn) return null;
 
@@ -175,19 +138,10 @@ export const TinhTuyShibaRerollModal: React.FC = () => {
           />
         </Box>
 
-        {/* Countdown */}
-        <Box sx={{ textAlign: 'center', mt: 2 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: secondsLeft <= 2 ? '#e74c3c' : 'text.secondary',
-              fontWeight: secondsLeft <= 2 ? 700 : 400,
-              transition: 'color 0.3s',
-            }}
-          >
-            {secondsLeft}s
-          </Typography>
-        </Box>
+        {/* Hint */}
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1.5, color: 'text.secondary' }}>
+          {(t as any)('tinhTuy.abilities.ui.tapToChoose')}
+        </Typography>
       </DialogContent>
     </Dialog>
   );
