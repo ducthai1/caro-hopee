@@ -3,7 +3,7 @@
  * Shows when state.shibaRerollPrompt is non-null (only for current player).
  * No auto-dismiss — user picks manually. Backend turn timer is the safety net.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, Box, Paper, Typography } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
@@ -95,6 +95,13 @@ export const TinhTuyShibaRerollModal: React.FC = () => {
 
   const [selected, setSelected] = useState<'original' | 'rerolled' | null>(null);
   const pickedRef = useRef(false);
+
+  // Reset picked state when a new prompt appears
+  const promptKey = prompt ? `${prompt.original.dice1}${prompt.original.dice2}${prompt.rerolled.dice1}${prompt.rerolled.dice2}` : '';
+  useEffect(() => {
+    pickedRef.current = false;
+    setSelected(null);
+  }, [promptKey]);
 
   const handlePick = (choice: 'original' | 'rerolled') => {
     if (pickedRef.current) return;

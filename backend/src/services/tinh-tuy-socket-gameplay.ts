@@ -1888,25 +1888,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           original: player.shibaRerollPending.original,
           rerolled: player.shibaRerollPending.rerolled,
         });
-        // Timer: 5s auto-keep original
-        startTurnTimer(roomId, 5000, async () => {
-          try {
-            const g = await TinhTuyGame.findOne({ roomId });
-            if (!g || g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return;
-            const p = g.players.find(pp => pp.slot === player.slot);
-            if (!p || !p.shibaRerollPending) return;
-            // Keep original — resume movement
-            g.lastDiceResult = { dice1: p.shibaRerollPending.original.dice1, dice2: p.shibaRerollPending.original.dice2 };
-            g.markModified('lastDiceResult');
-            p.shibaRerollPending = undefined as any;
-            g.markModified('players');
-            io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', { slot: p.slot, kept: 'original', dice: g.lastDiceResult });
-            // Execute movement with original dice
-            const d = g.lastDiceResult!;
-            const dFull = { dice1: d.dice1, dice2: d.dice2, total: d.dice1 + d.dice2, isDouble: d.dice1 === d.dice2 };
-            await executeShibaPostPick(io, g, p, dFull);
-          } catch (err) { console.error('[tinh-tuy] Shiba reroll timeout:', err); }
-        });
+        // No auto-dismiss timer — user picks manually. Backend turn timer is the safety net.
         callback({ success: true });
         return;
       }
