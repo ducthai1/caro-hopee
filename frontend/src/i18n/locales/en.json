@@ -1073,7 +1073,7 @@
       "ISLAND": "The Island — a forced retreat. Roll doubles, pay 500 TT, or use an escape card to leave.",
       "GO_TO_ISLAND": "You are sent to the Island immediately! You do not collect GO salary.",
       "STATION": "Station — Rent = (stations owned × 250) × (1 + 20% × round). More stations and rounds = higher rent!",
-      "UTILITY": "Utility — Rent = purchase price × (1 + 8% × round). Rent automatically increases 8% each round past GO."
+      "UTILITY": "Utility — Rent = purchase price × (1 + 5% × round). Rent automatically increases 5% each round past GO."
     },
     "cards": {
       "khiVanTitle": "Luck Card",

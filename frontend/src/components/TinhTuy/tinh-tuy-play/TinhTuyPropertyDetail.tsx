@@ -15,9 +15,9 @@ function calcStationRent(stationsOwned: number, completedRounds: number): number
   return Math.floor(stationsOwned * 250 * (1 + 0.20 * completedRounds));
 }
 
-/** Compute utility rent: price × (1 + 0.08 × completedRounds) */
+/** Compute utility rent: price × (1 + 0.05 × completedRounds) */
 function calcUtilityRent(price: number, completedRounds: number): number {
-  return Math.floor(price * (1 + 0.08 * completedRounds));
+  return Math.floor(price * (1 + 0.05 * completedRounds));
 }
 
 interface Props {
@@ -244,7 +244,7 @@ export const TinhTuyPropertyDetail: React.FC<Props> = ({ cellIndex, onClose }) =
                   </TableRow>
                   <TableRow>
                     <TableCell>{t('tinhTuy.property.roundBonus' as any)}</TableCell>
-                    <TableCell align="right">+8% / {t('tinhTuy.game.round' as any)}</TableCell>
+                    <TableCell align="right">+5% / {t('tinhTuy.game.round' as any)}</TableCell>
                   </TableRow>
                   <TableRow sx={{ bgcolor: 'rgba(155,89,182,0.08)', fontWeight: 700 }}>
                     <TableCell sx={{ fontWeight: 700 }}>
