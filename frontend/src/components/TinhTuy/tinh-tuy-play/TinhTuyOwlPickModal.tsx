@@ -3,7 +3,7 @@
  * Shows when state.owlPickModal is non-null (only for current player).
  * No auto-dismiss — user picks manually. Backend turn timer is the safety net.
  */
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, Box, Paper, Typography } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { useLanguage } from '../../../i18n';
@@ -23,12 +23,19 @@ export const TinhTuyOwlPickModal: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const pickedRef = useRef(false);
 
-  const handlePick = (cardId: string, index: number) => {
+  // Reset picked state when a new modal opens (new cards array)
+  const modalKey = modal?.cards?.map(c => c.id).join(',') ?? '';
+  useEffect(() => {
+    pickedRef.current = false;
+    setSelectedIndex(null);
+  }, [modalKey]);
+
+  const handlePick = useCallback((cardId: string, index: number) => {
     if (pickedRef.current) return;
     pickedRef.current = true;
     setSelectedIndex(index);
     owlPick(cardId);
-  };
+  }, [owlPick]);
 
   if (!modal || !isMyTurn) return null;
 

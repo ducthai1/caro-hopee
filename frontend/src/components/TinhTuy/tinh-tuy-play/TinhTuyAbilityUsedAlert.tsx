@@ -136,8 +136,11 @@ export const TinhTuyAbilityUsedAlert: React.FC = () => {
       onClose={clearAbilityUsedAlert}
       maxWidth="xs"
       fullWidth
+      hideBackdrop
+      disableEnforceFocus
       TransitionProps={{ timeout: 300 }}
-      PaperProps={{ sx: { borderRadius: 3, borderTop: `4px solid ${accent}` } }}
+      sx={{ pointerEvents: 'none' }}
+      PaperProps={{ sx: { borderRadius: 3, borderTop: `4px solid ${accent}`, pointerEvents: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' } }}
     >
       <DialogTitle sx={{ fontWeight: 700, textAlign: 'center', pb: 0.5 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, color: accent }}>
