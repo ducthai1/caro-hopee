@@ -1238,6 +1238,9 @@
       "missingHouse": "Needs house on:",
       "groupProgress": "{{current}}/{{target}} color groups completed"
     },
+    "abilityInfo": {
+      "title": "Character Abilities"
+    },
     "guide": {
       "title": "Character Guide",
       "tabCharacters": "Characters",
@@ -1279,6 +1282,7 @@
       "selectDeck": "Select Deck",
       "passive": "Passive",
       "active": "Active",
+      "cooldownShort": "turns",
       "disabled": "Abilities Off",
       "keepOriginal": "Keep Original",
       "keepNew": "Choose New Result",

@@ -53,7 +53,9 @@ import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
 import { TinhTuyHorseAdjustPrompt } from './TinhTuyHorseAdjustPrompt';
 import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
 import { TinhTuyFoxSwapAlert } from './TinhTuyFoxSwapAlert';
+import { TinhTuyAbilityInfoModal } from './TinhTuyAbilityInfoModal';
 import HandshakeIcon from '@mui/icons-material/Handshake';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
 const PlayerCard: React.FC<{
@@ -193,6 +195,7 @@ export const TinhTuyPlayView: React.FC = () => {
 
   const [buildOpen, setBuildOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showAbilityInfo, setShowAbilityInfo] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
 
@@ -248,6 +251,13 @@ export const TinhTuyPlayView: React.FC = () => {
               </Typography>
             )}
           </Typography>
+          {state.settings?.abilitiesEnabled && (
+            <Tooltip title={(t as any)('tinhTuy.abilityInfo.title')} arrow>
+              <IconButton size="small" onClick={() => setShowAbilityInfo(true)} sx={{ color: '#9b59b6', p: 0.5 }}>
+                <MenuBookIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <TinhTuyVolumeControl />
         </Box>
 
@@ -439,6 +449,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyHorseAdjustPrompt />
       <TinhTuyShibaRerollModal />
       <TinhTuyFoxSwapAlert />
+      <TinhTuyAbilityInfoModal open={showAbilityInfo} onClose={() => setShowAbilityInfo(false)} />
       <TinhTuyGameOverModal />
 
       {/* Guest Name Edit Dialog */}

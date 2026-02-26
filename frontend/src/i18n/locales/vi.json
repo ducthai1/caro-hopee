@@ -1238,6 +1238,9 @@
       "missingHouse": "Ô đất cần xây nhà:",
       "groupProgress": "{{current}}/{{target}} nhóm màu hoàn thành"
     },
+    "abilityInfo": {
+      "title": "Chức năng nhân vật"
+    },
     "guide": {
       "title": "Cẩm nang nhân vật",
       "tabCharacters": "Nhân vật",
@@ -1279,6 +1282,7 @@
       "selectDeck": "Chọn bộ thẻ",
       "passive": "Nội tại",
       "active": "Chủ động",
+      "cooldownShort": "lượt",
       "disabled": "Kỹ năng tắt",
       "keepOriginal": "Giữ kết quả cũ",
       "keepNew": "Chọn kết quả mới",
