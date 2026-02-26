@@ -13,6 +13,7 @@ import { API_BASE_URL } from '../../utils/constants';
 import {
   TinhTuyState, TinhTuyAction, TinhTuyView, TinhTuyPlayer, TinhTuyCharacter,
   TinhTuySettings, WaitingRoomInfo, CreateRoomPayload, DEFAULT_SETTINGS,
+  BOARD_CELLS,
 } from './tinh-tuy-types';
 import { tinhTuySounds } from './tinh-tuy-sounds';
 import { CHARACTER_ABILITIES } from './tinh-tuy-abilities';
@@ -2496,7 +2497,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
           });
         } else {
           // Rabbit: all cells except Island (27)
-          cells = Array.from({ length: 40 }, (_, i) => i).filter(i => i !== 27);
+          cells = Array.from({ length: BOARD_CELLS.length }, (_, i) => i).filter(i => i !== 27);
         }
         if (cells.length === 0) return;
         dispatch({ type: 'ABILITY_MODAL', payload: { type: 'CELL', cells } });

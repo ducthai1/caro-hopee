@@ -282,7 +282,7 @@ export const TinhTuyAbilityModal: React.FC = () => {
           fullWidth
           sx={{ textTransform: 'none', color: 'text.secondary' }}
         >
-          {(t as any)('tinhTuy.game.cancel') ?? 'Huỷ'}
+          {(t as any)('common.cancel')}
         </Button>
       </DialogActions>
     </Dialog>
