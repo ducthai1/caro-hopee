@@ -1296,6 +1296,8 @@
         "shibaOriginal": "Original",
         "shibaRerolled": "Rerolled",
         "tapToChoose": "Tap to choose",
+        "horseAdjustTitle": "Agile: Adjust Steps",
+        "horseAdjustDesc": "Dice: {{total}}. Choose -1, 0, or +1 step",
         "rabbitBonusTitle": "Long Jump: Double!",
         "rabbitBonusDesc": "You rolled doubles ({{total}})! Add +{{bonus}} steps? (total {{withBonus}})",
         "rabbitSteps": "steps"
@@ -1329,7 +1331,7 @@
         "active": { "name": "Plow", "desc": "+1200 TT from bank" }
       },
       "horse": {
-        "passive": { "name": "Agile", "desc": "Dice rolls randomly -1/0/+1 cell" },
+        "passive": { "name": "Agile", "desc": "After dice → choose -1/0/+1 cell" },
         "active": { "name": "Gallop", "desc": "Choose to move 2-12 cells instead of rolling" }
       },
       "canoc": {

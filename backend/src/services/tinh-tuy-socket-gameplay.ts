@@ -1851,10 +1851,18 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles = 0;
       }
 
-      // ─── Horse passive: random -1/0/+1 step (fully passive) ───
+      // ─── Horse passive: ±1 step choice (interactive) ───
       if (hasPassive(game, player, 'MOVE_ADJUST')) {
-        const horseAdj = [-1, 0, 1][Math.floor(Math.random() * 3)];
-        dice.total = Math.max(2, dice.total + horseAdj);
+        player.horseAdjustPending = true;
+        game.turnPhase = 'AWAITING_HORSE_ADJUST' as any;
+        game.markModified('players');
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:dice-result', dice);
+        io.to(roomId).emit('tinh-tuy:horse-adjust-prompt', {
+          slot: player.slot, diceTotal: dice.total,
+        });
+        callback({ success: true });
+        return;
       }
 
       // ─── Shiba passive-like: reroll prompt after dice (PRE-MOVE) ───
@@ -3820,6 +3828,96 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:shiba-reroll-pick]', err.message);
       callback({ success: false, error: 'rerollPickFailed' });
+    }
+  });
+
+  // ── Horse Adjust Pick (choose -1, 0, or +1) ────────────────────
+  socket.on('tinh-tuy:horse-adjust-pick', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.turnPhase !== 'AWAITING_HORSE_ADJUST') return callback({ success: false, error: 'invalidPhase' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+      if (!player.horseAdjustPending) return callback({ success: false, error: 'noPendingAdjust' });
+
+      clearTurnTimer(roomId);
+      const adj = Number(data?.adjust);
+      if (![-1, 0, 1].includes(adj)) return callback({ success: false, error: 'invalidAdjust' });
+
+      player.horseAdjustPending = false;
+      const dice = game.lastDiceResult!;
+      const diceTotal = dice.dice1 + dice.dice2;
+      const finalTotal = Math.max(2, diceTotal + adj);
+      const isDouble = dice.dice1 === dice.dice2;
+
+      io.to(roomId).emit('tinh-tuy:horse-adjust-picked', {
+        slot: player.slot, adjust: adj, finalTotal,
+      });
+
+      // ── Check consecutive doubles → island ──
+      if (isDouble) {
+        player.consecutiveDoubles += 1;
+        if (player.consecutiveDoubles >= 3) {
+          const oldPos = player.position;
+          sendToIsland(player, game);
+          game.turnPhase = 'END_TURN';
+          game.markModified('players');
+          await game.save();
+          io.to(roomId).emit('tinh-tuy:player-moved', {
+            slot: player.slot, from: oldPos, to: 27, passedGo: false, teleport: true,
+          });
+          io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
+          await advanceTurn(io, game);
+          callback({ success: true });
+          return;
+        }
+      } else {
+        player.consecutiveDoubles = 0;
+      }
+
+      // ── Rabbit bonus on doubles ──
+      const rabbitBonus = isDouble ? getDoubleBonusSteps(game, player) : 0;
+      if (rabbitBonus > 0) {
+        player.rabbitBonusPending = {
+          dice: { dice1: dice.dice1, dice2: dice.dice2, total: finalTotal, isDouble },
+          bonus: rabbitBonus,
+        };
+        game.turnPhase = 'AWAITING_RABBIT_BONUS' as any;
+        game.markModified('players');
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:rabbit-bonus-prompt', {
+          slot: player.slot, bonus: rabbitBonus,
+          dice: { dice1: dice.dice1, dice2: dice.dice2, total: finalTotal },
+        });
+        callback({ success: true });
+        return;
+      }
+
+      // ── Execute movement ──
+      const moveSteps = finalTotal;
+      const oldPos = player.position;
+      const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
+      player.position = newPos;
+      const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+      if (passedGo) {
+        player.points += goSalary;
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+      }
+      game.markModified('players');
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: newPos, passedGo,
+        goBonus: passedGo ? goSalary : 0,
+      });
+      await resolveAndAdvance(io, game, player, newPos, { dice1: dice.dice1, dice2: dice.dice2, total: finalTotal, isDouble });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:horse-adjust-pick]', err.message);
+      callback({ success: false, error: 'horseAdjustPickFailed' });
     }
   });
 

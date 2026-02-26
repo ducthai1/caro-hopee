@@ -1296,6 +1296,8 @@
         "shibaOriginal": "Kết quả cũ",
         "shibaRerolled": "Kết quả mới",
         "tapToChoose": "Bấm để chọn",
+        "horseAdjustTitle": "Nhanh nhẹn: Điều chỉnh",
+        "horseAdjustDesc": "Xúc xắc: {{total}}. Chọn -1, 0, hoặc +1 bước",
         "rabbitBonusTitle": "Nhảy xa: Double!",
         "rabbitBonusDesc": "Bạn tung double ({{total}})! Thêm +{{bonus}} bước? (tổng {{withBonus}})",
         "rabbitSteps": "bước"
@@ -1329,7 +1331,7 @@
         "active": { "name": "Cày bừa", "desc": "+1200 TT từ ngân hàng" }
       },
       "horse": {
-        "passive": { "name": "Nhanh nhẹn", "desc": "Tung xúc xắc random -1/0/+1 ô" },
+        "passive": { "name": "Nhanh nhẹn", "desc": "Tung xúc xắc → chọn -1/0/+1 ô" },
         "active": { "name": "Phi nước đại", "desc": "Chọn đi 2-12 ô thay tung xúc xắc" }
       },
       "canoc": {

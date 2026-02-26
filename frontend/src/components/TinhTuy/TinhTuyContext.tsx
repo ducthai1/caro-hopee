@@ -1417,6 +1417,11 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CLEAR_OWL_PICK_MODAL':
       return { ...state, owlPickModal: null };
 
+    case 'HORSE_ADJUST_PROMPT':
+      return { ...state, horseAdjustPrompt: action.payload };
+
+    case 'CLEAR_HORSE_ADJUST_PROMPT':
+      return { ...state, horseAdjustPrompt: null };
 
     case 'SHIBA_REROLL_PROMPT':
       return { ...state, shibaRerollPrompt: action.payload };
@@ -1586,6 +1591,7 @@ interface TinhTuyContextValue {
   // Ability actions
   activateAbility: (data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => void;
   owlPick: (cardId: string) => void;
+  horseAdjustPick: (adjust: -1 | 0 | 1) => void;
   shibaReroll: () => void;
   shibaRerollPick: (choice: 'original' | 'rerolled') => void;
   rabbitBonusPick: (accept: boolean) => void;
@@ -1843,6 +1849,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleOwlPickPrompt = (data: any) => {
       dispatch({ type: 'OWL_PICK_MODAL', payload: data });
     };
+    const handleHorseAdjustPrompt = (data: any) => {
+      dispatch({ type: 'HORSE_ADJUST_PROMPT', payload: data });
+    };
+    const handleHorseAdjustPicked = () => {
+      dispatch({ type: 'CLEAR_HORSE_ADJUST_PROMPT' });
+    };
     const handleShibaRerollPrompt = (data: any) => {
       dispatch({ type: 'SHIBA_REROLL_PROMPT', payload: data });
     };
@@ -1957,6 +1969,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:ability-used' as any, handleAbilityUsed);
     socket.on('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
     socket.on('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
+    socket.on('tinh-tuy:horse-adjust-prompt' as any, handleHorseAdjustPrompt);
+    socket.on('tinh-tuy:horse-adjust-picked' as any, handleHorseAdjustPicked);
     socket.on('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
     socket.on('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
     socket.on('tinh-tuy:rabbit-bonus-prompt' as any, handleRabbitBonusPrompt);
@@ -2022,6 +2036,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:ability-used' as any, handleAbilityUsed);
       socket.off('tinh-tuy:ability-prompt' as any, handleAbilityPrompt);
       socket.off('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
+      socket.off('tinh-tuy:horse-adjust-prompt' as any, handleHorseAdjustPrompt);
+      socket.off('tinh-tuy:horse-adjust-picked' as any, handleHorseAdjustPicked);
       socket.off('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
       socket.off('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
       socket.off('tinh-tuy:rabbit-bonus-prompt' as any, handleRabbitBonusPrompt);
@@ -2582,6 +2598,15 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const horseAdjustPick = useCallback((adjust: -1 | 0 | 1) => {
+    dispatch({ type: 'CLEAR_HORSE_ADJUST_PROMPT' });
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:horse-adjust-pick' as any, { adjust }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   const shibaReroll = useCallback(() => {
     const socket = socketService.getSocket();
     if (!socket) return;
@@ -3001,7 +3026,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, owlPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
+    activateAbility, owlPick, horseAdjustPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -3010,7 +3035,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, owlPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
+    activateAbility, owlPick, horseAdjustPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   ]);
 
   return (

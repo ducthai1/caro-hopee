@@ -50,6 +50,7 @@ import { TinhTuyNegotiateModal } from './TinhTuyNegotiateModal';
 import { TinhTuyAbilityButton } from './TinhTuyAbilityButton';
 import { TinhTuyAbilityModal } from './TinhTuyAbilityModal';
 import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
+import { TinhTuyHorseAdjustModal } from './TinhTuyHorseAdjustModal';
 import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
 import { TinhTuyRabbitBonusModal } from './TinhTuyRabbitBonusModal';
 import { TinhTuyFoxSwapAlert } from './TinhTuyFoxSwapAlert';
@@ -447,6 +448,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyNegotiateModal />
       <TinhTuyAbilityModal />
       <TinhTuyOwlPickModal />
+      <TinhTuyHorseAdjustModal />
       <TinhTuyShibaRerollModal />
       <TinhTuyRabbitBonusModal />
       <TinhTuyFoxSwapAlert />
