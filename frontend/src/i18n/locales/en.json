@@ -1324,8 +1324,8 @@
         "active": { "name": "Stomp", "desc": "Build 1 house for free" }
       },
       "trau": {
-        "passive": { "name": "Endurance", "desc": "-10% all money losses" },
-        "active": { "name": "Plow", "desc": "+1000 TT from bank" }
+        "passive": { "name": "Endurance", "desc": "-15% all money losses" },
+        "active": { "name": "Plow", "desc": "+1200 TT from bank" }
       },
       "horse": {
         "passive": { "name": "Agile", "desc": "After dice roll ±1 cell" },

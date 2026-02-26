@@ -1324,8 +1324,8 @@
         "active": { "name": "Giậm chân", "desc": "Xây 1 nhà miễn phí" }
       },
       "trau": {
-        "passive": { "name": "Chịu đựng", "desc": "-10% mọi khoản mất tiền" },
-        "active": { "name": "Cày bừa", "desc": "+1000 TT từ ngân hàng" }
+        "passive": { "name": "Chịu đựng", "desc": "-15% mọi khoản mất tiền" },
+        "active": { "name": "Cày bừa", "desc": "+1200 TT từ ngân hàng" }
       },
       "horse": {
         "passive": { "name": "Nhanh nhẹn", "desc": "Sau tung xúc xắc ±1 ô" },

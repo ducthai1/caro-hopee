@@ -209,14 +209,14 @@ export const SHIBA_GO_BONUS = 500;
 export const KUNGFU_RENT_COLLECT_MULT = 0.15;   // +15%
 export const FOX_RENT_PAY_MULT = 0.15;          // -15%
 export const ELEPHANT_BUILD_DISCOUNT = 0.15;     // -15%
-export const TRAU_LOSS_REDUCTION = 0.10;         // -10%
+export const TRAU_LOSS_REDUCTION = 0.15;         // -15%
 export const CANOC_RENT_FLAT_BONUS = 300;
 export const SEAHORSE_CARD_MODIFIER = 0.25;      // ±25%
 export const PIGFISH_MAX_ISLAND = 1;
 export const CHICKEN_DRAIN_AMOUNT = 200;
 export const RABBIT_DOUBLE_BONUS = 3;
 export const CANOC_STEAL_AMOUNT = 1000;
-export const TRAU_ACTIVE_AMOUNT = 1000;
+export const TRAU_ACTIVE_AMOUNT = 1200;
 export const SLOTH_HIBERNATE_AMOUNT = 1500;
 
 // ─── Guard: Check if abilities are enabled + player has passive ──
