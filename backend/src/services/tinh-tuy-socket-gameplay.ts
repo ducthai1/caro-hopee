@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import TinhTuyGame from '../models/TinhTuyGame';
-import { TinhTuyCallback, ITinhTuyGame, ITinhTuyPlayer, CardEffectResult } from '../types/tinh-tuy.types';
+import { TinhTuyCallback, ITinhTuyGame, ITinhTuyPlayer, ITinhTuyCard, CardEffectResult } from '../types/tinh-tuy.types';
 import {
   rollDice, calculateNewPosition, resolveCellAction,
   getNextActivePlayer, checkGameEnd, checkNearWin, sendToIsland,
@@ -54,40 +54,9 @@ async function executeOwlPick(
   player.owlPendingCards = undefined;
   const card = getCardById(chosenCardId);
   if (!card) return;
-
-  const effect = executeCardEffect(game, player.slot, card);
-  applyCardEffect(game, player, effect);
-  game.markModified('players');
-  if (game.festival !== undefined) game.markModified('festival');
-  if (game.frozenProperties !== undefined) game.markModified('frozenProperties');
-
-  game.turnPhase = 'AWAITING_CARD_DISPLAY';
-  await game.save();
-
-  io.to(game.roomId).emit('tinh-tuy:card-drawn', {
-    slot: player.slot,
-    card: { id: card.id, type: card.type, nameKey: card.nameKey, descriptionKey: card.descriptionKey },
-    effect,
-  });
-
-  // Handle requires-choice effects
-  if (effect.requiresChoice) {
-    // Let the normal card-choice handler take over
-    return;
-  }
-
-  // Card display timer — auto-advance
-  startTurnTimer(game.roomId, (game.settings.turnDuration * 1000) + 30_000, async () => {
-    try {
-      const g = await TinhTuyGame.findOne({ roomId: game.roomId });
-      if (!g || g.turnPhase !== 'AWAITING_CARD_DISPLAY') return;
-      const p = g.players.find(pp => pp.slot === player.slot);
-      if (!p) return;
-      g.turnPhase = 'END_TURN';
-      await g.save();
-      await advanceTurnOrDoubles(io, g, p);
-    } catch (err) { console.error('[tinh-tuy] Owl card display timeout:', err); }
-  });
+  // Delegate to handleCardDraw with the pre-selected card — this ensures
+  // requiresChoice, playerMoved, bankruptcy checks, etc. all work correctly.
+  await handleCardDraw(io, game, player, card.type as 'KHI_VAN' | 'CO_HOI', 0, card);
 }
 
 /** Execute Horse movement after ±1 choice (or timeout) */
@@ -666,9 +635,17 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
 
 /** Draw card and resolve — handles most card types immediately */
 async function handleCardDraw(
-  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer, cellType: 'KHI_VAN' | 'CO_HOI', depth = 0
+  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
+  cellType: 'KHI_VAN' | 'CO_HOI', depth = 0, preSelectedCard?: ITinhTuyCard
 ): Promise<void> {
   const isKhiVan = cellType === 'KHI_VAN';
+  let card: ITinhTuyCard | undefined;
+
+  // Pre-selected card (from Owl pick) — skip deck draw and owl passive
+  if (preSelectedCard) {
+    card = preSelectedCard;
+  } else {
+
   let deck = isKhiVan ? game.luckCardDeck : game.opportunityCardDeck;
   let currentIndex = isKhiVan ? game.luckCardIndex : game.opportunityCardIndex;
 
@@ -711,7 +688,7 @@ async function handleCardDraw(
     }
   }
 
-  let card = getCardById(cardId);
+  card = getCardById(cardId);
   if (!card) {
     console.error(`[tinh-tuy:handleCardDraw] Card not found: "${cardId}", deck: [${deck.slice(0, 5).join(',')}...], index: ${currentIndex}, room: ${game.roomId}`);
     // Rebuild the entire deck from source and retry once (depth guard prevents infinite loop)
@@ -793,13 +770,17 @@ async function handleCardDraw(
           const p = g.players.find(pp => pp.slot === player.slot);
           if (!p) return;
           // Auto-pick first card
-          await executeOwlPick(io, g, p, card.id);
+          await executeOwlPick(io, g, p, card!.id);
         } catch (err) { console.error('[tinh-tuy] Owl pick timeout:', err); }
       });
       return; // Wait for owl pick
     }
     // If second card is invalid, proceed with single card normally
   }
+
+  } // end else (normal deck draw path)
+
+  if (!card) return; // safety: should never happen
 
   const effect = executeCardEffect(game, player.slot, card);
   applyCardEffect(game, player, effect);

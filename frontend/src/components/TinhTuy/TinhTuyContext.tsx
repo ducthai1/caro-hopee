@@ -1527,7 +1527,7 @@ interface TinhTuyContextValue {
   // Ability actions
   activateAbility: (data?: { targetSlot?: number; cellIndex?: number; steps?: number; deck?: string }) => void;
   horseAdjust: (direction: 1 | -1 | 0) => void;
-  owlPick: (cardIndex: number) => void;
+  owlPick: (cardId: string) => void;
   shibaReroll: () => void;
   shibaRerollPick: (choice: 'original' | 'rerolled') => void;
   clearAbilityModal: () => void;
@@ -2510,10 +2510,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     dispatch({ type: 'CLEAR_HORSE_ADJUST_PROMPT' });
   }, []);
 
-  const owlPick = useCallback((cardIndex: number) => {
+  const owlPick = useCallback((cardId: string) => {
     const socket = socketService.getSocket();
     if (!socket) return;
-    socket.emit('tinh-tuy:owl-pick' as any, { cardIndex }, (res: any) => {
+    socket.emit('tinh-tuy:owl-pick' as any, { cardId }, (res: any) => {
       if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
     });
     dispatch({ type: 'CLEAR_OWL_PICK_MODAL' });

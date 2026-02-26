@@ -28,13 +28,13 @@ export const TinhTuyOwlPickModal: React.FC = () => {
   const intervalRef = useRef<number | null>(null);
   const pickedRef = useRef(false);
 
-  const handlePick = (index: number) => {
+  const handlePick = (cardId: string, index: number) => {
     if (pickedRef.current) return;
     pickedRef.current = true;
     setSelectedIndex(index);
     if (timerRef.current) clearTimeout(timerRef.current);
     if (intervalRef.current) clearInterval(intervalRef.current);
-    owlPick(index);
+    owlPick(cardId);
   };
 
   useEffect(() => {
@@ -56,8 +56,8 @@ export const TinhTuyOwlPickModal: React.FC = () => {
     }, 1000);
 
     timerRef.current = window.setTimeout(() => {
-      if (!pickedRef.current) {
-        handlePick(0);
+      if (!pickedRef.current && modal.cards?.[0]) {
+        handlePick(modal.cards[0].id, 0);
       }
     }, PICK_TIMEOUT_MS);
 
@@ -91,7 +91,7 @@ export const TinhTuyOwlPickModal: React.FC = () => {
             return (
               <Paper
                 key={card.id}
-                onClick={() => handlePick(index)}
+                onClick={() => handlePick(card.id, index)}
                 elevation={isSelected ? 6 : 2}
                 sx={{
                   width: { xs: 150, md: 200 },
