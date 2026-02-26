@@ -1883,12 +1883,23 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         return;
       }
 
-      // ─── Rabbit passive: +3 bonus steps on doubles ───
-      let moveSteps = dice.total;
+      // ─── Rabbit passive: +3 bonus steps on doubles (player chooses) ───
       const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
-      moveSteps += rabbitBonus;
+      if (rabbitBonus > 0) {
+        player.rabbitBonusPending = { dice: { ...dice }, bonus: rabbitBonus };
+        game.turnPhase = 'AWAITING_RABBIT_BONUS' as any;
+        game.markModified('players');
+        await game.save();
+        io.to(roomId).emit('tinh-tuy:dice-result', dice);
+        io.to(roomId).emit('tinh-tuy:rabbit-bonus-prompt', {
+          slot: player.slot, bonus: rabbitBonus, dice,
+        });
+        callback({ success: true });
+        return;
+      }
 
       // Calculate movement
+      const moveSteps = dice.total;
       const oldPos = player.position;
       const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
       player.position = newPos;
@@ -3809,6 +3820,52 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:shiba-reroll-pick]', err.message);
       callback({ success: false, error: 'rerollPickFailed' });
+    }
+  });
+
+  // ── Rabbit Bonus Pick (accept or decline +3 on doubles) ────────
+  socket.on('tinh-tuy:rabbit-bonus-pick', async (data: any, callback: TinhTuyCallback) => {
+    try {
+      const roomId = socket.data.tinhTuyRoomId as string;
+      if (!roomId) return callback({ success: false, error: 'notInRoom' });
+
+      const game = await TinhTuyGame.findOne({ roomId });
+      if (!game || game.turnPhase !== 'AWAITING_RABBIT_BONUS') return callback({ success: false, error: 'invalidPhase' });
+
+      const player = findPlayerBySocket(game, socket);
+      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
+      if (!player.rabbitBonusPending) return callback({ success: false, error: 'noPendingBonus' });
+
+      clearTurnTimer(roomId);
+      const accept = data?.accept === true;
+      const { dice, bonus } = player.rabbitBonusPending;
+      const moveSteps = accept ? dice.total + bonus : dice.total;
+      player.rabbitBonusPending = undefined as any;
+
+      io.to(roomId).emit('tinh-tuy:rabbit-bonus-picked', {
+        slot: player.slot, accepted: accept, totalSteps: moveSteps,
+      });
+
+      // Execute movement
+      const oldPos = player.position;
+      const { position: newPos, passedGo } = calculateNewPosition(oldPos, moveSteps);
+      player.position = newPos;
+      const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
+      if (passedGo) {
+        player.points += goSalary;
+        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+      }
+      game.markModified('players');
+      await game.save();
+      io.to(roomId).emit('tinh-tuy:player-moved', {
+        slot: player.slot, from: oldPos, to: newPos, passedGo,
+        goBonus: passedGo ? goSalary : 0,
+      });
+      await resolveAndAdvance(io, game, player, newPos, { ...dice, total: moveSteps });
+      callback({ success: true });
+    } catch (err: any) {
+      console.error('[tinh-tuy:rabbit-bonus-pick]', err.message);
+      callback({ success: false, error: 'rabbitBonusPickFailed' });
     }
   });
 }

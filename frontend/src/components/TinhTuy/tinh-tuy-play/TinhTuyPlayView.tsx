@@ -51,6 +51,7 @@ import { TinhTuyAbilityButton } from './TinhTuyAbilityButton';
 import { TinhTuyAbilityModal } from './TinhTuyAbilityModal';
 import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
 import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
+import { TinhTuyRabbitBonusModal } from './TinhTuyRabbitBonusModal';
 import { TinhTuyFoxSwapAlert } from './TinhTuyFoxSwapAlert';
 import { TinhTuyAbilityUsedAlert } from './TinhTuyAbilityUsedAlert';
 import { TinhTuyAbilityInfoModal } from './TinhTuyAbilityInfoModal';
@@ -447,6 +448,7 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyAbilityModal />
       <TinhTuyOwlPickModal />
       <TinhTuyShibaRerollModal />
+      <TinhTuyRabbitBonusModal />
       <TinhTuyFoxSwapAlert />
       <TinhTuyAbilityUsedAlert />
       <TinhTuyAbilityInfoModal open={showAbilityInfo} onClose={() => setShowAbilityInfo(false)} />

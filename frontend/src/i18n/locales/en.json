@@ -1295,7 +1295,10 @@
         "shibaRerollTitle": "Lucky Bark: Choose Dice",
         "shibaOriginal": "Original",
         "shibaRerolled": "Rerolled",
-        "tapToChoose": "Tap to choose"
+        "tapToChoose": "Tap to choose",
+        "rabbitBonusTitle": "Long Jump: Double!",
+        "rabbitBonusDesc": "You rolled doubles ({{total}})! Add +{{bonus}} steps? (total {{withBonus}})",
+        "rabbitSteps": "steps"
       },
       "roles": {
         "income": "Income",
@@ -1346,7 +1349,7 @@
         "active": { "name": "Harass", "desc": "Skip 1 opponent's turn" }
       },
       "rabbit": {
-        "passive": { "name": "Long Jump", "desc": "Roll double → +3 bonus cells" },
+        "passive": { "name": "Long Jump", "desc": "Roll double → choose +3 cells or keep original" },
         "active": { "name": "Flash Jump", "desc": "Teleport to any cell" }
       },
       "sloth": {

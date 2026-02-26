@@ -1295,7 +1295,10 @@
         "shibaRerollTitle": "Sủa may mắn: Chọn xúc xắc",
         "shibaOriginal": "Kết quả cũ",
         "shibaRerolled": "Kết quả mới",
-        "tapToChoose": "Bấm để chọn"
+        "tapToChoose": "Bấm để chọn",
+        "rabbitBonusTitle": "Nhảy xa: Double!",
+        "rabbitBonusDesc": "Bạn tung double ({{total}})! Thêm +{{bonus}} bước? (tổng {{withBonus}})",
+        "rabbitSteps": "bước"
       },
       "roles": {
         "income": "Thu nhập",
@@ -1346,7 +1349,7 @@
         "active": { "name": "Quấy rối", "desc": "Skip 1 lượt đối thủ" }
       },
       "rabbit": {
-        "passive": { "name": "Nhảy xa", "desc": "Tung double → +3 ô bonus" },
+        "passive": { "name": "Nhảy xa", "desc": "Tung double → chọn +3 ô hoặc giữ nguyên" },
         "active": { "name": "Nhảy thần tốc", "desc": "Dịch chuyển đến bất kỳ ô nào" }
       },
       "sloth": {

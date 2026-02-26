@@ -139,6 +139,7 @@ const initialState: TinhTuyState = {
   owlPickModal: null,
   horseAdjustPrompt: null,
   shibaRerollPrompt: null,
+  rabbitBonusPrompt: null,
   abilityUsedAlert: null,
   chickenDrainAlert: null,
   slothAutoBuildAlert: null,
@@ -763,6 +764,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         horseAdjustPrompt: null,
         owlPickModal: null,
         shibaRerollPrompt: null,
+        rabbitBonusPrompt: null,
         // GO bonus modal has its own auto-dismiss timer (CLEAR_GO_BONUS) — do NOT
         // clear it here, because turn-changed arrives right after go-bonus and would
         // kill the modal before the user sees it.
@@ -1431,6 +1433,12 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         diceAnimating: true,
       };
 
+    case 'RABBIT_BONUS_PROMPT':
+      return { ...state, rabbitBonusPrompt: action.payload };
+
+    case 'CLEAR_RABBIT_BONUS_PROMPT':
+      return { ...state, rabbitBonusPrompt: null };
+
     case 'ABILITY_USED': {
       const { slot: auSlot, cooldown: auCd, abilityId, targetSlot, cellIndex, amount } = action.payload;
       const auPlayers = state.players.map(p => {
@@ -1580,6 +1588,7 @@ interface TinhTuyContextValue {
   owlPick: (cardId: string) => void;
   shibaReroll: () => void;
   shibaRerollPick: (choice: 'original' | 'rerolled') => void;
+  rabbitBonusPick: (accept: boolean) => void;
   clearAbilityModal: () => void;
   clearAbilityUsedAlert: () => void;
   clearChickenDrain: () => void;
@@ -1840,6 +1849,12 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     const handleShibaRerollPicked = (data: any) => {
       dispatch({ type: 'SHIBA_REROLL_PICKED', payload: data });
     };
+    const handleRabbitBonusPrompt = (data: any) => {
+      dispatch({ type: 'RABBIT_BONUS_PROMPT', payload: data });
+    };
+    const handleRabbitBonusPicked = () => {
+      dispatch({ type: 'CLEAR_RABBIT_BONUS_PROMPT' });
+    };
     const handleChickenDrain = (data: any) => {
       dispatch({ type: 'CHICKEN_DRAIN', payload: data });
     };
@@ -1944,6 +1959,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
     socket.on('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
     socket.on('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
+    socket.on('tinh-tuy:rabbit-bonus-prompt' as any, handleRabbitBonusPrompt);
+    socket.on('tinh-tuy:rabbit-bonus-picked' as any, handleRabbitBonusPicked);
     socket.on('tinh-tuy:chicken-drain' as any, handleChickenDrain);
     socket.on('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
     socket.on('tinh-tuy:fox-swap' as any, handleFoxSwap);
@@ -2007,6 +2024,8 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:owl-pick-prompt' as any, handleOwlPickPrompt);
       socket.off('tinh-tuy:shiba-reroll-prompt' as any, handleShibaRerollPrompt);
       socket.off('tinh-tuy:shiba-reroll-picked' as any, handleShibaRerollPicked);
+      socket.off('tinh-tuy:rabbit-bonus-prompt' as any, handleRabbitBonusPrompt);
+      socket.off('tinh-tuy:rabbit-bonus-picked' as any, handleRabbitBonusPicked);
       socket.off('tinh-tuy:chicken-drain' as any, handleChickenDrain);
       socket.off('tinh-tuy:sloth-auto-build' as any, handleSlothAutoBuild);
       socket.off('tinh-tuy:fox-swap' as any, handleFoxSwap);
@@ -2581,6 +2600,16 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   }, []);
 
+  const rabbitBonusPick = useCallback((accept: boolean) => {
+    // Always clear prompt immediately — even if socket is disconnected
+    dispatch({ type: 'CLEAR_RABBIT_BONUS_PROMPT' });
+    const socket = socketService.getSocket();
+    if (!socket) return;
+    socket.emit('tinh-tuy:rabbit-bonus-pick' as any, { accept }, (res: any) => {
+      if (res && !res.success) dispatch({ type: 'SET_ERROR', payload: res.error });
+    });
+  }, []);
+
   const clearAbilityModal = useCallback(() => {
     dispatch({ type: 'CLEAR_ABILITY_MODAL' });
   }, []);
@@ -2972,7 +3001,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
+    activateAbility, owlPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   }), [
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
@@ -2981,7 +3010,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
-    activateAbility, owlPick, shibaReroll, shibaRerollPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
+    activateAbility, owlPick, shibaReroll, shibaRerollPick, rabbitBonusPick, clearAbilityModal, clearAbilityUsedAlert, clearChickenDrain, clearSlothAutoBuild, clearFoxSwapAlert,
   ]);
 
   return (

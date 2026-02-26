@@ -38,6 +38,7 @@ const TinhTuyPlayerSchema = new Schema({
   owlPendingCards: { type: [String], default: undefined },
   horseAdjustPending: { type: Boolean, default: false },
   shibaRerollPending: { type: Schema.Types.Mixed, default: null },
+  rabbitBonusPending: { type: Schema.Types.Mixed, default: null },
 }, { _id: false });
 
 const TinhTuySettingsSchema = new Schema({

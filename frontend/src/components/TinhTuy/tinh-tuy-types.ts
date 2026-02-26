@@ -307,6 +307,8 @@ export interface TinhTuyState {
   horseAdjustPrompt: { diceTotal: number; currentPos: number } | null;
   /** Shiba reroll pick — choose original or rerolled dice */
   shibaRerollPrompt: { original: { dice1: number; dice2: number }; rerolled: { dice1: number; dice2: number } } | null;
+  /** Rabbit bonus prompt — accept or decline +3 on doubles */
+  rabbitBonusPrompt: { bonus: number; dice: { dice1: number; dice2: number; total: number } } | null;
   /** Ability used notification — broadcast to all */
   abilityUsedAlert: { slot: number; abilityId: string; targetSlot?: number; cellIndex?: number; amount?: number } | null;
   /** Chicken drain notification */
@@ -431,6 +433,8 @@ export type TinhTuyAction =
   | { type: 'SHIBA_REROLL_PROMPT'; payload: TinhTuyState['shibaRerollPrompt'] }
   | { type: 'CLEAR_SHIBA_REROLL_PROMPT' }
   | { type: 'SHIBA_REROLL_PICKED'; payload: { slot: number; kept: string; dice: { dice1: number; dice2: number } } }
+  | { type: 'RABBIT_BONUS_PROMPT'; payload: TinhTuyState['rabbitBonusPrompt'] }
+  | { type: 'CLEAR_RABBIT_BONUS_PROMPT' }
   | { type: 'ABILITY_USED'; payload: { slot: number; abilityId: string; cooldown: number; targetSlot?: number; cellIndex?: number; amount?: number } }
   | { type: 'CLEAR_ABILITY_USED_ALERT' }
   | { type: 'CHICKEN_DRAIN'; payload: { chickenSlot: number; drained: Array<{ slot: number; amount: number }>; totalGained: number } }
