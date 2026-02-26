@@ -46,7 +46,7 @@ export const CHARACTER_ABILITIES: Record<TinhTuyCharacter, AbilityDisplayDef> = 
   },
   trau: {
     passive: { nameKey: 'tinhTuy.abilities.trau.passive.name', descriptionKey: 'tinhTuy.abilities.trau.passive.desc', icon: '🛡️' },
-    active: { nameKey: 'tinhTuy.abilities.trau.active.name', descriptionKey: 'tinhTuy.abilities.trau.active.desc', icon: '🌾', cooldown: 10, targetType: 'NONE', phase: 'ROLL_DICE' },
+    active: { nameKey: 'tinhTuy.abilities.trau.active.name', descriptionKey: 'tinhTuy.abilities.trau.active.desc', icon: '🌾', cooldown: 6, targetType: 'NONE', phase: 'ROLL_DICE' },
     role: 'tinhTuy.abilities.roles.defense',
   },
   horse: {

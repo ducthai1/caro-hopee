@@ -110,7 +110,7 @@ export const CHARACTER_ABILITIES: Record<TinhTuyCharacter, CharacterAbilityDef> 
     active: {
       id: 'trau-active', nameKey: 'tinhTuy.abilities.trau.active.name',
       descriptionKey: 'tinhTuy.abilities.trau.active.desc',
-      cooldown: 10, targetType: 'NONE', phase: 'ROLL_DICE',
+      cooldown: 6, targetType: 'NONE', phase: 'ROLL_DICE',
     },
   },
   horse: {

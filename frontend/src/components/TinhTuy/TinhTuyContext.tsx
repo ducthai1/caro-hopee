@@ -1459,7 +1459,17 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         }
         return u;
       });
-      return { ...state, players: auPlayers, abilityUsedAlert: action.payload };
+      // Build point notifications for abilities that change points
+      const auNotifEntries: Array<{ slot: number; amount: number }> = [];
+      if ((abilityId === 'trau-active' || abilityId === 'sloth-active') && amount) {
+        auNotifEntries.push({ slot: auSlot, amount });
+      } else if (abilityId === 'canoc-active' && amount && targetSlot != null) {
+        auNotifEntries.push({ slot: auSlot, amount }, { slot: targetSlot, amount: -amount });
+      } else if (abilityId === 'kungfu-active' && amount && targetSlot != null) {
+        auNotifEntries.push({ slot: targetSlot, amount });
+      }
+      const auNotifs = auNotifEntries.length > 0 ? addNotifs(state.pointNotifs, auNotifEntries) : state.pointNotifs;
+      return { ...state, players: auPlayers, abilityUsedAlert: action.payload, pointNotifs: auNotifs };
     }
 
     case 'CLEAR_ABILITY_USED_ALERT':
