@@ -1292,8 +1292,6 @@
       "pickCard": "Pick Card",
       "ui": {
         "owlPickTitle": "Wisdom: Pick 1 Card",
-        "horseAdjust": "Nimble: Adjust your move?",
-        "horseAdjustKeep": "Keep",
         "shibaRerollTitle": "Lucky Bark: Choose Dice",
         "shibaOriginal": "Original",
         "shibaRerolled": "Rerolled",
@@ -1328,7 +1326,7 @@
         "active": { "name": "Plow", "desc": "+1200 TT from bank" }
       },
       "horse": {
-        "passive": { "name": "Agile", "desc": "After dice roll ±1 cell" },
+        "passive": { "name": "Agile", "desc": "Dice rolls always +1 cell" },
         "active": { "name": "Gallop", "desc": "Choose to move 2-12 cells instead of rolling" }
       },
       "canoc": {
@@ -1377,7 +1375,7 @@
         "seahorseDraw": "{{name}} drew an extra card",
         "pigfishDive": "{{name}} gained rent immunity",
         "slothHibernate": "{{name}} hibernated +1500 TT",
-        "trauPlow": "{{name}} gained +1000 TT from bank",
+        "trauPlow": "{{name}} gained +1200 TT from bank",
         "elephantBuild": "{{name}} built a house for free"
       }
     }

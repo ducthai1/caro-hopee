@@ -50,9 +50,9 @@ import { TinhTuyNegotiateModal } from './TinhTuyNegotiateModal';
 import { TinhTuyAbilityButton } from './TinhTuyAbilityButton';
 import { TinhTuyAbilityModal } from './TinhTuyAbilityModal';
 import { TinhTuyOwlPickModal } from './TinhTuyOwlPickModal';
-import { TinhTuyHorseAdjustPrompt } from './TinhTuyHorseAdjustPrompt';
 import { TinhTuyShibaRerollModal } from './TinhTuyShibaRerollModal';
 import { TinhTuyFoxSwapAlert } from './TinhTuyFoxSwapAlert';
+import { TinhTuyAbilityUsedAlert } from './TinhTuyAbilityUsedAlert';
 import { TinhTuyAbilityInfoModal } from './TinhTuyAbilityInfoModal';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -446,9 +446,9 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyNegotiateModal />
       <TinhTuyAbilityModal />
       <TinhTuyOwlPickModal />
-      <TinhTuyHorseAdjustPrompt />
       <TinhTuyShibaRerollModal />
       <TinhTuyFoxSwapAlert />
+      <TinhTuyAbilityUsedAlert />
       <TinhTuyAbilityInfoModal open={showAbilityInfo} onClose={() => setShowAbilityInfo(false)} />
       <TinhTuyGameOverModal />
 

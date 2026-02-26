@@ -59,33 +59,7 @@ async function executeOwlPick(
   await handleCardDraw(io, game, player, card.type as 'KHI_VAN' | 'CO_HOI', 0, card);
 }
 
-/** Execute Horse movement after ±1 choice (or timeout) */
-async function executeHorseMove(
-  io: SocketIOServer, game: ITinhTuyGame, player: ITinhTuyPlayer,
-  totalSteps: number, dice: { dice1: number; dice2: number; total: number; isDouble: boolean }
-): Promise<void> {
-  const roomId = game.roomId;
-  // Rabbit bonus also applies if Horse happens to have doubles (shouldn't overlap, but safety)
-  const rabbitBonus = dice.isDouble ? getDoubleBonusSteps(game, player) : 0;
-  totalSteps += rabbitBonus;
 
-  const oldPos = player.position;
-  const { position: newPos, passedGo } = calculateNewPosition(oldPos, totalSteps);
-  player.position = newPos;
-  const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
-  if (passedGo) {
-    player.points += goSalary;
-    if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
-  }
-  game.turnPhase = 'MOVING' as any;
-  game.markModified('players');
-  await game.save();
-  io.to(roomId).emit('tinh-tuy:player-moved', {
-    slot: player.slot, from: oldPos, to: newPos, passedGo,
-    goBonus: passedGo ? goSalary : 0,
-  });
-  await resolveAndAdvance(io, game, player, newPos, dice);
-}
 
 /** After Shiba picks original or rerolled dice, execute movement + resolve */
 async function executeShibaPostPick(
@@ -1887,30 +1861,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles = 0;
       }
 
-      // ─── Horse passive: ±1 prompt after dice (only for dice movement) ───
-      if (hasPassive(game, player, 'MOVE_ADJUST') && !player.horseAdjustPending) {
-        player.horseAdjustPending = true;
-        game.turnPhase = 'AWAITING_HORSE_ADJUST' as any;
-        game.markModified('players');
-        await game.save();
-        io.to(roomId).emit('tinh-tuy:dice-result', dice);
-        io.to(roomId).emit('tinh-tuy:horse-adjust-prompt', {
-          slot: player.slot, diceTotal: dice.total, currentPos: player.position,
-        });
-        // Timer: 5s auto-keep
-        startTurnTimer(roomId, 5000, async () => {
-          try {
-            const g = await TinhTuyGame.findOne({ roomId });
-            if (!g || g.turnPhase !== 'AWAITING_HORSE_ADJUST') return;
-            const p = g.players.find(pp => pp.slot === player.slot);
-            if (!p) return;
-            p.horseAdjustPending = false;
-            // Use original dice total (no adjustment)
-            await executeHorseMove(io, g, p, dice.total, dice);
-          } catch (err) { console.error('[tinh-tuy] Horse adjust timeout:', err); }
-        });
-        callback({ success: true });
-        return;
+      // ─── Horse passive: auto +1 step (fully passive, no prompt) ───
+      if (hasPassive(game, player, 'MOVE_ADJUST')) {
+        dice.total += 1;
       }
 
       // ─── Shiba passive-like: reroll prompt after dice (PRE-MOVE) ───
@@ -3822,36 +3775,6 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:use-ability]', err.message);
       callback({ success: false, error: 'abilityFailed' });
-    }
-  });
-
-  // ── Horse Adjust (±1 after dice) ──────────────────────────────
-  socket.on('tinh-tuy:horse-adjust', async (data: any, callback: TinhTuyCallback) => {
-    try {
-      const roomId = socket.data.tinhTuyRoomId as string;
-      if (!roomId) return callback({ success: false, error: 'notInRoom' });
-
-      const game = await TinhTuyGame.findOne({ roomId });
-      if (!game || game.turnPhase !== 'AWAITING_HORSE_ADJUST') return callback({ success: false, error: 'invalidPhase' });
-
-      const player = findPlayerBySocket(game, socket);
-      if (!player || !isCurrentPlayer(game, player)) return callback({ success: false, error: 'notYourTurn' });
-
-      clearTurnTimer(roomId);
-      player.horseAdjustPending = false;
-      const adjustment = Number(data?.direction ?? data?.adjustment ?? 0);
-      const clampedAdj = Math.max(-1, Math.min(1, adjustment));
-      const dice = game.lastDiceResult || { dice1: 0, dice2: 0 };
-      const diceTotal = dice.dice1 + dice.dice2;
-      const totalSteps = Math.max(1, diceTotal + clampedAdj);
-      await executeHorseMove(io, game, player, totalSteps, {
-        dice1: dice.dice1, dice2: dice.dice2, total: diceTotal,
-        isDouble: dice.dice1 === dice.dice2,
-      });
-      callback({ success: true });
-    } catch (err: any) {
-      console.error('[tinh-tuy:horse-adjust]', err.message);
-      callback({ success: false, error: 'adjustFailed' });
     }
   });
 

@@ -1292,8 +1292,6 @@
       "pickCard": "Chọn thẻ",
       "ui": {
         "owlPickTitle": "Thông thái: Chọn 1 thẻ",
-        "horseAdjust": "Nhanh nhẹn: Điều chỉnh bước đi?",
-        "horseAdjustKeep": "Giữ",
         "shibaRerollTitle": "Sủa may mắn: Chọn xúc xắc",
         "shibaOriginal": "Kết quả cũ",
         "shibaRerolled": "Kết quả mới",
@@ -1328,7 +1326,7 @@
         "active": { "name": "Cày bừa", "desc": "+1200 TT từ ngân hàng" }
       },
       "horse": {
-        "passive": { "name": "Nhanh nhẹn", "desc": "Sau tung xúc xắc ±1 ô" },
+        "passive": { "name": "Nhanh nhẹn", "desc": "Tung xúc xắc luôn +1 ô" },
         "active": { "name": "Phi nước đại", "desc": "Chọn đi 2-12 ô thay tung xúc xắc" }
       },
       "canoc": {
@@ -1377,7 +1375,7 @@
         "seahorseDraw": "{{name}} rút thêm 1 thẻ",
         "pigfishDive": "{{name}} miễn thuê lần tiếp",
         "slothHibernate": "{{name}} ngủ đông +1500 TT",
-        "trauPlow": "{{name}} +1000 TT từ ngân hàng",
+        "trauPlow": "{{name}} +1200 TT từ ngân hàng",
         "elephantBuild": "{{name}} xây nhà miễn phí"
       }
     }
