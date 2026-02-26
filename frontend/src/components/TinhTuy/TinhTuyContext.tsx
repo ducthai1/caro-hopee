@@ -2491,11 +2491,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       if (data.cellIndex != null) {
         payload.targetCell = data.cellIndex;
-        // Kungfu OPPONENT_HOUSE: also pass owner slot from modal houses data
-        if (myPlayer.character === 'kungfu') {
-          const house = st.abilityModal?.houses?.find(h => h.cellIndex === data.cellIndex);
-          if (house) payload.targetSlot = house.slot;
-        }
       }
       if (data.steps != null) payload.steps = data.steps;
       if (data.deck != null) payload.deck = data.deck;

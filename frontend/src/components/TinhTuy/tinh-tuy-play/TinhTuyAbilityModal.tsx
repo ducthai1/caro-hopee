@@ -44,9 +44,14 @@ export const TinhTuyAbilityModal: React.FC = () => {
     activateAbility({ targetSlot: slot });
   };
 
-  const handleSelectCell = (cellIndex: number) => {
+  const handleSelectCell = (cellIndex: number, ownerSlot?: number) => {
     clearTimer();
-    activateAbility({ cellIndex });
+    // For OPPONENT_HOUSE (kungfu), pass both cellIndex and owner slot
+    if (ownerSlot != null) {
+      activateAbility({ cellIndex, targetSlot: ownerSlot });
+    } else {
+      activateAbility({ cellIndex });
+    }
   };
 
   const handleSelectSteps = () => {
@@ -168,7 +173,7 @@ export const TinhTuyAbilityModal: React.FC = () => {
                     return (
                       <Button
                         key={item.cellIndex}
-                        onClick={() => handleSelectCell(item.cellIndex)}
+                        onClick={() => handleSelectCell(item.cellIndex, slot)}
                         variant="outlined"
                         fullWidth
                         sx={{

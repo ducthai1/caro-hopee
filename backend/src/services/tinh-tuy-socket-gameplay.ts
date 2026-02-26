@@ -3502,6 +3502,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       if (needsCell.includes(player.character) && targetCell == null) {
         return callback({ success: false, error: 'invalidCell' });
       }
+      if (player.character === 'kungfu' && data.targetSlot == null) {
+        return callback({ success: false, error: 'invalidTarget' });
+      }
       if (player.character === 'horse' && (steps == null || steps < 2 || steps > 12)) {
         return callback({ success: false, error: 'invalidSteps' });
       }
