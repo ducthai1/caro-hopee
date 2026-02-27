@@ -13,7 +13,7 @@ import { API_BASE_URL } from '../../utils/constants';
 import {
   TinhTuyState, TinhTuyAction, TinhTuyView, TinhTuyPlayer, TinhTuyCharacter,
   TinhTuySettings, WaitingRoomInfo, CreateRoomPayload, DEFAULT_SETTINGS,
-  BOARD_CELLS,
+  BOARD_CELLS, Reaction,
 } from './tinh-tuy-types';
 import { tinhTuySounds } from './tinh-tuy-sounds';
 import { CHARACTER_ABILITIES } from './tinh-tuy-abilities';
@@ -85,6 +85,7 @@ const initialState: TinhTuyState = {
   houseRemovedCell: null,
   cardExtraInfo: null,
   chatMessages: [],
+  reactions: [],
   pendingMove: null,
   animatingToken: null,
   pendingCardMove: null,
@@ -1395,6 +1396,19 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
     case 'CHAT_MESSAGE':
       return { ...state, chatMessages: [...state.chatMessages, action.payload].slice(-50) };
 
+    case 'REACTION': {
+      const r: Reaction = {
+        id: `r-${action.payload.slot}-${action.payload.timestamp}`,
+        slot: action.payload.slot,
+        emoji: action.payload.emoji,
+        timestamp: action.payload.timestamp,
+      };
+      return { ...state, reactions: [...state.reactions, r].slice(-20) };
+    }
+
+    case 'DISMISS_REACTION':
+      return { ...state, reactions: state.reactions.filter(r => r.id !== action.payload) };
+
     case 'ROOM_RESET': {
       const rg = action.payload.game;
       saveRoomSession(rg.roomCode);
@@ -1568,6 +1582,7 @@ interface TinhTuyContextValue {
   escapeIsland: (method: 'PAY' | 'ROLL' | 'USE_CARD') => void;
   sendChat: (message: string) => void;
   sendReaction: (reaction: string) => void;
+  dismissReaction: (id: string) => void;
   updateGuestName: (guestName: string) => void;
   clearCard: () => void;
   clearRentAlert: () => void;
@@ -1917,6 +1932,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       tinhTuySounds.playSFX('chat');
     };
 
+    const handleReaction = (data: any) => {
+      dispatch({ type: 'REACTION', payload: data });
+    };
+
     // Auto-refresh lobby
     const handleLobbyUpdated = async () => {
       if (stateRef.current.view !== 'lobby') return;
@@ -1992,6 +2011,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.on('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
     socket.on('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
     socket.on('tinh-tuy:chat-message' as any, handleChatMessage);
+    socket.on('tinh-tuy:reaction' as any, handleReaction);
     socket.on('tinh-tuy:room-reset' as any, handleRoomReset);
     socket.on('tinh-tuy:go-bonus' as any, handleGoBonus);
     socket.on('tinh-tuy:late-game-started' as any, () => dispatch({ type: 'LATE_GAME_STARTED' }));
@@ -2059,6 +2079,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
       socket.off('tinh-tuy:near-win-warning' as any, handleNearWinWarning);
       socket.off('tinh-tuy:player-name-updated' as any, handlePlayerNameUpdated);
       socket.off('tinh-tuy:chat-message' as any, handleChatMessage);
+      socket.off('tinh-tuy:reaction' as any, handleReaction);
       socket.off('tinh-tuy:room-reset' as any, handleRoomReset);
       socket.off('tinh-tuy:go-bonus' as any, handleGoBonus);
       socket.off('tinh-tuy:late-game-started' as any);
@@ -2302,6 +2323,10 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     socket.emit('tinh-tuy:send-reaction' as any, { emoji: reaction }, (res: any) => {
       // Silently ignore reaction errors
     });
+  }, []);
+
+  const dismissReaction = useCallback((id: string) => {
+    dispatch({ type: 'DISMISS_REACTION', payload: id });
   }, []);
 
   const setView = useCallback((view: TinhTuyView) => {
@@ -3052,7 +3077,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
-    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
+    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, dismissReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,
@@ -3061,7 +3086,7 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     state, createRoom, joinRoom, leaveRoom, startGame,
     rollDice, buyProperty, skipBuy, surrender,
     refreshRooms, setView, updateRoom,
-    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, updateGuestName,
+    buildHouse, buildHotel, escapeIsland, sendChat, sendReaction, dismissReaction, updateGuestName,
     clearCard, clearRentAlert, clearTaxAlert, clearIslandAlert, clearTravelPending,
     travelTo, applyFestival, skipBuild, sellBuildings, chooseFreeHouse, chooseFreeHotel, attackPropertyChoose, chooseDestination, forcedTradeChoose, rentFreezeChoose, chooseBuyBlockTarget, chooseEminentDomain, clearAttackAlert, clearAutoSold, clearGoBonus, clearBankruptAlert, clearMonopolyAlert, clearNearWinWarning, buybackProperty, selectCharacter, playAgain,
     negotiateSend, negotiateRespond, negotiateCancel, openNegotiateWizard, closeNegotiateWizard,

@@ -35,7 +35,7 @@ import { TinhTuyBankruptAlert } from './TinhTuyBankruptAlert';
 import { TinhTuyMonopolyAlert } from './TinhTuyMonopolyAlert';
 import { TinhTuyGameOverModal } from './TinhTuyGameOverModal';
 import { TinhTuyVolumeControl } from './TinhTuyVolumeControl';
-import { TinhTuyChat } from './TinhTuyChat';
+import { TinhTuyChat, TinhTuyChatOverlay, TinhTuyFloatingReaction } from './TinhTuyChat';
 import { TinhTuyAttackPropertyModal } from './TinhTuyAttackPropertyModal';
 import { TinhTuyForcedTradeModal } from './TinhTuyForcedTradeModal';
 import { TinhTuyRentFreezeModal } from './TinhTuyRentFreezeModal';
@@ -188,7 +188,7 @@ export const TinhTuyPlayView: React.FC = () => {
   const { t } = useLanguage();
   const { setFullscreen } = useMainLayout();
   const { isAuthenticated } = useAuth();
-  const { state, leaveRoom, surrender, updateGuestName, openNegotiateWizard } = useTinhTuy();
+  const { state, leaveRoom, surrender, updateGuestName, openNegotiateWizard, dismissReaction } = useTinhTuy();
 
   useEffect(() => {
     setFullscreen(true);
@@ -459,6 +459,13 @@ export const TinhTuyPlayView: React.FC = () => {
       <TinhTuyAbilityUsedAlert />
       <TinhTuyAbilityInfoModal open={showAbilityInfo} onClose={() => setShowAbilityInfo(false)} />
       <TinhTuyGameOverModal />
+
+      {/* Floating Reactions Overlay */}
+      <TinhTuyChatOverlay>
+        {state.reactions.map((r) => (
+          <TinhTuyFloatingReaction key={r.id} reaction={r} onDismiss={dismissReaction} />
+        ))}
+      </TinhTuyChatOverlay>
 
       {/* Guest Name Edit Dialog */}
       <GuestNameDialog

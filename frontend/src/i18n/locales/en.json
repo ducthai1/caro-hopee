@@ -984,6 +984,7 @@
       "chat": "Chat",
       "noMessages": "No messages yet",
       "chatPlaceholder": "Type a message...",
+      "reactions": "React",
       "leave": "Leave",
       "confirmLeave": "Tap again to leave",
       "rentTitle": "Pay Rent",

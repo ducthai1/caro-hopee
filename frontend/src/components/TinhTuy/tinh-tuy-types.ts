@@ -171,6 +171,7 @@ export interface TinhTuyState {
   /** Cell index of house removed by card effect (for notification) */
   houseRemovedCell: number | null;
   chatMessages: ChatMessage[];
+  reactions: Reaction[];
   pendingMove: { slot: number; path: number[]; goBonus?: number; passedGo?: boolean; fromCard?: boolean } | null;
   animatingToken: { slot: number; path: number[]; currentStep: number } | null;
   pendingCardMove: { slot: number; to: number; passedGo: boolean } | null;
@@ -355,6 +356,8 @@ export type TinhTuyAction =
   | { type: 'FESTIVAL_APPLIED'; payload: { slot: number; cellIndex: number; multiplier: number } }
   | { type: 'APPLY_QUEUED_FESTIVAL' }
   | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
+  | { type: 'REACTION'; payload: { slot: number; emoji: string; timestamp: number } }
+  | { type: 'DISMISS_REACTION'; payload: string }
   | { type: 'PLAYER_NAME_UPDATED'; payload: { slot: number; name: string } }
   | { type: 'TRAVEL_PROMPT'; payload: { slot: number } }
   | { type: 'START_MOVE' }
@@ -455,6 +458,13 @@ export interface CardInfo {
 export interface ChatMessage {
   slot: number;
   message: string;
+  timestamp: number;
+}
+
+export interface Reaction {
+  id: string;       // `r-${slot}-${timestamp}`
+  slot: number;
+  emoji: string;
   timestamp: number;
 }
 

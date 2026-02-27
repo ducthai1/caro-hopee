@@ -13,11 +13,14 @@ import SendIcon from '@mui/icons-material/Send';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
-import { PLAYER_COLORS, ChatMessage } from '../tinh-tuy-types';
+import { PLAYER_COLORS, ChatMessage, Reaction } from '../tinh-tuy-types';
 
 const MAX_MSG_LEN = 200;
 const CHAT_COOLDOWN_MS = 3000;
 const FLOAT_DURATION_MS = 5000;
+const REACTION_COOLDOWN_MS = 500;
+const REACTION_FLOAT_MS = 2000;
+const REACTION_EMOJIS = ['😂', '🔥', '💀', '👏', '😱', '💩'];
 
 // ─── Inject CSS keyframes once ──────────────────────────
 const ANIMATION_NAME = 'tt-chat-float-up';
@@ -46,6 +49,12 @@ if (typeof document !== 'undefined' && !document.getElementById('tt-chat-keyfram
         left: var(--sidebar-width, 0px);
       }
     }
+    @keyframes tt-reaction-pop {
+      0% { opacity: 0; transform: scale(0.3) translateY(0); }
+      15% { opacity: 1; transform: scale(1.3) translateY(-10px); }
+      30% { opacity: 1; transform: scale(1) translateY(-20px); }
+      100% { opacity: 0; transform: scale(0.8) translateY(-80px); }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -53,8 +62,9 @@ if (typeof document !== 'undefined' && !document.getElementById('tt-chat-keyfram
 // ─── Full Panel Chat (in-game) ──────────────────────────
 export const TinhTuyChat: React.FC = () => {
   const { t } = useLanguage();
-  const { state, sendChat } = useTinhTuy();
+  const { state, sendChat, sendReaction } = useTinhTuy();
   const [input, setInput] = useState('');
+  const [reactionCooldown, setReactionCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,6 +85,13 @@ export const TinhTuyChat: React.FC = () => {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleReaction = (emoji: string) => {
+    if (reactionCooldown) return;
+    sendReaction(emoji);
+    setReactionCooldown(true);
+    setTimeout(() => setReactionCooldown(false), REACTION_COOLDOWN_MS);
   };
 
   return (
@@ -113,7 +130,28 @@ export const TinhTuyChat: React.FC = () => {
           })
         )}
       </Box>
-      <Box sx={{ display: 'flex', gap: 0.5, p: 0.75, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+      <Box sx={{
+        display: 'flex', justifyContent: 'center', gap: 0.25, px: 0.75, py: 0.5,
+        borderTop: '1px solid rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(0,0,0,0.06)',
+      }}>
+        {REACTION_EMOJIS.map((emoji) => (
+          <IconButton
+            key={emoji}
+            size="small"
+            onClick={() => handleReaction(emoji)}
+            disabled={reactionCooldown}
+            sx={{
+              width: 28, height: 28, fontSize: '1rem', p: 0,
+              borderRadius: 1, transition: 'transform 0.15s ease',
+              opacity: reactionCooldown ? 0.4 : 1,
+              '&:hover': { transform: 'scale(1.3)', bgcolor: 'rgba(155,89,182,0.08)' },
+            }}
+          >
+            {emoji}
+          </IconButton>
+        ))}
+      </Box>
+      <Box sx={{ display: 'flex', gap: 0.5, p: 0.75 }}>
         <TextField
           size="small"
           fullWidth
@@ -311,6 +349,48 @@ export const TinhTuyFloatingMessage = memo(FloatingMessageInner, (prev, next) =>
   return prev.msgKey === next.msgKey;
 });
 TinhTuyFloatingMessage.displayName = 'TinhTuyFloatingMessage';
+
+// ─── Floating Reaction (pop + float up) ─────────────────
+interface FloatingReactionProps {
+  reaction: Reaction;
+  onDismiss: (id: string) => void;
+}
+
+const SLOT_POSITIONS = ['25%', '45%', '65%', '80%'] as const;
+
+const FloatingReactionInner: React.FC<FloatingReactionProps> = ({ reaction, onDismiss }) => {
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    const id = reaction.id;
+    const timer = setTimeout(() => onDismissRef.current(id), REACTION_FLOAT_MS);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const left = SLOT_POSITIONS[(reaction.slot - 1) % SLOT_POSITIONS.length];
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: '55%',
+      left,
+      transform: 'translateX(-50%)',
+      fontSize: '2rem',
+      lineHeight: 1,
+      pointerEvents: 'none',
+      animation: `tt-reaction-pop ${REACTION_FLOAT_MS}ms ease-out forwards`,
+      zIndex: 1200,
+    }}>
+      {reaction.emoji}
+    </div>
+  );
+};
+
+export const TinhTuyFloatingReaction = memo(FloatingReactionInner, (prev, next) => {
+  return prev.reaction.id === next.reaction.id;
+});
+TinhTuyFloatingReaction.displayName = 'TinhTuyFloatingReaction';
 
 // ─── Chat Overlay Container ─────────────────────────────
 export const TinhTuyChatOverlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
