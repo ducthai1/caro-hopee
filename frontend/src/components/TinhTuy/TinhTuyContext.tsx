@@ -510,7 +510,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, turnPhase: 'AWAITING_TRAVEL', queuedTravelPrompt: false };
 
     case 'CARD_DESTINATION_PROMPT':
-      return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION', queuedTurnChange: null };
+      // Clear card modal immediately so choice UI can render (no delay/race condition)
+      return { ...state, turnPhase: 'AWAITING_CARD_DESTINATION', queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'FORCED_TRADE_PROMPT':
       return {
@@ -518,6 +520,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         turnPhase: 'AWAITING_FORCED_TRADE',
         forcedTradePrompt: { myCells: action.payload.myCells, opponentCells: action.payload.opponentCells },
         queuedTurnChange: null,
+        // Clear card modal immediately so choice UI can render
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null,
       };
 
     case 'RENT_FREEZE_PROMPT':
@@ -526,6 +530,7 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
         turnPhase: 'AWAITING_RENT_FREEZE',
         rentFreezePrompt: { targetCells: action.payload.targetCells },
         queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null,
       };
 
     case 'RENT_FROZEN':
@@ -542,13 +547,15 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, nearWinWarning: null };
 
     case 'BUY_BLOCK_PROMPT':
-      return { ...state, turnPhase: 'AWAITING_BUY_BLOCK_TARGET', buyBlockPrompt: action.payload, queuedTurnChange: null };
+      return { ...state, turnPhase: 'AWAITING_BUY_BLOCK_TARGET', buyBlockPrompt: action.payload, queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'CLEAR_BUY_BLOCK_PROMPT':
       return { ...state, buyBlockPrompt: null };
 
     case 'EMINENT_DOMAIN_PROMPT':
-      return { ...state, turnPhase: 'AWAITING_EMINENT_DOMAIN', eminentDomainPrompt: action.payload, queuedTurnChange: null };
+      return { ...state, turnPhase: 'AWAITING_EMINENT_DOMAIN', eminentDomainPrompt: action.payload, queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'CLEAR_EMINENT_DOMAIN_PROMPT':
       return { ...state, eminentDomainPrompt: null };
@@ -837,7 +844,8 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, monopolyAlert: null };
 
     case 'ATTACK_PROPERTY_PROMPT':
-      return { ...state, attackPrompt: action.payload, queuedTurnChange: null };
+      return { ...state, attackPrompt: action.payload, queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'PROPERTY_ATTACKED': {
       const { victimSlot, cellIndex, result: atkResult, prevHouses, prevHotel, newHouses, newHotel, festival: atkFestival } = action.payload;
@@ -1300,8 +1308,10 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, buildPrompt: null };
 
     case 'FREE_HOUSE_PROMPT':
-      // Queue — show after walk animation + card modal + go bonus modal finish
-      return { ...state, queuedFreeHousePrompt: action.payload, queuedTurnChange: null };
+      // Queue — show after walk animation + go bonus modal finish
+      // Clear card modal so queued prompt applies immediately (no race with card dismiss)
+      return { ...state, queuedFreeHousePrompt: action.payload, queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'APPLY_QUEUED_FREE_HOUSE_PROMPT':
       if (!state.queuedFreeHousePrompt) return state;
@@ -1311,7 +1321,9 @@ function tinhTuyReducer(state: TinhTuyState, action: TinhTuyAction): TinhTuyStat
       return { ...state, freeHousePrompt: null };
 
     case 'FREE_HOTEL_PROMPT':
-      return { ...state, queuedFreeHotelPrompt: action.payload, queuedTurnChange: null };
+      // Clear card modal so queued prompt applies immediately
+      return { ...state, queuedFreeHotelPrompt: action.payload, queuedTurnChange: null,
+        drawnCard: null, pendingCardMove: null, pendingCardEffect: null, cardExtraInfo: null, houseRemovedCell: null };
 
     case 'APPLY_QUEUED_FREE_HOTEL_PROMPT':
       if (!state.queuedFreeHotelPrompt) return state;

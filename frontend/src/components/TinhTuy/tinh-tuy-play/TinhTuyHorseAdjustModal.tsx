@@ -75,10 +75,10 @@ export const TinhTuyHorseAdjustModal: React.FC = () => {
                   borderRadius: 2,
                   border: isSelected ? '3px solid #9b59b6' : '2px solid transparent',
                   bgcolor: isSelected ? 'rgba(155, 89, 182, 0.08)' : 'background.paper',
-                  transition: 'all 0.2s ease',
-                  '&:hover': selected === null
-                    ? { boxShadow: 6, border: '2px solid #9b59b6', transform: 'translateY(-2px)' }
-                    : {},
+                  transition: 'border-color 0.2s ease, background-color 0.2s ease',
+                  ...(selected === null ? {
+                    '&:hover': { borderColor: '#9b59b6', bgcolor: 'rgba(155, 89, 182, 0.04)' },
+                  } : {}),
                 }}
               >
                 <Typography
