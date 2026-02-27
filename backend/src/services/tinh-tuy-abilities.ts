@@ -25,7 +25,7 @@ export type PassiveHook =
   | 'MOVE_ADJUST'            // Horse: ±1 after dice
   | 'RENT_FLAT_BONUS'        // Ca Sau: +300 flat on buildings
   | 'CARD_MONEY_MODIFIER'    // Seahorse: +25%/-25% card money
-  | 'ISLAND_TURN_REDUCTION'  // Pigfish: max 1 island turn
+  | 'ISLAND_IMMUNITY'        // Pigfish: immune to island (no cost, no lost turns)
   | 'TURN_START_DRAIN'       // Chicken: drain 200/opponent
   | 'DOUBLE_BONUS_STEPS'     // Rabbit: +3 on doubles
   | 'AUTO_BUILD_ON_MONOPOLY' // Sloth: auto-build on group complete
@@ -149,7 +149,7 @@ export const CHARACTER_ABILITIES: Record<TinhTuyCharacter, CharacterAbilityDef> 
   pigfish: {
     passive: {
       id: 'pigfish-passive', nameKey: 'tinhTuy.abilities.pigfish.passive.name',
-      descriptionKey: 'tinhTuy.abilities.pigfish.passive.desc', hook: 'ISLAND_TURN_REDUCTION',
+      descriptionKey: 'tinhTuy.abilities.pigfish.passive.desc', hook: 'ISLAND_IMMUNITY',
     },
     active: {
       id: 'pigfish-active', nameKey: 'tinhTuy.abilities.pigfish.active.name',
@@ -212,7 +212,7 @@ export const ELEPHANT_BUILD_DISCOUNT = 0.15;     // -15%
 export const TRAU_LOSS_REDUCTION = 0.15;         // -15%
 export const CANOC_RENT_FLAT_BONUS = 300;
 export const SEAHORSE_CARD_MODIFIER = 0.25;      // ±25%
-export const PIGFISH_MAX_ISLAND = 1;
+
 export const CHICKEN_DRAIN_AMOUNT = 200;
 export const RABBIT_DOUBLE_BONUS = 3;
 export const CANOC_STEAL_AMOUNT = 1000;
@@ -265,9 +265,9 @@ export function getCardMoneyMultiplier(game: ITinhTuyGame, player: ITinhTuyPlaye
   return isGain ? 1 + SEAHORSE_CARD_MODIFIER : 1 - SEAHORSE_CARD_MODIFIER;
 }
 
-/** Pigfish: max island turns */
-export function getMaxIslandTurns(game: ITinhTuyGame, player: ITinhTuyPlayer): number {
-  return hasPassive(game, player, 'ISLAND_TURN_REDUCTION') ? PIGFISH_MAX_ISLAND : 3;
+/** Pigfish: fully immune to island — cell has no effect */
+export function isIslandImmune(game: ITinhTuyGame, player: ITinhTuyPlayer): boolean {
+  return hasPassive(game, player, 'ISLAND_IMMUNITY');
 }
 
 /** Rabbit: bonus steps on doubles */

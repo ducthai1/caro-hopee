@@ -1343,7 +1343,7 @@
         "active": { "name": "Triệu hồi", "desc": "Rút thêm 1 thẻ (chọn bộ)" }
       },
       "pigfish": {
-        "passive": { "name": "Trơn tuột", "desc": "Đảo max 1 lượt (thay vì 3)" },
+        "passive": { "name": "Trơn tuột", "desc": "Miễn nhiễm đảo hoàn toàn (không mất tiền, không mất lượt)" },
         "active": { "name": "Lặn", "desc": "Miễn thuê lần trả tiếp" }
       },
       "chicken": {

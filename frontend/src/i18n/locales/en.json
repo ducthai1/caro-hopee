@@ -1343,7 +1343,7 @@
         "active": { "name": "Summon", "desc": "Draw 1 extra card (choose deck)" }
       },
       "pigfish": {
-        "passive": { "name": "Slippery", "desc": "Island max 1 turn (instead of 3)" },
+        "passive": { "name": "Slippery", "desc": "Fully immune to island (no cost, no lost turns)" },
         "active": { "name": "Dive", "desc": "Immune to next rent payment" }
       },
       "chicken": {

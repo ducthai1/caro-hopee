@@ -12,7 +12,7 @@ import {
 } from './tinh-tuy-board';
 import {
   getGoSalaryBonus, getRentCollectMultiplier, getRentFlatBonus,
-  getBuildCostMultiplier, getMaxIslandTurns,
+  getBuildCostMultiplier, isIslandImmune,
 } from './tinh-tuy-abilities';
 
 // ─── Late-Game Acceleration (Round 60+) ──────────────────────
@@ -307,10 +307,10 @@ export async function generateUniqueRoomCode(
 // ─── Island / Jail Mechanics ─────────────────────────────────
 
 /** Send player to island (jail). Resets consecutiveDoubles.
- *  Pass game for Pigfish passive (max 1 island turn). */
-export function sendToIsland(player: ITinhTuyPlayer, game?: ITinhTuyGame): void {
+ *  Callers must check isIslandImmune() BEFORE calling — Pigfish never reaches island. */
+export function sendToIsland(player: ITinhTuyPlayer): void {
   player.position = 27;
-  player.islandTurns = game ? getMaxIslandTurns(game, player) : MAX_ISLAND_TURNS;
+  player.islandTurns = MAX_ISLAND_TURNS;
   player.consecutiveDoubles = 0;
 }
 
@@ -553,6 +553,8 @@ export function resolveCellAction(
       return { action: 'tax', amount: totalTax, houseCount, hotelCount, perHouse, perHotel };
     }
     case 'GO_TO_ISLAND':
+      // Pigfish: immune to island — treat as empty cell
+      if (game && isIslandImmune(game, player)) return { action: 'none' };
       return { action: 'go_to_island' };
     case 'KHI_VAN':
     case 'CO_HOI':
@@ -562,6 +564,8 @@ export function resolveCellAction(
     case 'TRAVEL':
       return { action: 'travel' };
     case 'ISLAND':
+      // Pigfish: immune to island — treat as empty cell
+      if (game && isIslandImmune(game, player)) return { action: 'none' };
       return { action: 'go_to_island' };
     default:
       return { action: 'none' }; // GO

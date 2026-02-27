@@ -19,7 +19,7 @@ import { startTurnTimer, clearTurnTimer, cleanupRoom, isRateLimited, safetyResta
 import { drawCard, getCardById, shuffleDeck, executeCardEffect, getKhiVanDeckIds, getCoHoiDeckIds, KHI_VAN_CARDS, CO_HOI_CARDS } from './tinh-tuy-cards';
 import {
   abilitiesEnabled, hasPassive, getGoSalaryBonus, getRentPayMultiplier, getMoneyLossMultiplier,
-  getCardMoneyMultiplier, getDoubleBonusSteps, executeChickenDrain, executeSlothAutoBuild,
+  getCardMoneyMultiplier, getDoubleBonusSteps, isIslandImmune, executeChickenDrain, executeSlothAutoBuild,
   decrementCooldown, setAbilityCooldown, canUseActiveAbility,
   CHARACTER_ABILITIES, getTargetableOpponents, getKungfuTargets, getElephantBuildTargets,
   getRabbitTeleportTargets, CANOC_STEAL_AMOUNT, TRAU_ACTIVE_AMOUNT, SLOTH_HIBERNATE_AMOUNT,
@@ -68,12 +68,12 @@ async function executeShibaPostPick(
 ): Promise<void> {
   const roomId = game.roomId;
 
-  // Handle doubles → possible island
+  // Handle doubles → possible island (Pigfish immune)
   if (dice.isDouble) {
     player.consecutiveDoubles += 1;
-    if (player.consecutiveDoubles >= 3) {
+    if (player.consecutiveDoubles >= 3 && !isIslandImmune(game, player)) {
       const oldPos = player.position;
-      sendToIsland(player, game);
+      sendToIsland(player);
       game.turnPhase = 'END_TURN';
       game.markModified('players');
       await game.save();
@@ -84,6 +84,7 @@ async function executeShibaPostPick(
       await advanceTurn(io, game);
       return;
     }
+    if (player.consecutiveDoubles >= 3) player.consecutiveDoubles = 0; // Pigfish: reset, proceed normally
   } else {
     player.consecutiveDoubles = 0;
   }
@@ -533,8 +534,14 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
   // Skip turn
   if (effect.skipTurn) player.skipNextTurn = true;
 
-  // Go to island
-  if (effect.goToIsland) sendToIsland(player, game);
+  // Go to island (Pigfish immune — clear the flag so frontend doesn't animate)
+  if (effect.goToIsland) {
+    if (isIslandImmune(game, player)) {
+      effect.goToIsland = false;
+    } else {
+      sendToIsland(player);
+    }
+  }
 
   // Double rent — card specifies rounds. Decremented once per owner's own turn in advanceTurn,
   // so the value directly represents the number of the owner's turns the buff persists.
@@ -881,8 +888,11 @@ async function handleCardDraw(
       const gameEnded = await checkBankruptcy(io, game, player);
       if (gameEnded) return;
     } else if (landingAction.action === 'go_to_island') {
-      sendToIsland(player, game);
-      io.to(game.roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
+      // resolveCellAction already returns 'none' for Pigfish, but guard here too
+      if (!isIslandImmune(game, player)) {
+        sendToIsland(player);
+        io.to(game.roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
+      }
     } else if (landingAction.action === 'travel') {
       // Card moved player to Travel cell — defer travel to next turn, break doubles
       player.pendingTravel = true;
@@ -1874,12 +1884,12 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
 
       // === Normal dice roll ===
 
-      // Handle doubles
+      // Handle doubles (Pigfish immune to island penalty)
       if (dice.isDouble) {
         player.consecutiveDoubles += 1;
-        if (player.consecutiveDoubles >= 3) {
+        if (player.consecutiveDoubles >= 3 && !isIslandImmune(game, player)) {
           const oldPos = player.position;
-          sendToIsland(player, game);
+          sendToIsland(player);
           game.turnPhase = 'END_TURN';
           await game.save();
 
@@ -1892,6 +1902,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           await advanceTurn(io, game);
           return;
         }
+        if (player.consecutiveDoubles >= 3) player.consecutiveDoubles = 0; // Pigfish: reset, proceed normally
       } else {
         player.consecutiveDoubles = 0;
       }
@@ -3964,12 +3975,12 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         slot: player.slot, adjust: adj, finalTotal,
       });
 
-      // ── Check consecutive doubles → island ──
+      // ── Check consecutive doubles → island (Pigfish immune) ──
       if (isDouble) {
         player.consecutiveDoubles += 1;
-        if (player.consecutiveDoubles >= 3) {
+        if (player.consecutiveDoubles >= 3 && !isIslandImmune(game, player)) {
           const oldPos = player.position;
-          sendToIsland(player, game);
+          sendToIsland(player);
           game.turnPhase = 'END_TURN';
           game.markModified('players');
           await game.save();
@@ -3981,6 +3992,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           callback({ success: true });
           return;
         }
+        if (player.consecutiveDoubles >= 3) player.consecutiveDoubles = 0; // Pigfish: reset
       } else {
         player.consecutiveDoubles = 0;
       }
@@ -4166,7 +4178,9 @@ async function resolveAndAdvance(
       break;
     }
     case 'go_to_island': {
-      sendToIsland(player, game);
+      // resolveCellAction already returns 'none' for Pigfish, but guard here too
+      if (isIslandImmune(game, player)) break; // Skip island — proceed to advanceTurn
+      sendToIsland(player);
       await game.save();
       io.to(roomId).emit('tinh-tuy:player-island', { slot: player.slot, turnsRemaining: player.islandTurns });
       await advanceTurn(io, game);
