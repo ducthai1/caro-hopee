@@ -121,7 +121,7 @@ export const CHARACTER_ABILITIES: Record<TinhTuyCharacter, CharacterAbilityDef> 
     active: {
       id: 'horse-active', nameKey: 'tinhTuy.abilities.horse.active.name',
       descriptionKey: 'tinhTuy.abilities.horse.active.desc',
-      cooldown: 14, targetType: 'STEPS', phase: 'ROLL_DICE',
+      cooldown: 11, targetType: 'STEPS', phase: 'ROLL_DICE',
     },
   },
   canoc: {

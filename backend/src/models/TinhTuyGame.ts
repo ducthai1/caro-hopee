@@ -36,6 +36,7 @@ const TinhTuyPlayerSchema = new Schema({
   abilityCooldown: { type: Number, default: 0 },
   abilityUsedThisTurn: { type: Boolean, default: false },
   owlPendingCards: { type: [String], default: undefined },
+  horsePassiveUsed: { type: Boolean, default: false },
   horseAdjustPending: { type: Boolean, default: false },
   shibaRerollPending: { type: Schema.Types.Mixed, default: null },
   rabbitBonusPending: { type: Schema.Types.Mixed, default: null },

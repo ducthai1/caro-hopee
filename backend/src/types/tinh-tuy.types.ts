@@ -73,6 +73,7 @@ export interface ITinhTuyPlayer {
   abilityCooldown: number;           // turns remaining before active ability can be used
   abilityUsedThisTurn: boolean;      // prevent double-use in same turn
   owlPendingCards?: string[];        // Owl: 2 card IDs for pick-one
+  horsePassiveUsed?: boolean;         // Horse: passive used this GO cycle (resets on passing GO)
   horseAdjustPending?: boolean;      // Horse: awaiting ±1 choice after dice
   shibaRerollPending?: {             // Shiba: awaiting pick between original/rerolled
     original: { dice1: number; dice2: number };

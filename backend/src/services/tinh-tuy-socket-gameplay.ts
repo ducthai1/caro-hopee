@@ -100,7 +100,7 @@ async function executeShibaPostPick(
   const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
   if (passedGo) {
     player.points += goSalary;
-    if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+    onPassGo(player);
   }
   game.turnPhase = 'MOVING' as any;
   game.markModified('players');
@@ -123,6 +123,12 @@ function findPlayerBySocket(game: ITinhTuyGame, socket: Socket): ITinhTuyPlayer 
 
 function isCurrentPlayer(game: ITinhTuyGame, player: ITinhTuyPlayer): boolean {
   return game.currentPlayerSlot === player.slot && !player.isBankrupt;
+}
+
+/** Handle all pass-GO side effects (buyBlockedTurns decrement, horse passive reset) */
+function onPassGo(player: ITinhTuyPlayer): void {
+  if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+  player.horsePassiveUsed = false;
 }
 
 async function finishGame(
@@ -476,7 +482,7 @@ export async function advanceTurn(io: SocketIOServer, game: ITinhTuyGame, _skipR
         const goSalary = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
         if (passedGo) {
           p.points += goSalary;
-          if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--;
+          onPassGo(p);
         }
         g.markModified('players');
         await g.save();
@@ -512,7 +518,7 @@ function applyCardEffect(game: ITinhTuyGame, player: ITinhTuyPlayer, effect: Car
     if (p) {
       p.position = effect.playerMoved.to;
       // Decrement buyBlocked on GO pass (card movement)
-      if (effect.playerMoved.passedGo && p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--;
+      if (effect.playerMoved.passedGo) onPassGo(p);
     }
   }
 
@@ -1859,7 +1865,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const goSalary1 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
           if (passedGo) {
             player.points += goSalary1;
-            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+            onPassGo(player);
           }
           await game.save();
 
@@ -1907,8 +1913,9 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         player.consecutiveDoubles = 0;
       }
 
-      // ─── Horse passive: ±1 step choice (interactive) ───
-      if (hasPassive(game, player, 'MOVE_ADJUST')) {
+      // ─── Horse passive: ±1 step choice (once per GO cycle) ───
+      if (hasPassive(game, player, 'MOVE_ADJUST') && !player.horsePassiveUsed) {
+        player.horsePassiveUsed = true;
         player.horseAdjustPending = true;
         game.turnPhase = 'AWAITING_HORSE_ADJUST' as any;
         game.markModified('players');
@@ -1930,7 +1937,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             const { position: newP, passedGo: pg } = calculateNewPosition(oldP, moveSteps);
             p.position = newP;
             const goS = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
-            if (pg) { p.points += goS; if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--; }
+            if (pg) { p.points += goS; onPassGo(p); }
             g.markModified('players');
             await g.save();
             io.to(roomId).emit('tinh-tuy:player-moved', { slot: p.slot, from: oldP, to: newP, passedGo: pg, goBonus: pg ? goS : 0 });
@@ -2008,7 +2015,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             const { position: newP, passedGo: pg } = calculateNewPosition(oldP, moveSteps);
             p.position = newP;
             const goS = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
-            if (pg) { p.points += goS; if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--; }
+            if (pg) { p.points += goS; onPassGo(p); }
             g.markModified('players');
             await g.save();
             io.to(roomId).emit('tinh-tuy:player-moved', { slot: p.slot, from: oldP, to: newP, passedGo: pg, goBonus: pg ? goS : 0 });
@@ -2028,7 +2035,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const goSalary2 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary2;
-        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+        onPassGo(player);
       }
 
       await game.save();
@@ -2226,7 +2233,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const goSalary3 = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary3;
-        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+        onPassGo(player);
       }
       await game.save();
 
@@ -3763,7 +3770,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const rGoSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
           if (rPassedGo) {
             player.points += rGoSalary;
-            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+            onPassGo(player);
           }
           setAbilityCooldown(player);
           game.markModified('players');
@@ -3798,7 +3805,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           const hGoSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
           if (hMove.passedGo) {
             player.points += hGoSalary;
-            if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+            onPassGo(player);
           }
           game.lastDiceResult = null; // No real dice — null prevents false doubles
           game.markModified('lastDiceResult');
@@ -4026,7 +4033,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
             const { position: newP2, passedGo: pg2 } = calculateNewPosition(oldP2, moveSteps2);
             p2.position = newP2;
             const goS2 = getEffectiveGoSalary(g2.round || 1) + getGoSalaryBonus(g2, p2);
-            if (pg2) { p2.points += goS2; if (p2.buyBlockedTurns && p2.buyBlockedTurns > 0) p2.buyBlockedTurns--; }
+            if (pg2) { p2.points += goS2; onPassGo(p2); }
             g2.markModified('players');
             await g2.save();
             io.to(roomId).emit('tinh-tuy:player-moved', { slot: p2.slot, from: oldP2, to: newP2, passedGo: pg2, goBonus: pg2 ? goS2 : 0 });
@@ -4045,7 +4052,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary;
-        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+        onPassGo(player);
       }
       game.markModified('players');
       await game.save();
@@ -4093,7 +4100,7 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
       const goSalary = getEffectiveGoSalary(game.round || 1) + getGoSalaryBonus(game, player);
       if (passedGo) {
         player.points += goSalary;
-        if (player.buyBlockedTurns && player.buyBlockedTurns > 0) player.buyBlockedTurns--;
+        onPassGo(player);
       }
       game.markModified('players');
       await game.save();
