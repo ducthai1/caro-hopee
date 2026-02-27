@@ -696,9 +696,9 @@ async function handleCardDraw(
     console.warn(`[tinh-tuy:handleCardDraw] Forced fallback card: ${card.id} for room ${game.roomId}`);
   }
 
-  // Round-restricted card: skip and redraw (max 3 retries to avoid infinite loop)
+  // Round-restricted card: skip and redraw (max 10 retries to avoid infinite loop)
   if (card.minRound && game.round < card.minRound) {
-    if (depth < 3) {
+    if (depth < 10) {
       await game.save();
       return handleCardDraw(io, game, player, cellType, depth + 1);
     }
