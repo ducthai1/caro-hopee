@@ -62,6 +62,7 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
           timeLimit: settings.timeLimit || null,
           maxRounds: settings.maxRounds || null,
           turnDuration: settings.turnDuration || 60,
+          abilitiesEnabled: settings.abilitiesEnabled !== false,
           password: hashedPassword,
         },
         players: [{
@@ -625,6 +626,7 @@ export function registerRoomHandlers(io: SocketIOServer, socket: Socket): void {
         if (settings.timeLimit != null) game.settings.timeLimit = settings.timeLimit;
         if (settings.maxRounds != null) game.settings.maxRounds = settings.maxRounds;
         if (settings.turnDuration != null) game.settings.turnDuration = settings.turnDuration;
+        if (settings.abilitiesEnabled != null) game.settings.abilitiesEnabled = settings.abilitiesEnabled;
       }
       await game.save();
 
