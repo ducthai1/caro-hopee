@@ -1111,6 +1111,37 @@ async function handleCardDraw(
     }
   }
 
+  // SELF_FESTIVAL: player chooses own property to host festival (same as landing on festival cell)
+  if (effect.requiresChoice === 'SELF_FESTIVAL') {
+    if (player.properties.length > 0) {
+      game.turnPhase = 'AWAITING_FESTIVAL';
+      io.to(game.roomId).emit('tinh-tuy:festival-prompt', { slot: player.slot });
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] SELF_FESTIVAL save failed:', err);
+      }
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_FESTIVAL') return;
+          const p = g.players.find(pp => pp.slot === player.slot)!;
+          const autoCell = p.properties[0];
+          let autoMult = 1.5;
+          if (g.festival && g.festival.slot === p.slot && g.festival.cellIndex === autoCell) {
+            autoMult = g.festival.multiplier + 0.5;
+          }
+          g.festival = { slot: p.slot, cellIndex: autoCell, multiplier: autoMult };
+          g.markModified('festival');
+          g.turnPhase = 'END_TURN';
+          await g.save();
+          io.to(g.roomId).emit('tinh-tuy:festival-applied', { slot: p.slot, cellIndex: autoCell, multiplier: autoMult });
+          await advanceTurnOrDoubles(io, g, p);
+        } catch (err) { console.error('[tinh-tuy] Self festival timeout:', err); }
+      });
+      return;
+    }
+    // No properties → card has no effect, fall through to normal advance
+  }
+
   // DESTROY_PROPERTY / DOWNGRADE_BUILDING: let player choose opponent's property
   if (effect.requiresChoice === 'DESTROY_PROPERTY' || effect.requiresChoice === 'DOWNGRADE_BUILDING') {
     const targetCells = effect.targetableCells || [];

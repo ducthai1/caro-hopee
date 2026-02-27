@@ -217,7 +217,8 @@ export type CardAction =
   | { type: 'FREE_HOTEL' }
   | { type: 'BUY_BLOCKED'; turns: number }
   | { type: 'EMINENT_DOMAIN' }
-  | { type: 'GAIN_PER_GROUP'; amount: number };
+  | { type: 'GAIN_PER_GROUP'; amount: number }
+  | { type: 'SELF_FESTIVAL' };
 
 export interface ITinhTuyCard {
   id: string;
@@ -237,7 +238,7 @@ export interface CardEffectResult {
   cardHeld?: { slot: number; cardId: string };
   houseRemoved?: { slot: number; cellIndex: number };
   skipTurn?: boolean;
-  requiresChoice?: 'FREE_HOUSE' | 'FREE_HOTEL' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION' | 'FORCED_TRADE' | 'RENT_FREEZE' | 'BUY_BLOCK_TARGET' | 'EMINENT_DOMAIN';
+  requiresChoice?: 'FREE_HOUSE' | 'FREE_HOTEL' | 'DESTROY_PROPERTY' | 'DOWNGRADE_BUILDING' | 'CHOOSE_DESTINATION' | 'FORCED_TRADE' | 'RENT_FREEZE' | 'BUY_BLOCK_TARGET' | 'EMINENT_DOMAIN' | 'SELF_FESTIVAL';
   goToIsland?: boolean;
   /** Target properties for attack cards — opponent cells the current player can target */
   targetableCells?: number[];

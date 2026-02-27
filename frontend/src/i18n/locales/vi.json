@@ -1134,6 +1134,7 @@
       "ch29": { "name": "Phong Tỏa Kinh Tế", "desc": "Chọn 1 đối thủ → CẤM MUA đất trong {{turns}} vòng!" },
       "ch30": { "name": "Trưng Thu", "desc": "Mua CƯỠNG CHẾ 1 đất đối thủ (không hotel) theo giá gốc!" },
       "ch31": { "name": "Tiền Thưởng Khu Vực", "desc": "Nhận 1,500 TT cho MỖI nhóm màu bạn sở hữu đầy đủ!" },
+      "ch32": { "name": "Tự Tổ Chức Lễ Hội", "desc": "Chọn 1 ô đất của bạn để tổ chức lễ hội! Tiền thuê ô đó tăng ×1.5" },
 
       "swapWith": "Đổi vị trí với",
       "stoleFrom": "Cướp đất từ",

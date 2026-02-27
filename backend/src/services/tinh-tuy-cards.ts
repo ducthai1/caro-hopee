@@ -125,6 +125,8 @@ export const CO_HOI_CARDS: ITinhTuyCard[] = [
     action: { type: 'EMINENT_DOMAIN' } },
   { id: 'ch-31', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch31.name', descriptionKey: 'tinhTuy.cards.ch31.desc',
     action: { type: 'GAIN_PER_GROUP', amount: 1500 } },
+  { id: 'ch-32', type: 'CO_HOI', nameKey: 'tinhTuy.cards.ch32.name', descriptionKey: 'tinhTuy.cards.ch32.desc',
+    action: { type: 'SELF_FESTIVAL' } },
 ];
 
 // ─── Deck Management ─────────────────────────────────────────
@@ -534,6 +536,10 @@ export function executeCardEffect(
       result.completedGroups = completed.length;
       break;
     }
+
+    case 'SELF_FESTIVAL':
+      result.requiresChoice = 'SELF_FESTIVAL';
+      break;
 
     case 'MOVE_TO_FESTIVAL': {
       // Move to the cell hosting the active festival; if no festival, stay in place
