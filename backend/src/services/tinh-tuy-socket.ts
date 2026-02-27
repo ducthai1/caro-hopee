@@ -7,7 +7,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import TinhTuyGame from '../models/TinhTuyGame';
 import User from '../models/User';
 import { registerRoomHandlers } from './tinh-tuy-socket-room';
-import { registerGameplayHandlers } from './tinh-tuy-socket-gameplay';
+import { registerGameplayHandlers, cleanupChatRateLimit } from './tinh-tuy-socket-gameplay';
 
 // ─── Shared State (exported for sub-modules) ──────────────────
 
@@ -98,11 +98,16 @@ export function cleanupRoom(roomId: string, full = false): void {
     roomPlayerNames.delete(roomId);
     roomPlayerDevices.delete(roomId);
   }
-  // Clear disconnect timers for this room
+  // Clear disconnect timers + active socket refs for this room
   for (const [key, timer] of disconnectTimers.entries()) {
     if (key.startsWith(`${roomId}:`)) {
       clearTimeout(timer);
       disconnectTimers.delete(key);
+    }
+  }
+  if (full) {
+    for (const key of activePlayerSockets.keys()) {
+      if (key.startsWith(`${roomId}:`)) activePlayerSockets.delete(key);
     }
   }
 }
@@ -146,6 +151,10 @@ export function setupTinhTuySocketHandlers(io: SocketIOServer): void {
       const socketKey = `${roomId}:${playerId}`;
       if (activePlayerSockets.get(socketKey) !== socket.id) return;
       activePlayerSockets.delete(socketKey);
+
+      // Clean up rate-limit maps to prevent unbounded memory growth
+      socketLastAction.delete(socket.id);
+      cleanupChatRateLimit(socket.id);
 
       try {
         const game = await TinhTuyGame.findOne({ roomId });

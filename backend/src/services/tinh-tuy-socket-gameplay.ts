@@ -139,7 +139,7 @@ async function finishGame(
     };
   }
   await game.save();
-  cleanupRoom(game.roomId);
+  cleanupRoom(game.roomId, true);
   io.to(game.roomId).emit('tinh-tuy:game-finished', { winner: game.winner, reason });
 }
 
@@ -728,7 +728,7 @@ async function handleCardDraw(
       player.owlPendingCards = [card.id, card2.id];
       game.turnPhase = 'AWAITING_OWL_PICK' as any;
       game.markModified('players');
-      await game.save();
+      // Emit prompt BEFORE save — ensures frontend receives it even if save fails
       io.to(game.roomId).emit('tinh-tuy:owl-pick-prompt', {
         slot: player.slot,
         cards: [
@@ -736,7 +736,19 @@ async function handleCardDraw(
           { id: card2.id, type: card2.type, nameKey: card2.nameKey, descriptionKey: card2.descriptionKey },
         ],
       });
-      // No auto-dismiss timer — user picks manually. Backend turn timer is the safety net.
+      try { await game.save(); } catch (err) {
+        console.error('[tinh-tuy] AWAITING_OWL_PICK save failed:', err);
+      }
+      // Safety timer: auto-pick first card if player doesn't respond
+      startTurnTimer(game.roomId, game.settings.turnDuration * 1000 + CARD_CHOICE_EXTRA_MS, async () => {
+        try {
+          const g = await TinhTuyGame.findOne({ roomId: game.roomId });
+          if (!g || g.turnPhase !== 'AWAITING_OWL_PICK') return;
+          const p = g.players.find(pp => pp.slot === player.slot);
+          if (!p || !p.owlPendingCards?.length) return;
+          await executeOwlPick(io, g, p, p.owlPendingCards[0]);
+        } catch (err) { console.error('[tinh-tuy] Owl pick timeout:', err); }
+      });
       return; // Wait for owl pick
     }
     // If second card is invalid, proceed with single card normally
@@ -746,8 +758,15 @@ async function handleCardDraw(
 
   if (!card) return; // safety: should never happen
 
-  const effect = executeCardEffect(game, player.slot, card);
-  applyCardEffect(game, player, effect);
+  let effect: CardEffectResult;
+  try {
+    effect = executeCardEffect(game, player.slot, card);
+    applyCardEffect(game, player, effect);
+  } catch (effectErr) {
+    // Card effect crashed — emit a no-op card so frontend at least shows something
+    console.error(`[tinh-tuy:handleCardDraw] Card effect crashed for ${card.id}, room ${game.roomId}:`, effectErr);
+    effect = { pointsChanged: {} };
+  }
   // Mark ALL modified Mixed/nested fields so Mongoose persists every change
   game.markModified('players');
   if (game.festival !== undefined) game.markModified('festival');
@@ -1757,6 +1776,12 @@ const chatLastMessage = new Map<string, number>();
 const CHAT_RATE_MS = 1000;
 const REACTION_RATE_MS = 500;
 
+/** Clean up chat rate-limit entries for a disconnected socket */
+export function cleanupChatRateLimit(socketId: string): void {
+  chatLastMessage.delete(socketId);
+  chatLastMessage.delete(`react:${socketId}`);
+}
+
 // ─── Gameplay Event Registration ──────────────────────────────
 
 export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): void {
@@ -1882,6 +1907,26 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         io.to(roomId).emit('tinh-tuy:horse-adjust-prompt', {
           slot: player.slot, diceTotal: dice.total,
         });
+        // Safety timer: auto-pick +0 if player doesn't respond
+        startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+          try {
+            const g = await TinhTuyGame.findOne({ roomId });
+            if (!g || g.turnPhase !== 'AWAITING_HORSE_ADJUST') return;
+            const p = g.players.find(pp => pp.slot === player.slot);
+            if (!p) return;
+            p.horseAdjustPending = false;
+            const moveSteps = dice.total; // +0 default
+            const oldP = p.position;
+            const { position: newP, passedGo: pg } = calculateNewPosition(oldP, moveSteps);
+            p.position = newP;
+            const goS = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
+            if (pg) { p.points += goS; if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--; }
+            g.markModified('players');
+            await g.save();
+            io.to(roomId).emit('tinh-tuy:player-moved', { slot: p.slot, from: oldP, to: newP, passedGo: pg, goBonus: pg ? goS : 0 });
+            await resolveAndAdvance(io, g, p, newP, dice);
+          } catch (err) { console.error('[tinh-tuy] Horse adjust timeout:', err); safetyRestartTimer(io, roomId); }
+        });
         callback({ success: true });
         return;
       }
@@ -1907,7 +1952,22 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           original: player.shibaRerollPending.original,
           rerolled: player.shibaRerollPending.rerolled,
         });
-        // No auto-dismiss timer — user picks manually. Backend turn timer is the safety net.
+        // Safety timer: auto-keep original dice if player doesn't respond
+        startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+          try {
+            const g = await TinhTuyGame.findOne({ roomId });
+            if (!g || g.turnPhase !== 'AWAITING_SHIBA_REROLL_PICK') return;
+            const p = g.players.find(pp => pp.slot === player.slot);
+            if (!p || !p.shibaRerollPending) return;
+            const chosen = p.shibaRerollPending.original;
+            g.lastDiceResult = { dice1: chosen.dice1, dice2: chosen.dice2 };
+            g.markModified('lastDiceResult');
+            p.shibaRerollPending = undefined as any;
+            io.to(roomId).emit('tinh-tuy:shiba-reroll-picked', { slot: p.slot, kept: 'original', dice: chosen });
+            const d = { dice1: chosen.dice1, dice2: chosen.dice2, total: chosen.dice1 + chosen.dice2, isDouble: chosen.dice1 === chosen.dice2 };
+            await executeShibaPostPick(io, g, p, d);
+          } catch (err) { console.error('[tinh-tuy] Shiba reroll timeout:', err); safetyRestartTimer(io, roomId); }
+        });
         callback({ success: true });
         return;
       }
@@ -1922,6 +1982,28 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
         io.to(roomId).emit('tinh-tuy:dice-result', dice);
         io.to(roomId).emit('tinh-tuy:rabbit-bonus-prompt', {
           slot: player.slot, bonus: rabbitBonus, dice,
+        });
+        // Safety timer: auto-decline bonus if player doesn't respond
+        startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+          try {
+            const g = await TinhTuyGame.findOne({ roomId });
+            if (!g || g.turnPhase !== 'AWAITING_RABBIT_BONUS') return;
+            const p = g.players.find(pp => pp.slot === player.slot);
+            if (!p || !p.rabbitBonusPending) return;
+            const { dice: d } = p.rabbitBonusPending;
+            const moveSteps = d.total; // decline bonus
+            p.rabbitBonusPending = undefined as any;
+            io.to(roomId).emit('tinh-tuy:rabbit-bonus-picked', { slot: p.slot, accepted: false, totalSteps: moveSteps });
+            const oldP = p.position;
+            const { position: newP, passedGo: pg } = calculateNewPosition(oldP, moveSteps);
+            p.position = newP;
+            const goS = getEffectiveGoSalary(g.round || 1) + getGoSalaryBonus(g, p);
+            if (pg) { p.points += goS; if (p.buyBlockedTurns && p.buyBlockedTurns > 0) p.buyBlockedTurns--; }
+            g.markModified('players');
+            await g.save();
+            io.to(roomId).emit('tinh-tuy:player-moved', { slot: p.slot, from: oldP, to: newP, passedGo: pg, goBonus: pg ? goS : 0 });
+            await resolveAndAdvance(io, g, p, newP, { ...d, total: moveSteps });
+          } catch (err) { console.error('[tinh-tuy] Rabbit bonus timeout:', err); safetyRestartTimer(io, roomId); }
         });
         callback({ success: true });
         return;
@@ -3813,6 +3895,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:owl-pick]', err.message);
       callback({ success: false, error: 'owlPickFailed' });
+      const rid = socket.data.tinhTuyRoomId as string;
+      if (rid) safetyRestartTimer(io, rid);
     }
   });
 
@@ -3849,6 +3933,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:shiba-reroll-pick]', err.message);
       callback({ success: false, error: 'rerollPickFailed' });
+      const rid = socket.data.tinhTuyRoomId as string;
+      if (rid) safetyRestartTimer(io, rid);
     }
   });
 
@@ -3914,6 +4000,28 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
           slot: player.slot, bonus: rabbitBonus,
           dice: { dice1: dice.dice1, dice2: dice.dice2, total: finalTotal },
         });
+        // Safety timer: auto-decline bonus if player doesn't respond
+        startTurnTimer(roomId, game.settings.turnDuration * 1000, async () => {
+          try {
+            const g2 = await TinhTuyGame.findOne({ roomId });
+            if (!g2 || g2.turnPhase !== 'AWAITING_RABBIT_BONUS') return;
+            const p2 = g2.players.find(pp => pp.slot === player.slot);
+            if (!p2 || !p2.rabbitBonusPending) return;
+            const { dice: d2 } = p2.rabbitBonusPending;
+            const moveSteps2 = d2.total; // decline bonus
+            p2.rabbitBonusPending = undefined as any;
+            io.to(roomId).emit('tinh-tuy:rabbit-bonus-picked', { slot: p2.slot, accepted: false, totalSteps: moveSteps2 });
+            const oldP2 = p2.position;
+            const { position: newP2, passedGo: pg2 } = calculateNewPosition(oldP2, moveSteps2);
+            p2.position = newP2;
+            const goS2 = getEffectiveGoSalary(g2.round || 1) + getGoSalaryBonus(g2, p2);
+            if (pg2) { p2.points += goS2; if (p2.buyBlockedTurns && p2.buyBlockedTurns > 0) p2.buyBlockedTurns--; }
+            g2.markModified('players');
+            await g2.save();
+            io.to(roomId).emit('tinh-tuy:player-moved', { slot: p2.slot, from: oldP2, to: newP2, passedGo: pg2, goBonus: pg2 ? goS2 : 0 });
+            await resolveAndAdvance(io, g2, p2, newP2, { ...d2, total: moveSteps2 });
+          } catch (err) { console.error('[tinh-tuy] Rabbit bonus timeout (horse):', err); safetyRestartTimer(io, roomId); }
+        });
         callback({ success: true });
         return;
       }
@@ -3939,6 +4047,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:horse-adjust-pick]', err.message);
       callback({ success: false, error: 'horseAdjustPickFailed' });
+      const rid = socket.data.tinhTuyRoomId as string;
+      if (rid) safetyRestartTimer(io, rid);
     }
   });
 
@@ -3985,6 +4095,8 @@ export function registerGameplayHandlers(io: SocketIOServer, socket: Socket): vo
     } catch (err: any) {
       console.error('[tinh-tuy:rabbit-bonus-pick]', err.message);
       callback({ success: false, error: 'rabbitBonusPickFailed' });
+      const rid = socket.data.tinhTuyRoomId as string;
+      if (rid) safetyRestartTimer(io, rid);
     }
   });
 }
