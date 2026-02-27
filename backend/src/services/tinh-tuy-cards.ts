@@ -211,27 +211,34 @@ export function executeCardEffect(
     }
 
     case 'GAIN_FROM_EACH': {
+      // Seahorse passive: +25% card gains
+      const gainMultEach = getCardMoneyMultiplier(game, player, true);
       const active = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
       for (const p of active) {
         result.pointsChanged[p.slot] = -action.amount;
       }
-      result.pointsChanged[playerSlot] = action.amount * active.length;
+      result.pointsChanged[playerSlot] = Math.floor(action.amount * active.length * gainMultEach);
       break;
     }
 
     case 'LOSE_TO_EACH': {
+      // Seahorse passive: -25% card losses; Suu Nhi: -10% losses
+      const lossMultEach = getCardMoneyMultiplier(game, player, false);
+      const trauMultEach = getMoneyLossMultiplier(game, player);
       const active = game.players.filter(p => !p.isBankrupt && p.slot !== playerSlot);
+      const totalLoss = Math.floor(action.amount * active.length * lossMultEach * trauMultEach);
       for (const p of active) {
         result.pointsChanged[p.slot] = action.amount;
       }
-      result.pointsChanged[playerSlot] = -(action.amount * active.length);
+      result.pointsChanged[playerSlot] = -totalLoss;
       break;
     }
 
     case 'MOVE_TO': {
-      const passGo = action.position !== 0 && action.position < player.position;
-      const goBonus = (passGo || action.position === 0) ? getEffectiveGoSalary(game.round || 0) : 0;
-      result.playerMoved = { slot: playerSlot, to: action.position, passedGo: passGo || action.position === 0 };
+      // passGo: moving backward (lower index) or moving to GO — but not if already at destination
+      const passGo = player.position !== action.position && (action.position === 0 || action.position < player.position);
+      const goBonus = passGo ? getEffectiveGoSalary(game.round || 0) : 0;
+      result.playerMoved = { slot: playerSlot, to: action.position, passedGo: passGo };
       if (goBonus) result.pointsChanged[playerSlot] = (result.pointsChanged[playerSlot] || 0) + goBonus;
       break;
     }
@@ -258,25 +265,32 @@ export function executeCardEffect(
       break;
 
     case 'PER_HOUSE_COST': {
+      // Suu Nhi: -10% losses
+      const trauMultHouse = getMoneyLossMultiplier(game, player);
       let totalBuildings = 0;
       for (const cellIdx of player.properties) {
         totalBuildings += player.houses[String(cellIdx)] || 0;
         if (player.hotels[String(cellIdx)]) totalBuildings += 1;
       }
-      result.pointsChanged[playerSlot] = -(action.amount * totalBuildings);
+      result.pointsChanged[playerSlot] = -Math.floor(action.amount * totalBuildings * trauMultHouse);
       break;
     }
 
     case 'ALL_LOSE_POINTS':
       for (const p of game.players.filter(pp => !pp.isBankrupt)) {
-        result.pointsChanged[p.slot] = -action.amount;
+        // Suu Nhi: -10% losses applies to any Trau player affected
+        const trauMultAll = getMoneyLossMultiplier(game, p);
+        result.pointsChanged[p.slot] = -Math.floor(action.amount * trauMultAll);
       }
       break;
 
     case 'RANDOM_POINTS': {
-      const amount = crypto.randomInt(action.min, action.max + 1);
+      // Seahorse passive: +25% card gains
+      const gainMultRand = getCardMoneyMultiplier(game, player, true);
+      const rawAmount = crypto.randomInt(action.min, action.max + 1);
+      const amount = Math.floor(rawAmount * gainMultRand);
       result.pointsChanged[playerSlot] = amount;
-      result.randomPoints = amount;
+      result.randomPoints = rawAmount; // show raw amount in UI
       break;
     }
 
@@ -391,8 +405,16 @@ export function executeCardEffect(
 
     case 'GAMBLE': {
       // 50/50 chance: win big or lose
+      // Seahorse passive: +25% gains / -25% losses; Suu Nhi: -10% losses
       const won = crypto.randomInt(0, 2) === 1;
-      result.pointsChanged[playerSlot] = won ? action.win : -action.lose;
+      if (won) {
+        const gambGainMult = getCardMoneyMultiplier(game, player, true);
+        result.pointsChanged[playerSlot] = Math.floor(action.win * gambGainMult);
+      } else {
+        const gambLossMult = getCardMoneyMultiplier(game, player, false);
+        const gambTrauMult = getMoneyLossMultiplier(game, player);
+        result.pointsChanged[playerSlot] = -Math.floor(action.lose * gambLossMult * gambTrauMult);
+      }
       result.gambleWon = won;
       break;
     }

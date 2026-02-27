@@ -709,10 +709,11 @@ async function handleCardDraw(
       card = unrestricted;
       console.warn(`[tinh-tuy:handleCardDraw] minRound retries exhausted, forced: ${card.id} for room ${game.roomId}`);
     } else {
-      // All cards restricted (shouldn't happen) — skip silently
+      // All cards restricted (shouldn't happen) — skip and advance turn
       console.error(`[tinh-tuy:handleCardDraw] ALL cards restricted at round ${game.round} — skipping`);
       game.turnPhase = 'END_TURN';
       await game.save();
+      await advanceTurnOrDoubles(io, game, player);
       return;
     }
   }
