@@ -91,7 +91,8 @@ export const TinhTuyBoard: React.FC = () => {
 
   // Compute current rent for each owned cell (mirrors backend calculateRent logic)
   const currentRentMap = new Map<number, number>();
-  const completedRounds = Math.max((state.round || 1) - 1, 0);
+  const currentRound = state.round || 1;
+  const completedRounds = Math.max(currentRound - 1, 0);
   for (const player of state.players) {
     if (player.isBankrupt) continue;
     for (const cellIdx of player.properties) {
@@ -102,7 +103,7 @@ export const TinhTuyBoard: React.FC = () => {
         const stationsOwned = player.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length;
         rent = Math.floor(stationsOwned * 250 * (1 + 0.20 * completedRounds));
       } else if (cell.type === 'UTILITY') {
-        rent = Math.floor((cell.price || 1500) * (1 + 0.08 * completedRounds));
+        rent = Math.floor((cell.price || 1500) * (1 + 0.05 * completedRounds));
       } else if (cell.type === 'PROPERTY' && cell.group) {
         const hasHotel = !!(player.hotels || {})[String(cellIdx)];
         const houses = (player.houses || {})[String(cellIdx)] || 0;
@@ -130,6 +131,21 @@ export const TinhTuyBoard: React.FC = () => {
       // Double rent buff
       if (player.doubleRentTurns > 0) {
         rent = rent * 2;
+      }
+      // Late-game rent escalation: +5%/round after round 60
+      if (currentRound > 60) {
+        rent = Math.floor(rent * (1 + 0.05 * (currentRound - 60)));
+      }
+      // Character ability: Kungfu +15% rent collected
+      if (state.settings?.abilitiesEnabled && player.character === 'kungfu') {
+        rent = Math.floor(rent * 1.15);
+      }
+      // Character ability: Ca Noc +300 flat bonus on buildings
+      if (state.settings?.abilitiesEnabled && player.character === 'canoc') {
+        const cellKey = String(cellIdx);
+        if (((player.houses || {})[cellKey] || 0) > 0 || !!(player.hotels || {})[cellKey]) {
+          rent += 300;
+        }
       }
       // Frozen properties have 0 rent
       if (state.frozenProperties?.some(fp => fp.cellIndex === cellIdx)) {
