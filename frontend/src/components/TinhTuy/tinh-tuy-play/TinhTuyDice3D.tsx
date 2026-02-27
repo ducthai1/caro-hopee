@@ -126,13 +126,6 @@ export const TinhTuyDice3D: React.FC = () => {
     };
   }, []);
 
-  // Stop rolling when dice result arrives
-  useEffect(() => {
-    if (state.lastDiceResult && isRolling) {
-      // Let animation finish naturally via timeout
-    }
-  }, [state.lastDiceResult, isRolling]);
-
   const dice1 = state.lastDiceResult?.dice1 || 1;
   const dice2 = state.lastDiceResult?.dice2 || 1;
   const isIdle = !state.lastDiceResult && !isRolling;

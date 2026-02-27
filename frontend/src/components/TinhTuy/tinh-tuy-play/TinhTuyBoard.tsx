@@ -1,8 +1,12 @@
 /**
  * TinhTuyBoard — 36-cell CSS Grid board with 3D perspective.
  * Board center is decorative only (game title). Interactive elements live outside.
+ *
+ * Performance: all derived maps are useMemo'd so they don't rebuild during
+ * token animation ticks (~280ms).  Cell onClick callbacks are useCallback'd
+ * so React.memo on TinhTuyCell actually skips re-render.
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PROPERTY_GROUPS, getCellPosition, PropertyGroup } from '../tinh-tuy-types';
@@ -36,124 +40,165 @@ export const TinhTuyBoard: React.FC = () => {
   const myPlayer = state.players.find(p => p.slot === state.mySlot);
   const myPos = myPlayer?.position ?? -1;
 
-  // Build ownership map: cellIndex → ownerSlot
-  const ownershipMap = new Map<number, number>();
-  for (const player of state.players) {
-    for (const cellIdx of player.properties) {
-      ownershipMap.set(cellIdx, player.slot);
+  // ─── Stable serialisation keys for memoization ──────────────
+  // JSON-stable key that changes only when properties/houses/hotels actually change
+  const propertyKey = useMemo(() =>
+    state.players.map(p =>
+      `${p.slot}:${p.isBankrupt}:${p.properties.join(',')}:${JSON.stringify(p.houses)}:${JSON.stringify(p.hotels)}:${p.doubleRentTurns}:${p.character}`
+    ).join('|'),
+    [state.players],
+  );
+
+  // ─── Ownership map (cellIndex → ownerSlot) ─────────────────
+  const ownershipMap = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const player of state.players) {
+      for (const cellIdx of player.properties) {
+        m.set(cellIdx, player.slot);
+      }
     }
-  }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyKey]);
 
-  // Build active player display positions (slot → cellIndex)
-  const playerDisplayPos = new Map<number, number>();
-  for (const player of state.players) {
-    if (player.isBankrupt) continue;
-    let displayPos = player.position;
-    if (state.animatingToken && state.animatingToken.slot === player.slot) {
-      displayPos = state.animatingToken.path[state.animatingToken.currentStep];
+  // ─── Player display positions (changes during animation) ───
+  const playerDisplayPos = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const player of state.players) {
+      if (player.isBankrupt) continue;
+      let displayPos = player.position;
+      if (state.animatingToken && state.animatingToken.slot === player.slot) {
+        displayPos = state.animatingToken.path[state.animatingToken.currentStep];
+      }
+      m.set(player.slot, displayPos);
     }
-    playerDisplayPos.set(player.slot, displayPos);
-  }
+    return m;
+  }, [state.players, state.animatingToken]);
 
-  // Group players by cell for offset calculation
-  const playersPerCell = new Map<number, number[]>();
-  playerDisplayPos.forEach((cellIdx, slot) => {
-    const arr = playersPerCell.get(cellIdx) || [];
-    arr.push(slot);
-    playersPerCell.set(cellIdx, arr);
-  });
+  // ─── Players grouped per cell (for stacking offsets) ────────
+  const playersPerCell = useMemo(() => {
+    const m = new Map<number, number[]>();
+    playerDisplayPos.forEach((cellIdx, slot) => {
+      const arr = m.get(cellIdx) || [];
+      arr.push(slot);
+      m.set(cellIdx, arr);
+    });
+    return m;
+  }, [playerDisplayPos]);
 
-  // Festival: single cell on the board (game-level)
+  // Festival cell
   const festivalCell = state.festival?.cellIndex ?? -1;
+  const festivalMult = state.festival?.multiplier ?? 1;
 
-  // Build houses/hotels map
-  const housesMap = new Map<number, { houses: number; hotel: boolean }>();
-  for (const player of state.players) {
-    for (const cellIdx of player.properties) {
-      const houses = (player.houses || {})[String(cellIdx)] || 0;
-      const hotel = !!(player.hotels || {})[String(cellIdx)];
-      if (houses > 0 || hotel) {
-        housesMap.set(cellIdx, { houses, hotel });
-      }
-    }
-  }
-
-  // Build monopoly set: cells that belong to a completed color group
-  const monopolyCells = new Set<number>();
-  for (const player of state.players) {
-    if (player.isBankrupt) continue;
-    for (const [group, cells] of Object.entries(PROPERTY_GROUPS)) {
-      if (cells.every(i => player.properties.includes(i))) {
-        cells.forEach(i => monopolyCells.add(i));
-      }
-    }
-  }
-
-  // Compute current rent for each owned cell (mirrors backend calculateRent logic)
-  const currentRentMap = new Map<number, number>();
-  const currentRound = state.round || 1;
-  const completedRounds = Math.max(currentRound - 1, 0);
-  for (const player of state.players) {
-    if (player.isBankrupt) continue;
-    for (const cellIdx of player.properties) {
-      const cell = BOARD_CELLS[cellIdx];
-      if (!cell) continue;
-      let rent = 0;
-      if (cell.type === 'STATION') {
-        const stationsOwned = player.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length;
-        rent = Math.floor(stationsOwned * 250 * (1 + 0.20 * completedRounds));
-      } else if (cell.type === 'UTILITY') {
-        rent = Math.floor((cell.price || 1500) * (1 + 0.05 * completedRounds));
-      } else if (cell.type === 'PROPERTY' && cell.group) {
-        const hasHotel = !!(player.hotels || {})[String(cellIdx)];
+  // ─── Houses/hotels map ──────────────────────────────────────
+  const housesMap = useMemo(() => {
+    const m = new Map<number, { houses: number; hotel: boolean }>();
+    for (const player of state.players) {
+      for (const cellIdx of player.properties) {
         const houses = (player.houses || {})[String(cellIdx)] || 0;
-        if (hasHotel && cell.rentHotel) {
-          rent = cell.rentHotel;
-        } else if (houses > 0 && cell.rentHouse) {
-          rent = cell.rentHouse[houses - 1] || 0;
-        } else {
-          const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
-          const ownsFullGroup = groupCells?.every(i => player.properties.includes(i));
-          rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
+        const hotel = !!(player.hotels || {})[String(cellIdx)];
+        if (houses > 0 || hotel) {
+          m.set(cellIdx, { houses, hotel });
         }
       }
-      // Monopoly bonus: +15% when owner owns full color group
-      if (cell.group) {
-        const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
-        if (groupCells?.every(i => player.properties.includes(i))) {
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyKey]);
+
+  // ─── Monopoly set ───────────────────────────────────────────
+  const monopolyCells = useMemo(() => {
+    const s = new Set<number>();
+    for (const player of state.players) {
+      if (player.isBankrupt) continue;
+      for (const [, cells] of Object.entries(PROPERTY_GROUPS)) {
+        if (cells.every(i => player.properties.includes(i))) {
+          cells.forEach(i => s.add(i));
+        }
+      }
+    }
+    return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyKey]);
+
+  // ─── Current rent map (mirrors backend calculateRent) ──────
+  const frozenKey = JSON.stringify(state.frozenProperties || []);
+  const currentRentMap = useMemo(() => {
+    const m = new Map<number, number>();
+    const currentRound = state.round || 1;
+    const completedRounds = Math.max(currentRound - 1, 0);
+    for (const player of state.players) {
+      if (player.isBankrupt) continue;
+      for (const cellIdx of player.properties) {
+        const cell = BOARD_CELLS[cellIdx];
+        if (!cell) continue;
+        let rent = 0;
+        if (cell.type === 'STATION') {
+          const stationsOwned = player.properties.filter(i => BOARD_CELLS[i]?.type === 'STATION').length;
+          rent = Math.floor(stationsOwned * 250 * (1 + 0.20 * completedRounds));
+        } else if (cell.type === 'UTILITY') {
+          rent = Math.floor((cell.price || 1500) * (1 + 0.05 * completedRounds));
+        } else if (cell.type === 'PROPERTY' && cell.group) {
+          const hasHotel = !!(player.hotels || {})[String(cellIdx)];
+          const houses = (player.houses || {})[String(cellIdx)] || 0;
+          if (hasHotel && cell.rentHotel) {
+            rent = cell.rentHotel;
+          } else if (houses > 0 && cell.rentHouse) {
+            rent = cell.rentHouse[houses - 1] || 0;
+          } else {
+            const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
+            const ownsFullGroup = groupCells?.every(i => player.properties.includes(i));
+            rent = ownsFullGroup ? (cell.rentGroup || (cell.rentBase || 0) * 2) : (cell.rentBase || 0);
+          }
+        }
+        // Monopoly bonus: +15% when owner owns full color group
+        if (cell.group) {
+          const groupCells = PROPERTY_GROUPS[cell.group as PropertyGroup];
+          if (groupCells?.every(i => player.properties.includes(i))) {
+            rent = Math.floor(rent * 1.15);
+          }
+        }
+        // Festival multiplier
+        if (festivalCell === cellIdx) {
+          rent = Math.floor(rent * festivalMult);
+        }
+        // Double rent buff
+        if (player.doubleRentTurns > 0) {
+          rent = rent * 2;
+        }
+        // Late-game rent escalation: +5%/round after round 60
+        if (currentRound > 60) {
+          rent = Math.floor(rent * (1 + 0.05 * (currentRound - 60)));
+        }
+        // Character ability: Kungfu +15% rent collected
+        if (state.settings?.abilitiesEnabled && player.character === 'kungfu') {
           rent = Math.floor(rent * 1.15);
         }
-      }
-      // Festival multiplier (game-level, stacking) — applied before doubleRent to match backend
-      if (state.festival && state.festival.cellIndex === cellIdx) {
-        rent = Math.floor(rent * state.festival.multiplier);
-      }
-      // Double rent buff
-      if (player.doubleRentTurns > 0) {
-        rent = rent * 2;
-      }
-      // Late-game rent escalation: +5%/round after round 60
-      if (currentRound > 60) {
-        rent = Math.floor(rent * (1 + 0.05 * (currentRound - 60)));
-      }
-      // Character ability: Kungfu +15% rent collected
-      if (state.settings?.abilitiesEnabled && player.character === 'kungfu') {
-        rent = Math.floor(rent * 1.15);
-      }
-      // Character ability: Ca Noc +300 flat bonus on buildings
-      if (state.settings?.abilitiesEnabled && player.character === 'canoc') {
-        const cellKey = String(cellIdx);
-        if (((player.houses || {})[cellKey] || 0) > 0 || !!(player.hotels || {})[cellKey]) {
-          rent += 300;
+        // Character ability: Ca Noc +300 flat bonus on buildings
+        if (state.settings?.abilitiesEnabled && player.character === 'canoc') {
+          const cellKey = String(cellIdx);
+          if (((player.houses || {})[cellKey] || 0) > 0 || !!(player.hotels || {})[cellKey]) {
+            rent += 300;
+          }
         }
+        // Frozen properties have 0 rent
+        if (state.frozenProperties?.some(fp => fp.cellIndex === cellIdx)) {
+          rent = 0;
+        }
+        m.set(cellIdx, rent);
       }
-      // Frozen properties have 0 rent
-      if (state.frozenProperties?.some(fp => fp.cellIndex === cellIdx)) {
-        rent = 0;
-      }
-      currentRentMap.set(cellIdx, rent);
     }
-  }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyKey, state.round, festivalCell, festivalMult, state.settings?.abilitiesEnabled, frozenKey]);
+
+  // Current player position (for highlight)
+  const currentPlayerPos = state.players.find(p => p.slot === state.currentPlayerSlot)?.position ?? -1;
+
+  // ─── Stable cell click handler (avoids 36 new arrows per render) ──
+  const handleCellClick = useCallback((cellIndex: number) => {
+    setSelectedCell(cellIndex);
+  }, []);
 
   return (
     <>
@@ -193,9 +238,7 @@ export const TinhTuyBoard: React.FC = () => {
                 col={pos.col}
                 row={pos.row}
                 ownerSlot={ownershipMap.get(cell.index)}
-                isCurrentCell={
-                  state.players.find(p => p.slot === state.currentPlayerSlot)?.position === cell.index
-                }
+                isCurrentCell={currentPlayerPos === cell.index}
                 houseCount={building?.houses || 0}
                 hasHotel={building?.hotel || false}
                 hasFestival={festivalCell === cell.index}
@@ -203,11 +246,11 @@ export const TinhTuyBoard: React.FC = () => {
                 hasMonopoly={monopolyCells.has(cell.index)}
                 currentRent={currentRentMap.get(cell.index)}
                 selectionState={selectionState}
-                onClick={() =>
-                  isValidFestival ? applyFestival(cell.index)
-                  : isValidTravel ? travelTo(cell.index)
-                  : isValidDestination ? chooseDestination(cell.index)
-                  : setSelectedCell(cell.index)
+                onClick={
+                  isValidFestival ? () => applyFestival(cell.index)
+                  : isValidTravel ? () => travelTo(cell.index)
+                  : isValidDestination ? () => chooseDestination(cell.index)
+                  : () => handleCellClick(cell.index)
                 }
               />
             );

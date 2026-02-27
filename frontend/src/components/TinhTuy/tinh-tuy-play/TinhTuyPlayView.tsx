@@ -60,7 +60,7 @@ import HandshakeIcon from '@mui/icons-material/Handshake';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 
 /* ─── Reusable Player Card ─────────────────────────────── */
-const PlayerCard: React.FC<{
+const PlayerCardInner: React.FC<{
   player: any;
   isCurrentTurn: boolean;
   isMe: boolean;
@@ -181,6 +181,7 @@ const PlayerCard: React.FC<{
   </Paper>
   );
 };
+const PlayerCard = React.memo(PlayerCardInner);
 
 /* ─── Main Play View ───────────────────────────────────── */
 export const TinhTuyPlayView: React.FC = () => {
@@ -266,20 +267,23 @@ export const TinhTuyPlayView: React.FC = () => {
         {/* Turn Timer */}
         <TinhTuyTurnTimer />
 
-        {/* All player cards */}
-        {state.players.map((player) => (
-          <PlayerCard
-            key={player.slot}
-            player={player}
-            isCurrentTurn={state.currentPlayerSlot === player.slot}
-            isMe={state.mySlot === player.slot}
-            t={t as any}
-            onEditName={state.mySlot === player.slot && isGuest ? () => setShowNameDialog(true) : undefined}
-            pointNotifs={state.pointNotifs.filter(n => n.slot === player.slot)}
-            displayPoints={state.displayPoints[player.slot]}
-            activePlayers={state.players.filter(p => !p.isBankrupt).length || 1}
-          />
-        ))}
+        {/* All player cards — activePlayers pre-computed outside loop */}
+        {(() => {
+          const activeCount = state.players.filter(p => !p.isBankrupt).length || 1;
+          return state.players.map((player) => (
+            <PlayerCard
+              key={player.slot}
+              player={player}
+              isCurrentTurn={state.currentPlayerSlot === player.slot}
+              isMe={state.mySlot === player.slot}
+              t={t as any}
+              onEditName={state.mySlot === player.slot && isGuest ? () => setShowNameDialog(true) : undefined}
+              pointNotifs={state.pointNotifs.filter(n => n.slot === player.slot)}
+              displayPoints={state.displayPoints[player.slot]}
+              activePlayers={activeCount}
+            />
+          ));
+        })()}
 
         {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', mt: 'auto' }}>

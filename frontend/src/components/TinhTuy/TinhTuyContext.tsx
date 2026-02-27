@@ -1709,7 +1709,6 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const handleCardDrawn = (data: any) => {
-      console.log('[TinhTuy] card-drawn received:', data?.card?.id, 'slot:', data?.slot);
       dispatch({ type: 'CARD_DRAWN', payload: data });
       tinhTuySounds.playSFX('cardDraw');
       // Auto-dismiss moved to TinhTuyCardModal — starts when card is actually visible
@@ -2764,14 +2763,16 @@ export const TinhTuyProvider: React.FC<{ children: ReactNode }> = ({ children })
     state.drawnCard, state.pendingAction, state.taxAlert, state.rentAlert, state.islandAlertSlot,
   ]);
 
-  // Point notifs auto-cleanup after 2.5s
+  // Point notifs auto-cleanup after 2.5s — only start timer when notifs first appear
+  // (not on every .length change, which would reset the timer on burst additions)
+  const pointNotifsActive = state.pointNotifs.length > 0;
   useEffect(() => {
-    if (state.pointNotifs.length === 0) return;
+    if (!pointNotifsActive) return;
     const timer = setTimeout(() => {
       dispatch({ type: 'CLEAR_POINT_NOTIFS' });
     }, 2500);
     return () => clearTimeout(timer);
-  }, [state.pointNotifs.length]);
+  }, [pointNotifsActive]);
 
   // Gate: dice animation + card modal + movement animation must all finish before queued visual effects fire
   const isAnimBusy = !!(state.diceAnimating || state.drawnCard || state.pendingMove || state.animatingToken || state.pendingSwapAnim);

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, Typography, Box } from '@mui/material';
 import { useLanguage } from '../../../i18n';
 import { useTinhTuy } from '../TinhTuyContext';
 import { BOARD_CELLS, PLAYER_COLORS } from '../tinh-tuy-types';
+import './tinh-tuy-board.css'; // tt-nearwin-pulse keyframes
 
 const EDGE_LABELS = ['⬆️', '➡️', '⬇️', '⬅️'];
 
@@ -132,13 +133,6 @@ export const TinhTuyNearWinAlert: React.FC = () => {
         )}
       </DialogContent>
 
-      {/* Pulse animation */}
-      <style>{`
-        @keyframes tt-nearwin-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.3); }
-          50% { box-shadow: 0 0 20px 4px rgba(231,76,60,0.15); }
-        }
-      `}</style>
     </Dialog>
   );
 };
