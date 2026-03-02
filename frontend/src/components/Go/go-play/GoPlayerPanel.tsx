@@ -34,22 +34,21 @@ const GoPlayerPanel: React.FC<GoPlayerPanelProps> = React.memo(({
     <Paper
       elevation={isCurrentTurn ? 4 : 1}
       sx={{
-        p: 1.5,
+        p: 2,
         borderRadius: 2,
         border: '2px solid',
         borderColor: isCurrentTurn ? 'warning.main' : 'divider',
         animation: isCurrentTurn ? `${glowAnim} 1.5s ease-in-out infinite` : 'none',
         transition: 'border-color 0.3s, box-shadow 0.3s',
-        minWidth: 140,
       }}
     >
-      <Stack spacing={1}>
+      <Stack spacing={1.5}>
         {/* Name + color indicator */}
         <Stack direction="row" alignItems="center" spacing={1}>
           <Box
             sx={{
-              width: 18,
-              height: 18,
+              width: 22,
+              height: 22,
               borderRadius: '50%',
               bgcolor: isBlack ? '#1a1a1a' : '#f5f5f5',
               border: isBlack ? '1px solid #444' : '1.5px solid #888',
@@ -63,7 +62,7 @@ const GoPlayerPanel: React.FC<GoPlayerPanelProps> = React.memo(({
             variant="body2"
             fontWeight={isCurrentTurn ? 700 : 400}
             noWrap
-            sx={{ flex: 1, maxWidth: 120 }}
+            sx={{ flex: 1, maxWidth: 160 }}
             title={displayName}
           >
             {displayName}
