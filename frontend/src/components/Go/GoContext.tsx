@@ -116,8 +116,10 @@ function goReducer(state: GoState, action: GoAction): GoState {
         rules: action.payload.rules,
         players: action.payload.players,
         isHost: true,
+        mySlot: 1,
         hasPassword: action.payload.hasPassword,
         gameStatus: 'waiting',
+        chatMessages: [],
         error: null,
       };
 
@@ -380,6 +382,8 @@ interface GoContextValue {
   updateSettings: (rules: GoRules) => void;
   refreshRooms: () => void;
   dismissResult: () => void;
+  sendChat: (message: string) => void;
+  sendReaction: (emoji: string) => void;
 }
 
 const GoContext = createContext<GoContextValue | null>(null);
@@ -654,7 +658,7 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     };
 
     const handleSettingsUpdated = (data: any) => {
-      dispatch({ type: 'SETTINGS_UPDATED', payload: { rules: data.rules } });
+      dispatch({ type: 'SETTINGS_UPDATED', payload: { rules: data.settings || data.rules } });
       if (!stateRef.current.isHost) {
         getToast()?.info('go.settingsUpdated');
       }
@@ -1003,7 +1007,7 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const updateSettings = useCallback((rules: GoRules) => {
     const socket = socketService.getSocket();
     if (!socket || !stateRef.current.roomId) return;
-    socket.emit('go:update-settings' as any, {
+    socket.emit('go:update-room' as any, {
       roomId: stateRef.current.roomId,
       rules,
     }, (res: any) => {
@@ -1017,6 +1021,20 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   const dismissResult = useCallback(() => {
     dispatch({ type: 'DISMISS_RESULT' });
+  }, []);
+
+  const sendChat = useCallback((message: string) => {
+    const socket = socketService.getSocket();
+    if (!socket || !stateRef.current.roomId) return;
+    const trimmed = message.trim().slice(0, 200);
+    if (!trimmed) return;
+    socket.emit('go:send-chat' as any, { message: trimmed });
+  }, []);
+
+  const sendReaction = useCallback((emoji: string) => {
+    const socket = socketService.getSocket();
+    if (!socket || !stateRef.current.roomId) return;
+    socket.emit('go:send-reaction' as any, { emoji });
   }, []);
 
   return (
@@ -1039,6 +1057,8 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       updateSettings,
       refreshRooms,
       dismissResult,
+      sendChat,
+      sendReaction,
     }}>
       {children}
     </GoContext.Provider>

@@ -322,6 +322,8 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
 
         socket.data.goRoomId = roomId;
         socket.data.goPlayerSlot = 1;
+        // Persist guestId on socket so getPlayerId works for subsequent events
+        if (!userId && effectiveGuestId) socket.data.guestId = effectiveGuestId;
         socket.join(`go:${roomId}`);
 
         // Track socket
@@ -365,6 +367,7 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
         if (existing) {
           socket.data.goRoomId = game.roomId;
           socket.data.goPlayerSlot = existing.slot;
+          if (!userId && effectiveGuestId) socket.data.guestId = effectiveGuestId;
           socket.join(`go:${game.roomId}`);
           if (playerId) activePlayerSockets.set(`${game.roomId}:${playerId}`, socket.id);
           const players = await buildPlayersInfo(game);
@@ -406,6 +409,8 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
 
         socket.data.goRoomId = game.roomId;
         socket.data.goPlayerSlot = 2;
+        // Persist guestId on socket so getPlayerId works for subsequent events
+        if (!userId && effectiveGuestId) socket.data.guestId = effectiveGuestId;
         socket.join(`go:${game.roomId}`);
         if (playerId) activePlayerSockets.set(`${game.roomId}:${playerId}`, socket.id);
 
@@ -484,9 +489,11 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
         if (playerId) activePlayerSockets.delete(`${roomId}:${playerId}`);
         if (slot) clearDisconnectTimer(roomId, slot);
 
+        const remainingPlayers = game.players.length > 0 ? await buildPlayersInfo(game) : [];
         io.to(`go:${roomId}`).emit('go:player-left', {
           slot,
           playerId,
+          players: remainingPlayers,
           winner: game.winner || null,
           winReason: game.winReason || null,
         });
@@ -1076,6 +1083,47 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
       }
     });
 
+    // ── go:send-chat ──────────────────────────────────────────
+    socket.on('go:send-chat', async (data: any) => {
+      try {
+        const roomId = socket.data.goRoomId;
+        if (!roomId || !data?.message) return;
+        const playerId = getPlayerId(socket);
+        const game = await GoGame.findOne({ roomId });
+        if (!game) return;
+        const player = playerId ? findPlayerInGame(game, playerId) : null;
+        if (!player) return;
+        const name = await resolvePlayerName(player);
+        const msg = String(data.message).slice(0, 200);
+        io.to(`go:${roomId}`).emit('go:chat-received', {
+          slot: player.slot,
+          username: name,
+          message: msg,
+        });
+      } catch (err) {
+        console.error('[go:send-chat] Error:', err);
+      }
+    });
+
+    // ── go:send-reaction ────────────────────────────────────────
+    socket.on('go:send-reaction', async (data: any) => {
+      try {
+        const roomId = socket.data.goRoomId;
+        if (!roomId || !data?.emoji) return;
+        const playerId = getPlayerId(socket);
+        const game = await GoGame.findOne({ roomId });
+        if (!game) return;
+        const player = playerId ? findPlayerInGame(game, playerId) : null;
+        if (!player) return;
+        io.to(`go:${roomId}`).emit('go:reaction-received', {
+          slot: player.slot,
+          emoji: String(data.emoji).slice(0, 4),
+        });
+      } catch (err) {
+        console.error('[go:send-reaction] Error:', err);
+      }
+    });
+
     // ── disconnect ───────────────────────────────────────────────
     socket.on('disconnect', async () => {
       try {
@@ -1097,6 +1145,32 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
         // Clean up socket tracking for finished/abandoned games (prevents stale map entries)
         if (game.gameStatus === 'finished' || game.gameStatus === 'abandoned') {
           if (playerId) activePlayerSockets.delete(`${roomId}:${playerId}`);
+          return;
+        }
+
+        // Waiting room: remove player immediately (no reconnect window needed)
+        if (game.gameStatus === 'waiting') {
+          game.players = game.players.filter(p => p.slot !== slot) as any;
+          if (playerId) activePlayerSockets.delete(`${roomId}:${playerId}`);
+          if (game.players.length === 0) {
+            await GoGame.deleteOne({ roomId });
+            cleanupRoomTimers(roomId);
+          } else {
+            // Transfer host if needed
+            if (game.hostPlayerId === playerId && game.players.length > 0) {
+              const remaining = game.players[0];
+              game.hostPlayerId = remaining.userId?.toString() || remaining.guestId || '';
+            }
+            await game.save();
+            const remainingPlayers = await buildPlayersInfo(game);
+            io.to(`go:${roomId}`).emit('go:player-left', {
+              slot,
+              playerId,
+              players: remainingPlayers,
+              winner: null,
+              winReason: null,
+            });
+          }
           return;
         }
 
