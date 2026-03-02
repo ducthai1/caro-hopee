@@ -154,6 +154,10 @@ const router = createBrowserRouter([
     element: <MainLayout />,
   },
   {
+    path: '/go',
+    element: <MainLayout />,
+  },
+  {
     path: '/login',
     element: <LoginPage />,
   },

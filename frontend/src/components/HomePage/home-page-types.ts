@@ -77,6 +77,14 @@ export const GAMES: GameItem[] = [
     color: '#9b59b6',
   },
   {
+    id: 'go',
+    name: 'games.go',
+    icon: '⚫',
+    description: 'home.goDescription',
+    available: true,
+    color: '#2c3e50',
+  },
+  {
     id: 'werewolf',
     name: 'games.werewolf',
     icon: '🐺',

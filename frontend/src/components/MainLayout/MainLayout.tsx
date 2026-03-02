@@ -10,6 +10,7 @@ import { LuckyWheelProvider } from '../LuckyWheel';
 import { XiDachScoreProvider, XiDachScoreContent } from '../XiDachScore';
 import { WordChainProvider, WordChainContent } from '../WordChain';
 import { TinhTuyProvider, TinhTuyContent } from '../TinhTuy';
+import { GoProvider, GoContent } from '../Go';
 import { MainLayoutProvider, useMainLayout } from './MainLayoutContext';
 import GuestNameDialog from '../GuestNameDialog/GuestNameDialog';
 import { getGuestName } from '../../utils/guestName';
@@ -34,6 +35,7 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
     if (location.pathname === '/xi-dach-score') return 'xi-dach-score';
     if (location.pathname === '/word-chain') return 'word-chain';
     if (location.pathname === '/tinh-tuy') return 'tinh-tuy';
+    if (location.pathname === '/go') return 'go';
     if (location.pathname === '/') return 'caro';
     return 'caro';
   });
@@ -58,6 +60,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
       setSelectedGame('word-chain');
     } else if (location.pathname === '/tinh-tuy') {
       setSelectedGame('tinh-tuy');
+    } else if (location.pathname === '/go') {
+      setSelectedGame('go');
     } else if (location.pathname === '/') {
       setSelectedGame('caro');
     }
@@ -82,7 +86,8 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
       : gameId === 'xi-dach-score' ? '/xi-dach-score'
         : gameId === 'word-chain' ? '/word-chain'
           : gameId === 'tinh-tuy' ? '/tinh-tuy'
-            : '/';
+            : gameId === 'go' ? '/go'
+              : '/';
 
     // Skip if already on target route
     if (location.pathname === targetPath) return;
@@ -134,6 +139,12 @@ const MainLayoutInner: React.FC<MainLayoutProps> = ({ children }) => {
           <TinhTuyProvider>
             <TinhTuyContent />
           </TinhTuyProvider>
+        );
+      case 'go':
+        return (
+          <GoProvider>
+            <GoContent />
+          </GoProvider>
         );
       case 'caro':
       default:

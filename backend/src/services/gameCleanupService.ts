@@ -6,6 +6,7 @@ import Game from '../models/Game';
 import XiDachSession from '../models/XiDachSession';
 import WordChainGame from '../models/WordChainGame';
 import TinhTuyGame from '../models/TinhTuyGame';
+import GoGame from '../models/GoGame';
 import { io } from '../server';
 
 const INACTIVE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -111,6 +112,31 @@ export const cleanupInactiveTinhTuyGames = async (): Promise<number> => {
 };
 
 /**
+ * Cleanup Go games inactive for more than 24 hours
+ * Also marks stale 'waiting'/'playing'/'scoring' rooms as 'abandoned' after 30 min
+ */
+export const cleanupInactiveGoGames = async (): Promise<number> => {
+  try {
+    const cutoffDate = new Date(Date.now() - INACTIVE_THRESHOLD_MS);
+    const staleCutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    await GoGame.updateMany(
+      {
+        gameStatus: { $in: ['waiting', 'playing', 'scoring'] },
+        updatedAt: { $lt: staleCutoff },
+      },
+      { $set: { gameStatus: 'abandoned' } }
+    );
+
+    const result = await GoGame.deleteMany({ updatedAt: { $lt: cutoffDate } });
+    return result.deletedCount || 0;
+  } catch (error) {
+    console.error('[GameCleanup] Error cleaning up Go games:', error);
+    return 0;
+  }
+};
+
+/**
  * Run all game cleanup tasks
  */
 export const cleanupAllInactiveGames = async (): Promise<void> => {
@@ -118,8 +144,9 @@ export const cleanupAllInactiveGames = async (): Promise<void> => {
   const xiDachCount = await cleanupInactiveXiDachSessions();
   const wordChainCount = await cleanupInactiveWordChainGames();
   const tinhTuyCount = await cleanupInactiveTinhTuyGames();
+  const goCount = await cleanupInactiveGoGames();
 
-  if (caroCount > 0 || xiDachCount > 0 || wordChainCount > 0 || tinhTuyCount > 0) {
-    console.log(`[GameCleanup] Deleted ${caroCount} Caro, ${xiDachCount} Xi Dach, ${wordChainCount} Word Chain, ${tinhTuyCount} Tinh Tuy (inactive > 24h)`);
+  if (caroCount > 0 || xiDachCount > 0 || wordChainCount > 0 || tinhTuyCount > 0 || goCount > 0) {
+    console.log(`[GameCleanup] Deleted ${caroCount} Caro, ${xiDachCount} Xi Dach, ${wordChainCount} Word Chain, ${tinhTuyCount} Tinh Tuy, ${goCount} Go (inactive > 24h)`);
   }
 };
