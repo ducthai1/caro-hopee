@@ -204,7 +204,7 @@ const GoBoard: React.FC<GoBoardProps> = React.memo(({
       ref={containerRef}
       sx={{
         width: '100%',
-        maxWidth: 600,
+        maxWidth: 700,
         aspectRatio: '1',
         position: 'relative',
         mx: 'auto',

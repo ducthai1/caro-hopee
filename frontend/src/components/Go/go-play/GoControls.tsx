@@ -102,8 +102,8 @@ const GoControls: React.FC<GoControlsProps> = React.memo(({
         </Typography>
       )}
 
-      {/* Action buttons */}
-      <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
+      {/* Action buttons — stacked vertically for clarity */}
+      <Stack spacing={1}>
         <Button
           variant="outlined"
           color="primary"
@@ -111,6 +111,7 @@ const GoControls: React.FC<GoControlsProps> = React.memo(({
           disabled={!isMyTurn}
           onClick={handlePass}
           size="small"
+          fullWidth
         >
           {t('go.pass')}
         </Button>
@@ -121,6 +122,7 @@ const GoControls: React.FC<GoControlsProps> = React.memo(({
           startIcon={<FlagIcon />}
           onClick={handleResign}
           size="small"
+          fullWidth
         >
           {t('go.resign')}
         </Button>
@@ -132,6 +134,7 @@ const GoControls: React.FC<GoControlsProps> = React.memo(({
           disabled={moveCount === 0 || !!pendingUndo}
           onClick={onRequestUndo}
           size="small"
+          fullWidth
         >
           {t('go.undo')}
         </Button>

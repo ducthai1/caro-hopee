@@ -1,12 +1,13 @@
 /**
  * GoPlayView — Main game layout: board + panels + controls.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Stack, Typography, Button, IconButton, Tooltip, useTheme, useMediaQuery } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
 import { useLanguage } from '../../../i18n';
+import { useMainLayout } from '../../MainLayout/MainLayoutContext';
 import { useGo } from '../GoContext';
 import GoBoard from '../GoBoard';
 import GoPlayerPanel from './GoPlayerPanel';
@@ -33,10 +34,17 @@ const GoPlayView: React.FC = () => {
   } = useGo();
 
   const { t } = useLanguage();
+  const { setFullscreen } = useMainLayout();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [showHelp, setShowHelp] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Hide main sidebar for immersive game view
+  useEffect(() => {
+    setFullscreen(true);
+    return () => { setFullscreen(false); };
+  }, [setFullscreen]);
 
   const {
     board,
@@ -254,7 +262,7 @@ const GoPlayView: React.FC = () => {
         </Box>
 
         {/* Center: board */}
-        <Box sx={{ flex: '0 1 auto', maxWidth: 560 }}>
+        <Box sx={{ flex: '1 1 auto', maxWidth: 700, minWidth: 0 }}>
           {TurnIndicator}
           {BoardComponent}
         </Box>
