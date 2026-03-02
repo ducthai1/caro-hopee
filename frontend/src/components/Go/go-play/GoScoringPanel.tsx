@@ -16,7 +16,7 @@ interface GoScoringPanelProps {
   onReject: () => void;
 }
 
-const GoScoringPanel: React.FC<GoScoringPanelProps> = ({
+const GoScoringPanel: React.FC<GoScoringPanelProps> = React.memo(({
   score,
   players,
   mySlot,
@@ -117,6 +117,8 @@ const GoScoringPanel: React.FC<GoScoringPanelProps> = ({
       </Stack>
     </Paper>
   );
-};
+});
+
+GoScoringPanel.displayName = 'GoScoringPanel';
 
 export default GoScoringPanel;

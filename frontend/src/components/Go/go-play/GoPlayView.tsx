@@ -1,14 +1,17 @@
 /**
  * GoPlayView — Main game layout: board + panels + controls.
  */
-import React from 'react';
-import { Box, Stack, Typography, useTheme, useMediaQuery } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Stack, Typography, IconButton, Tooltip, useTheme, useMediaQuery } from '@mui/material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import { useLanguage } from '../../../i18n';
 import { useGo } from '../GoContext';
 import GoBoard from '../GoBoard';
 import GoPlayerPanel from './GoPlayerPanel';
 import GoControls from './GoControls';
 import GoScoringPanel from './GoScoringPanel';
 import GoWinnerModal from './GoWinnerModal';
+import GoHelpDialog from './GoHelpDialog';
 
 const GoPlayView: React.FC = () => {
   const {
@@ -27,8 +30,10 @@ const GoPlayView: React.FC = () => {
     newGame,
   } = useGo();
 
+  const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [showHelp, setShowHelp] = useState(false);
 
   const {
     board,
@@ -69,6 +74,16 @@ const GoPlayView: React.FC = () => {
 
   const player1 = sortedPlayers[0] ?? null;
   const player2 = sortedPlayers[1] ?? null;
+
+  const HelpButton = (
+    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Tooltip title={t('go.help.title' as any)}>
+        <IconButton onClick={() => setShowHelp(true)} size="small" sx={{ color: '#2c3e50' }}>
+          <MenuBookIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
 
   const BoardComponent = (
     <GoBoard
@@ -147,6 +162,8 @@ const GoPlayView: React.FC = () => {
             />
           )}
 
+          {HelpButton}
+
           {/* My panel */}
           {player1 && (
             <GoPlayerPanel
@@ -170,6 +187,7 @@ const GoPlayView: React.FC = () => {
           onLeave={leaveRoom}
           onDismiss={dismissResult}
         />
+        <GoHelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
       </Box>
     );
   }
@@ -220,6 +238,7 @@ const GoPlayView: React.FC = () => {
                 onReject={rejectScoring}
               />
             )}
+            {HelpButton}
           </Stack>
         </Box>
 
@@ -254,6 +273,7 @@ const GoPlayView: React.FC = () => {
         onLeave={leaveRoom}
         onDismiss={dismissResult}
       />
+      <GoHelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
     </Box>
   );
 };

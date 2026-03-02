@@ -2,12 +2,13 @@
  * GoWaitingRoom - View after creating/joining a Go room.
  * Shows room code, settings summary, player slots, and host controls.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Button, Paper, IconButton, Chip, Stack, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, Tooltip,
   CircularProgress, FormControl, Select, MenuItem, TextField,
   ToggleButtonGroup, ToggleButton, Collapse, SelectChangeEvent,
+  InputAdornment,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -15,15 +16,19 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import PersonIcon from '@mui/icons-material/Person';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import SettingsIcon from '@mui/icons-material/Settings';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CloseIcon from '@mui/icons-material/Close';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import TimerIcon from '@mui/icons-material/Timer';
 import TimerOffIcon from '@mui/icons-material/TimerOff';
+import SendIcon from '@mui/icons-material/Send';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { useLanguage } from '../../../i18n';
 import { useToast } from '../../../contexts/ToastContext';
 import { useGo } from '../GoContext';
 import { GoRules, GoBoardSize, DEFAULT_RULES } from '../go-types';
 import ConfirmDialog from '../../ConfirmDialog/ConfirmDialog';
+import GoHelpDialog from '../go-play/GoHelpDialog';
 
 const GO_ACCENT = '#2c3e50';
 const GO_ACCENT2 = '#34495e';
@@ -46,11 +51,14 @@ function formatTimer(rules: GoRules): string {
 export const GoWaitingRoom: React.FC = () => {
   const { t } = useLanguage();
   const toast = useToast();
-  const { state, startGame, leaveRoom, updateSettings } = useGo();
+  const { state, startGame, leaveRoom, updateSettings, sendChat } = useGo();
 
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Edit settings state
   const [editBoardSize, setEditBoardSize] = useState<GoBoardSize>(state.rules?.boardSize ?? DEFAULT_RULES.boardSize);
@@ -89,14 +97,31 @@ export const GoWaitingRoom: React.FC = () => {
     }
   };
 
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  }, [state.chatMessages.length]);
+
+  const handleSendChat = () => {
+    const msg = chatInput.trim();
+    if (!msg) return;
+    sendChat(msg);
+    setChatInput('');
+  };
+
   const canStart = state.isHost && state.players.length >= 2 && !isStarting;
+
+  const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => { if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current); };
+  }, []);
 
   const handleStartGame = () => {
     if (isStarting) return;
     setIsStarting(true);
     startGame();
-    // Reset on component unmount (view change) — timeout fallback
-    setTimeout(() => setIsStarting(false), 5000);
+    if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    startTimeoutRef.current = setTimeout(() => setIsStarting(false), 5000);
   };
 
   const rules = state.rules;
@@ -123,16 +148,21 @@ export const GoWaitingRoom: React.FC = () => {
           position: 'relative',
         }}
       >
-        {/* Settings button for host */}
-        {state.isHost && (
-          <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+        {/* Top-right icons: help (all) + settings (host only) */}
+        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.25 }}>
+          <Tooltip title={t('go.help.title' as any)}>
+            <IconButton onClick={() => setShowHelp(true)} size="small" sx={{ color: GO_ACCENT }}>
+              <MenuBookIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+          {state.isHost && (
             <Tooltip title={t('go.settings')}>
               <IconButton onClick={openSettings} size="small" sx={{ color: GO_ACCENT }}>
                 <SettingsIcon sx={{ fontSize: 20 }} />
               </IconButton>
             </Tooltip>
-          </Box>
-        )}
+          )}
+        </Box>
 
         {/* Room Code */}
         <Box sx={{ textAlign: 'center', mb: 2.5 }}>
@@ -316,6 +346,60 @@ export const GoWaitingRoom: React.FC = () => {
         </Button>
       </Box>
 
+      {/* Chat Panel */}
+      <Paper elevation={1} sx={{ mt: 3, borderRadius: 3, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1, bgcolor: 'rgba(44, 62, 80, 0.06)', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ChatBubbleOutlineIcon sx={{ fontSize: 16, color: GO_ACCENT }} />
+          <Typography variant="caption" sx={{ fontWeight: 700, color: GO_ACCENT }}>
+            Chat
+          </Typography>
+        </Box>
+        <Box
+          ref={chatScrollRef}
+          sx={{
+            height: 140, overflowY: 'auto', px: 2, py: 1,
+            display: 'flex', flexDirection: 'column', gap: 0.5,
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.12)', borderRadius: 2 },
+          }}
+        >
+          {state.chatMessages.length === 0 ? (
+            <Typography variant="caption" sx={{ color: 'text.disabled', textAlign: 'center', mt: 3 }}>
+              {t('go.noChatMessages' as any) || 'No messages yet'}
+            </Typography>
+          ) : (
+            state.chatMessages.map((msg, i) => (
+              <Box key={i} sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: msg.slot === 1 ? '#1a1a1a' : '#7f8c8d', flexShrink: 0 }}>
+                  {msg.username}:
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.primary', wordBreak: 'break-word' }}>
+                  {msg.message}
+                </Typography>
+              </Box>
+            ))
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5, p: 1, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <TextField
+            size="small"
+            fullWidth
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value.slice(0, 200))}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+            placeholder={t('go.chatPlaceholder' as any) || 'Type a message...'}
+            autoComplete="off"
+            sx={{
+              '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.8rem' },
+              '& .MuiOutlinedInput-input': { py: 0.75 },
+            }}
+          />
+          <IconButton size="small" onClick={handleSendChat} disabled={!chatInput.trim()} sx={{ color: GO_ACCENT }}>
+            <SendIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Paper>
+
       {/* Leave Confirm */}
       <ConfirmDialog
         open={showLeaveConfirm}
@@ -326,6 +410,9 @@ export const GoWaitingRoom: React.FC = () => {
         onConfirm={() => { setShowLeaveConfirm(false); leaveRoom(); }}
         onCancel={() => setShowLeaveConfirm(false)}
       />
+
+      {/* Help Dialog */}
+      <GoHelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
 
       {/* Edit Settings Dialog (host only) */}
       <Dialog

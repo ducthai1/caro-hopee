@@ -207,10 +207,77 @@ export function drawCoordinateLabels(ctx: CanvasRenderingContext2D, config: Rend
   ctx.restore();
 }
 
+// ─── Stone Sprite Cache ──────────────────────────────────────
+// Pre-render black & white stones to offscreen canvases keyed by cellSize.
+// Avoids creating 361 radial gradients per frame on 19×19 boards.
+
+let cachedCellSize = 0;
+let blackSpriteCanvas: OffscreenCanvas | HTMLCanvasElement | null = null;
+let whiteSpriteCanvas: OffscreenCanvas | HTMLCanvasElement | null = null;
+
+function createSpriteCanvas(size: number): OffscreenCanvas | HTMLCanvasElement {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(size, size);
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  return c;
+}
+
+function buildStoneSpriteCache(cellSize: number): void {
+  if (cellSize === cachedCellSize && blackSpriteCanvas) return;
+  cachedCellSize = cellSize;
+
+  const r = cellSize * STONE_RADIUS_RATIO;
+  const spriteSize = Math.ceil((r * 2) + (r * 0.6) + 4);
+  const cx = spriteSize / 2;
+  const cy = spriteSize / 2;
+
+  // Black stone sprite
+  blackSpriteCanvas = createSpriteCanvas(spriteSize);
+  const bCtx = blackSpriteCanvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+  if (bCtx) {
+    bCtx.shadowColor = 'rgba(0,0,0,0.4)';
+    bCtx.shadowBlur = r * 0.4;
+    bCtx.shadowOffsetX = r * 0.15;
+    bCtx.shadowOffsetY = r * 0.2;
+    const grad = bCtx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, r * 0.05, cx, cy, r);
+    grad.addColorStop(0, BOARD_COLORS.blackStoneHighlight);
+    grad.addColorStop(1, BOARD_COLORS.blackStone);
+    bCtx.fillStyle = grad;
+    bCtx.beginPath();
+    bCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    bCtx.fill();
+  }
+
+  // White stone sprite
+  whiteSpriteCanvas = createSpriteCanvas(spriteSize);
+  const wCtx = whiteSpriteCanvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+  if (wCtx) {
+    wCtx.shadowColor = 'rgba(0,0,0,0.4)';
+    wCtx.shadowBlur = r * 0.4;
+    wCtx.shadowOffsetX = r * 0.15;
+    wCtx.shadowOffsetY = r * 0.2;
+    const grad = wCtx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.05, cx, cy, r);
+    grad.addColorStop(0, BOARD_COLORS.whiteStoneHighlight);
+    grad.addColorStop(1, BOARD_COLORS.whiteStone);
+    wCtx.fillStyle = grad;
+    wCtx.beginPath();
+    wCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    wCtx.fill();
+    wCtx.shadowColor = 'transparent';
+    wCtx.shadowBlur = 0;
+    wCtx.shadowOffsetX = 0;
+    wCtx.shadowOffsetY = 0;
+    wCtx.strokeStyle = BOARD_COLORS.whiteStoneBorder;
+    wCtx.lineWidth = Math.max(0.5, r * 0.06);
+    wCtx.stroke();
+  }
+}
+
 // ─── Stone Drawing ───────────────────────────────────────────
 
 /**
- * Draw a single stone with 3D radial gradient effect.
+ * Draw a single stone using cached sprite (drawImage) — O(1) vs O(N) gradient cost.
  * color: 1 = black, 2 = white
  */
 export function drawStone(
@@ -220,54 +287,13 @@ export function drawStone(
   color: 1 | 2,
   config: RenderConfig,
 ): void {
-  const { cellSize } = config;
+  buildStoneSpriteCache(config.cellSize);
+  const sprite = color === 1 ? blackSpriteCanvas : whiteSpriteCanvas;
+  if (!sprite) return;
+
   const { x, y } = intersectionToPixel(row, col, config);
-  const r = cellSize * STONE_RADIUS_RATIO;
-
-  ctx.save();
-
-  // Drop shadow
-  ctx.shadowColor = 'rgba(0,0,0,0.4)';
-  ctx.shadowBlur = r * 0.4;
-  ctx.shadowOffsetX = r * 0.15;
-  ctx.shadowOffsetY = r * 0.2;
-
-  if (color === 1) {
-    // Black stone: radial gradient from dark gray highlight to near-black edge
-    const grad = ctx.createRadialGradient(
-      x - r * 0.25, y - r * 0.25, r * 0.05,
-      x, y, r,
-    );
-    grad.addColorStop(0, BOARD_COLORS.blackStoneHighlight);
-    grad.addColorStop(1, BOARD_COLORS.blackStone);
-    ctx.fillStyle = grad;
-  } else {
-    // White stone: radial gradient from white center to light gray edge
-    const grad = ctx.createRadialGradient(
-      x - r * 0.2, y - r * 0.2, r * 0.05,
-      x, y, r,
-    );
-    grad.addColorStop(0, BOARD_COLORS.whiteStoneHighlight);
-    grad.addColorStop(1, BOARD_COLORS.whiteStone);
-    ctx.fillStyle = grad;
-  }
-
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (color === 2) {
-    // White stone border
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = BOARD_COLORS.whiteStoneBorder;
-    ctx.lineWidth = Math.max(0.5, r * 0.06);
-    ctx.stroke();
-  }
-
-  ctx.restore();
+  const half = sprite.width / 2;
+  ctx.drawImage(sprite as any, x - half, y - half);
 }
 
 /**
@@ -279,12 +305,18 @@ export function drawAllStones(
   board: number[][],
   config: RenderConfig,
 ): void {
-  const { boardSize } = config;
+  const { boardSize, cellSize } = config;
+  buildStoneSpriteCache(cellSize);
+
   for (let row = 0; row < boardSize; row++) {
     for (let col = 0; col < boardSize; col++) {
       const cell = board[row]?.[col];
       if (cell === 1 || cell === 2) {
-        drawStone(ctx, row, col, cell, config);
+        const sprite = cell === 1 ? blackSpriteCanvas : whiteSpriteCanvas;
+        if (!sprite) continue;
+        const { x, y } = intersectionToPixel(row, col, config);
+        const half = sprite.width / 2;
+        ctx.drawImage(sprite as any, x - half, y - half);
       }
     }
   }

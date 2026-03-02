@@ -24,7 +24,7 @@ interface GoControlsProps {
   onRejectUndo: () => void;
 }
 
-const GoControls: React.FC<GoControlsProps> = ({
+const GoControls: React.FC<GoControlsProps> = React.memo(({
   isMyTurn,
   phase,
   moveCount,
@@ -138,6 +138,8 @@ const GoControls: React.FC<GoControlsProps> = ({
       </Stack>
     </Stack>
   );
-};
+});
+
+GoControls.displayName = 'GoControls';
 
 export default GoControls;

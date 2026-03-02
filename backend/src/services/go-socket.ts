@@ -103,7 +103,21 @@ function startMoveTimer(io: SocketIOServer, roomId: string, game: IGoGame): void
         return;
       }
 
-      await freshGame.save();
+      // Lightweight timer update — only write the player timer fields, not full document
+      const playerIdx = freshGame.players.findIndex(
+        p => p.color === freshGame.currentColor
+      );
+      if (playerIdx >= 0) {
+        await GoGame.updateOne(
+          { roomId },
+          {
+            $set: {
+              [`players.${playerIdx}.mainTimeLeft`]: currentPlayer.mainTimeLeft,
+              [`players.${playerIdx}.byoyomiPeriodsLeft`]: currentPlayer.byoyomiPeriodsLeft,
+            },
+          },
+        );
+      }
 
       tickCount += 1;
       if (tickCount % TIMER_EMIT_INTERVAL === 0) {
@@ -669,9 +683,13 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
           return callback({ success: false, error: 'GO_INVALID_DATA' });
         }
 
+        const playerId = getPlayerId(socket);
         const game = await GoGame.findOne({ roomId });
         if (!game) return callback({ success: false, error: 'GO_ROOM_NOT_FOUND' });
         if (game.phase !== 'scoring') return callback({ success: false, error: 'GO_NOT_SCORING' });
+        if (!playerId || !findPlayerInGame(game, playerId)) {
+          return callback({ success: false, error: 'GO_NOT_IN_GAME' });
+        }
 
         const newDeadStones = toggleDeadStoneGroup(game.board, game.deadStones, row, col);
         const territory = calculateTerritory(game.board, newDeadStones);
@@ -770,8 +788,12 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
         const { roomId } = data || {};
         if (!roomId) return callback({ success: false, error: 'GO_NO_ROOM_ID' });
 
+        const playerId = getPlayerId(socket);
         const game = await GoGame.findOne({ roomId });
         if (!game) return callback({ success: false, error: 'GO_ROOM_NOT_FOUND' });
+        if (!playerId || !findPlayerInGame(game, playerId)) {
+          return callback({ success: false, error: 'GO_NOT_IN_GAME' });
+        }
 
         game.phase = 'play';
         game.gameStatus = 'playing';
@@ -884,8 +906,12 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
         const { roomId } = data || {};
         if (!roomId) return callback({ success: false, error: 'GO_NO_ROOM_ID' });
 
+        const playerId = getPlayerId(socket);
         const game = await GoGame.findOne({ roomId });
         if (!game) return callback({ success: false, error: 'GO_ROOM_NOT_FOUND' });
+        if (!playerId || !findPlayerInGame(game, playerId)) {
+          return callback({ success: false, error: 'GO_NOT_IN_GAME' });
+        }
         if (game.moveHistory.length === 0) return callback({ success: false, error: 'GO_NO_MOVES' });
 
         // Pop last move
@@ -1067,7 +1093,12 @@ export function setupGoSocketHandlers(io: SocketIOServer): void {
 
         const game = await GoGame.findOne({ roomId });
         if (!game) return;
-        if (game.gameStatus === 'finished' || game.gameStatus === 'abandoned') return;
+
+        // Clean up socket tracking for finished/abandoned games (prevents stale map entries)
+        if (game.gameStatus === 'finished' || game.gameStatus === 'abandoned') {
+          if (playerId) activePlayerSockets.delete(`${roomId}:${playerId}`);
+          return;
+        }
 
         const player = game.players.find(p => p.slot === slot);
         if (!player) return;

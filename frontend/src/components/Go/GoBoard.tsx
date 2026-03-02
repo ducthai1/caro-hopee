@@ -24,7 +24,7 @@ interface GoBoardProps {
   onToggleDead: (row: number, col: number) => void;
 }
 
-const GoBoard: React.FC<GoBoardProps> = ({
+const GoBoard: React.FC<GoBoardProps> = React.memo(({
   board,
   boardSize,
   lastMove,
@@ -72,6 +72,7 @@ const GoBoard: React.FC<GoBoardProps> = ({
     ctx.scale(dpr, dpr);
 
     const config = computeRenderConfig(displayW, displayH, boardSize, dpr);
+    configRef.current = config; // cache for mousemove/click hit testing
 
     // Build lastMove render param
     let lastMoveParam: { row: number; col: number; color: 1 | 2 } | null = null;
@@ -107,6 +108,7 @@ const GoBoard: React.FC<GoBoardProps> = ({
 
     let rafId = 0;
     const observer = new ResizeObserver(() => {
+      configRef.current = null; // invalidate cached config on resize
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(draw);
     });
@@ -124,18 +126,21 @@ const GoBoard: React.FC<GoBoardProps> = ({
     return () => cancelAnimationFrame(rafId);
   }, [draw]);
 
-  // Pixel → board intersection helper
+  // Cache RenderConfig in a ref — only recompute on resize, not every mousemove
+  const configRef = useRef<ReturnType<typeof computeRenderConfig> | null>(null);
+
+  // Pixel → board intersection helper (uses cached config)
   const getIntersection = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const displayW = canvas.offsetWidth;
-    const displayH = canvas.offsetHeight;
-    const config = computeRenderConfig(displayW, displayH, boardSize, dpr);
+    if (!configRef.current) {
+      const dpr = window.devicePixelRatio || 1;
+      configRef.current = computeRenderConfig(canvas.offsetWidth, canvas.offsetHeight, boardSize, dpr);
+    }
     const px = clientX - rect.left;
     const py = clientY - rect.top;
-    return pixelToIntersection(px, py, config, boardSize);
+    return pixelToIntersection(px, py, configRef.current, boardSize);
   }, [boardSize]);
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -224,6 +229,8 @@ const GoBoard: React.FC<GoBoardProps> = ({
       />
     </Box>
   );
-};
+});
+
+GoBoard.displayName = 'GoBoard';
 
 export default GoBoard;

@@ -1493,6 +1493,45 @@
     "winByResign": "do đầu hàng",
     "winByTimeout": "do hết giờ",
     "undoPending": "Đang chờ phê duyệt hoàn tác...",
-    "undoWaiting": "Đối thủ yêu cầu hoàn tác"
+    "undoWaiting": "Đối thủ yêu cầu hoàn tác",
+    "help": {
+      "title": "Hướng dẫn luật Cờ Vây",
+      "basics": {
+        "title": "Luật cơ bản",
+        "content": "Cờ Vây được chơi trên lưới (9×9, 13×13 hoặc 19×19). Hai người chơi luân phiên đặt quân đen và trắng lên các giao điểm.\n\nĐen đi trước (trừ khi có chấp quân). Quân cờ khi đã đặt sẽ không di chuyển.\n\nMục tiêu là bao vây nhiều lãnh thổ (giao điểm trống) hơn đối thủ đồng thời bắt quân của họ."
+      },
+      "capturing": {
+        "title": "Bắt quân",
+        "content": "Mỗi quân hoặc nhóm quân cùng màu liền kề có \"khí\" — các giao điểm trống liền kề.\n\nKhi khí cuối cùng của một nhóm bị đối thủ lấp đầy, toàn bộ nhóm bị bắt và loại khỏi bàn cờ.\n\nQuân bị bắt được tính vào điểm của đối thủ."
+      },
+      "ko": {
+        "title": "Luật Ko",
+        "content": "Luật Ko ngăn chặn vòng lặp vô hạn. Bạn không được đi nước cờ khiến bàn cờ trở lại trạng thái giống hệt lượt trước của bạn.\n\nNếu một nước bắt tạo ra tình huống như vậy, bạn phải đi nơi khác trước rồi mới được bắt lại."
+      },
+      "suicide": {
+        "title": "Luật tự sát",
+        "content": "Nước đi khiến quân hoặc nhóm quân của bạn không còn khí (tự bắt) là không hợp lệ — trừ khi nước đó đồng thời bắt được quân đối thủ.\n\nNếu đặt quân lấp đầy khí cuối cùng của nhóm đối thủ, việc bắt xảy ra trước nên nước đi hợp lệ."
+      },
+      "komi": {
+        "title": "Komi (Bù điểm)",
+        "content": "Vì Đen đi trước có lợi thế, Trắng được cộng thêm điểm bù gọi là Komi.\n\nKomi mặc định là 6.5 điểm. Nửa điểm đảm bảo không có kết quả hòa.\n\nChủ phòng có thể điều chỉnh Komi trong cài đặt trước khi bắt đầu ván."
+      },
+      "handicap": {
+        "title": "Chấp quân",
+        "content": "Chấp quân giúp cân bằng ván đấu giữa người chơi có trình độ khác nhau.\n\nĐen đặt 2–9 quân lên các điểm sao định trước khi ván bắt đầu. Sau đó Trắng đi trước.\n\nKhi có chấp quân, Komi thường được đặt là 0.5."
+      },
+      "byoyomi": {
+        "title": "Đồng hồ Byoyomi",
+        "content": "Mỗi người chơi có thời gian chính. Khi hết thời gian chính, byoyomi (thời gian phụ) bắt đầu.\n\nTrong byoyomi, bạn có một số chu kỳ (ví dụ 3 × 30 giây). Mỗi chu kỳ được đặt lại nếu bạn đi kịp thời.\n\nMất hết chu kỳ byoyomi nghĩa là thua do hết giờ. Nếu không đặt đồng hồ, ván đấu không giới hạn thời gian."
+      },
+      "scoring": {
+        "title": "Tính điểm (Luật Trung Quốc)",
+        "content": "Ứng dụng sử dụng luật Trung Quốc. Khi cả hai người chơi bỏ lượt liên tiếp, giai đoạn tính điểm bắt đầu.\n\nĐiểm của bạn = quân trên bàn + giao điểm trống được bao vây bởi quân của bạn.\n\nTrong giai đoạn tính điểm, nhấn vào nhóm quân chết để đánh dấu. Cả hai người chơi phải đồng ý về quân chết. Nếu không đồng ý, nhấn \"Tiếp tục chơi\" để tiếp tục."
+      },
+      "controls": {
+        "title": "Điều khiển",
+        "content": "Bỏ lượt — Bỏ qua lượt của bạn. Hai lần bỏ lượt liên tiếp kết thúc ván và bắt đầu tính điểm.\n\nĐầu hàng — Chấp nhận thua. Đối thủ thắng ngay lập tức.\n\nHoàn tác — Yêu cầu đi lại nước vừa rồi. Đối thủ phải chấp nhận yêu cầu."
+      }
+    }
   }
 }

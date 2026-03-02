@@ -25,7 +25,7 @@ function formatMM_SS(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
 }
 
-const GoTimerDisplay: React.FC<GoTimerDisplayProps> = ({
+const GoTimerDisplay: React.FC<GoTimerDisplayProps> = React.memo(({
   mainTimeLeft,
   byoyomiPeriodsLeft,
   byoyomiTime,
@@ -75,6 +75,8 @@ const GoTimerDisplay: React.FC<GoTimerDisplayProps> = ({
       )}
     </Box>
   );
-};
+});
+
+GoTimerDisplay.displayName = 'GoTimerDisplay';
 
 export default GoTimerDisplay;

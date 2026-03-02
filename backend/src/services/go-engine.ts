@@ -61,7 +61,8 @@ export function getAdjacentPositions(
   return result;
 }
 
-/** BFS flood fill — find entire connected group + its liberties */
+/** BFS flood fill — find entire connected group + its liberties.
+ *  Uses index pointer instead of queue.shift() for O(n) BFS. */
 export function getGroup(board: number[][], row: number, col: number): StoneGroup {
   const size = board.length;
   const color = board[row][col] as GoCell;
@@ -69,9 +70,10 @@ export function getGroup(board: number[][], row: number, col: number): StoneGrou
   const liberties = new Set<string>();
   const visited = new Set<string>();
   const queue: { row: number; col: number }[] = [{ row, col }];
+  let head = 0;
 
-  while (queue.length > 0) {
-    const { row: r, col: c } = queue.shift()!;
+  while (head < queue.length) {
+    const { row: r, col: c } = queue[head++];
     const k = key(r, c);
     if (visited.has(k)) continue;
     visited.add(k);
@@ -186,8 +188,9 @@ export function validateMove(
 // ─── Move Application ───────────────────────────────────────────
 
 /**
- * Apply a validated move to the game (mutates game object).
- * Caller should call validateMove first and check valid === true.
+ * Apply a move to the game (mutates game object).
+ * Validates directly on the real board to avoid double BFS/clone.
+ * Only clones board for superko check if needed.
  */
 export function applyMove(
   game: IGoGame,
@@ -195,30 +198,67 @@ export function applyMove(
   col: number,
   color: GoColor
 ): MoveResult {
-  const validation = validateMove(game, row, col, color);
-  if (!validation.valid) return validation;
+  const board = game.board;
+  const size = board.length;
+
+  // Bounds check
+  if (row < 0 || row >= size || col < 0 || col >= size) {
+    return { valid: false, error: 'GO_OUT_OF_BOUNDS' };
+  }
+  if (board[row][col] !== 0) {
+    return { valid: false, error: 'GO_CELL_OCCUPIED' };
+  }
+  if (game.currentColor !== color) {
+    return { valid: false, error: 'GO_NOT_YOUR_TURN' };
+  }
+  if (game.koPoint && game.koPoint.row === row && game.koPoint.col === col) {
+    return { valid: false, error: 'GO_KO_VIOLATION' };
+  }
 
   const cellColor: GoCell = color === 'black' ? 1 : 2;
   const oppColor: GoCell = color === 'black' ? 2 : 1;
-  const size = game.board.length;
 
   // Place stone
-  game.board[row][col] = cellColor;
+  board[row][col] = cellColor;
 
   // Remove captured opponent groups
   const captured: { row: number; col: number }[] = [];
   for (const adj of getAdjacentPositions(row, col, size)) {
-    if (game.board[adj.row][adj.col] === oppColor) {
-      const group = getGroup(game.board, adj.row, adj.col);
+    if (board[adj.row][adj.col] === oppColor) {
+      const group = getGroup(board, adj.row, adj.col);
       if (group.liberties.size === 0) {
         for (const s of group.stones) {
           const pos = parseKey(s);
-          game.board[pos.row][pos.col] = 0;
+          board[pos.row][pos.col] = 0;
           captured.push(pos);
         }
       }
     }
   }
+
+  // Suicide check — own group must have ≥1 liberty after captures
+  const ownGroup = getGroup(board, row, col);
+  if (ownGroup.liberties.size === 0) {
+    // Revert: remove placed stone, restore captured stones
+    board[row][col] = 0;
+    for (const pos of captured) {
+      board[pos.row][pos.col] = oppColor;
+    }
+    return { valid: false, error: 'GO_SUICIDE' };
+  }
+
+  // Superko check — board hash must not have appeared before
+  const boardHash = hashBoard(board);
+  if (game.boardHistory.includes(boardHash)) {
+    // Revert
+    board[row][col] = 0;
+    for (const pos of captured) {
+      board[pos.row][pos.col] = oppColor;
+    }
+    return { valid: false, error: 'GO_SUPERKO_VIOLATION' };
+  }
+
+  // --- Move is valid, commit state changes ---
 
   // Update captures for the moving player
   const player = game.players.find(p => p.color === color);
@@ -227,13 +267,14 @@ export function applyMove(
   }
 
   // Ko point update
-  const ownGroup = getGroup(game.board, row, col);
   game.koPoint =
     captured.length === 1 && ownGroup.stones.size === 1 ? captured[0] : null;
 
-  // Record board hash for superko
-  const boardHash = hashBoard(game.board);
+  // Record board hash for superko (cap at 600 to prevent unbounded growth)
   game.boardHistory.push(boardHash);
+  if (game.boardHistory.length > 600) {
+    game.boardHistory = game.boardHistory.slice(-600) as any;
+  }
 
   // Move history entry
   game.moveCount += 1;
@@ -343,20 +384,23 @@ export function initBoardWithHandicap(
 
 /**
  * BFS flood fill on empty cells to determine territory ownership.
- * Removes dead stones from a board copy before calculating.
+ * Accepts an optional pre-built workBoard to avoid redundant cloning when
+ * called from calculateScore (which already has a dead-stone-cleaned copy).
  */
 export function calculateTerritory(
   board: number[][],
-  deadStones: string[]
+  deadStones: string[],
+  preBuiltWorkBoard?: number[][],
 ): { black: string[]; white: string[]; neutral: string[] } {
   const size = board.length;
-  const workBoard = cloneBoard(board);
-
-  // Remove dead stones
-  for (const k of deadStones) {
-    const { row, col } = parseKey(k);
-    workBoard[row][col] = 0;
-  }
+  const workBoard = preBuiltWorkBoard ?? (() => {
+    const wb = cloneBoard(board);
+    for (const k of deadStones) {
+      const { row, col } = parseKey(k);
+      wb[row][col] = 0;
+    }
+    return wb;
+  })();
 
   const visited = new Set<string>();
   const black: string[] = [];
@@ -368,14 +412,15 @@ export function calculateTerritory(
       const k = key(r, c);
       if (workBoard[r][c] !== 0 || visited.has(k)) continue;
 
-      // BFS to find connected empty region
+      // BFS to find connected empty region (index-pointer BFS)
       const region: string[] = [];
       const queue = [{ row: r, col: c }];
+      let head = 0;
       let touchesBlack = false;
       let touchesWhite = false;
 
-      while (queue.length > 0) {
-        const { row: qr, col: qc } = queue.shift()!;
+      while (head < queue.length) {
+        const { row: qr, col: qc } = queue[head++];
         const qk = key(qr, qc);
         if (visited.has(qk)) continue;
         visited.add(qk);
@@ -439,7 +484,8 @@ export function calculateScore(
     }
   }
 
-  const { black: blackTerr, white: whiteTerr } = calculateTerritory(board, deadStones);
+  // Reuse workBoard to avoid double-clone in calculateTerritory
+  const { black: blackTerr, white: whiteTerr } = calculateTerritory(board, deadStones, workBoard);
 
   // Chinese scoring: stones + territory
   const blackTotal = blackStones + blackTerr.length;
@@ -539,20 +585,19 @@ export function toggleDeadStoneGroup(
 
 // ─── Room Code Generator ────────────────────────────────────────
 
-/** Generate unique 6-char room code for Go games */
+/** Generate unique 6-char room code for Go games (max 50 retries) */
 export async function generateGoRoomCode(): Promise<string> {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code: string;
-  let isUnique = false;
+  const MAX_RETRIES = 50;
 
-  while (!isUnique) {
-    code = '';
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let code = '';
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     const existing = await GoGame.findOne({ roomCode: code });
-    if (!existing) isUnique = true;
+    if (!existing) return code;
   }
 
-  return code!;
+  throw new Error('GO_ROOM_CODE_GENERATION_FAILED');
 }

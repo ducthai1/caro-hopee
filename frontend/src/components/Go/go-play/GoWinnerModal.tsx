@@ -30,7 +30,7 @@ interface GoWinnerModalProps {
   onDismiss: () => void;
 }
 
-const GoWinnerModal: React.FC<GoWinnerModalProps> = ({
+const GoWinnerModal: React.FC<GoWinnerModalProps> = React.memo(({
   open,
   winner,
   winReason,
@@ -148,6 +148,8 @@ const GoWinnerModal: React.FC<GoWinnerModalProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
+});
+
+GoWinnerModal.displayName = 'GoWinnerModal';
 
 export default GoWinnerModal;

@@ -1493,6 +1493,45 @@
     "winByResign": "by resignation",
     "winByTimeout": "by timeout",
     "undoPending": "Undo request pending...",
-    "undoWaiting": "Opponent requests undo"
+    "undoWaiting": "Opponent requests undo",
+    "help": {
+      "title": "Go Rules Guide",
+      "basics": {
+        "title": "Basic Rules",
+        "content": "Go is played on a grid (9×9, 13×13, or 19×19). Two players alternate placing black and white stones on intersections.\n\nBlack plays first (unless handicap stones are used). Once placed, stones do not move.\n\nThe goal is to surround more territory (empty intersections) than your opponent while capturing their stones."
+      },
+      "capturing": {
+        "title": "Capturing Stones",
+        "content": "Every stone or connected group of same-color stones has \"liberties\" — empty adjacent intersections.\n\nWhen a group's last liberty is filled by the opponent, the entire group is captured and removed from the board.\n\nCaptured stones count toward your opponent's score."
+      },
+      "ko": {
+        "title": "Ko Rule",
+        "content": "The Ko rule prevents infinite loops. You cannot make a move that would return the board to the exact same position as your previous turn.\n\nIf a capture creates such a situation, you must play elsewhere first before recapturing."
+      },
+      "suicide": {
+        "title": "Suicide Rule",
+        "content": "A move that would leave your own stone or group with zero liberties (self-capture) is not allowed — unless that move also captures opponent stones.\n\nIf placing a stone fills the last liberty of an opposing group, the capture happens first, so the move is legal."
+      },
+      "komi": {
+        "title": "Komi (Compensation)",
+        "content": "Since Black moves first and has an advantage, White receives bonus points called Komi.\n\nThe default Komi is 6.5 points. The half-point ensures there are no ties.\n\nThe host can adjust Komi in room settings before the game starts."
+      },
+      "handicap": {
+        "title": "Handicap Stones",
+        "content": "Handicap stones help balance games between players of different skill levels.\n\nBlack places 2–9 stones on predetermined star points before the game begins. White then plays first.\n\nWhen handicap stones are used, Komi is typically set to 0.5."
+      },
+      "byoyomi": {
+        "title": "Byoyomi Timer",
+        "content": "Each player has a main time. After main time runs out, byoyomi (overtime) begins.\n\nIn byoyomi, you get a set number of periods (e.g. 3 × 30s). Each period resets if you move in time.\n\nLosing all byoyomi periods means you lose on time. If no timer is set, the game is untimed."
+      },
+      "scoring": {
+        "title": "Scoring (Chinese Rules)",
+        "content": "This app uses Chinese scoring. When both players pass consecutively, the scoring phase begins.\n\nYour score = your stones on the board + empty intersections surrounded by your stones.\n\nDuring scoring, click on dead stone groups to mark them. Both players must agree on which stones are dead. If you disagree, click \"Resume Play\" to continue."
+      },
+      "controls": {
+        "title": "Game Controls",
+        "content": "Pass — Skip your turn. Two consecutive passes end the game and start scoring.\n\nResign — Forfeit the game. Your opponent wins immediately.\n\nUndo — Request to take back your last move. Your opponent must approve the request."
+      }
+    }
   }
 }

@@ -19,7 +19,7 @@ const glowAnim = keyframes`
   50% { box-shadow: 0 0 14px 4px rgba(255, 220, 50, 0.8); }
 `;
 
-const GoPlayerPanel: React.FC<GoPlayerPanelProps> = ({
+const GoPlayerPanel: React.FC<GoPlayerPanelProps> = React.memo(({
   player,
   isCurrentTurn,
   timerEnabled,
@@ -119,6 +119,8 @@ const GoPlayerPanel: React.FC<GoPlayerPanelProps> = ({
       </Stack>
     </Paper>
   );
-};
+});
+
+GoPlayerPanel.displayName = 'GoPlayerPanel';
 
 export default GoPlayerPanel;

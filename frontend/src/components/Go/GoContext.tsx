@@ -694,18 +694,28 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: code });
     };
 
-    const handleRoomsUpdated = async () => {
+    // Debounced room refresh with AbortController to prevent concurrent overlapping fetches
+    let roomsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let roomsAbortController: AbortController | null = null;
+
+    const handleRoomsUpdated = () => {
       if (stateRef.current.view !== 'lobby') return;
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/go/rooms`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok) {
-          const rooms: GoWaitingRoom[] = await res.json();
-          dispatch({ type: 'SET_ROOMS', payload: rooms });
-        }
-      } catch { /* ignore */ }
+      if (roomsDebounceTimer) clearTimeout(roomsDebounceTimer);
+      roomsDebounceTimer = setTimeout(async () => {
+        roomsAbortController?.abort();
+        roomsAbortController = new AbortController();
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${API_BASE_URL}/go/rooms`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            signal: roomsAbortController.signal,
+          });
+          if (res.ok) {
+            const rooms: GoWaitingRoom[] = await res.json();
+            dispatch({ type: 'SET_ROOMS', payload: rooms });
+          }
+        } catch { /* aborted or network error */ }
+      }, 500);
     };
 
     socket.on('go:joined-room' as any, handleJoinedRoom);
@@ -733,6 +743,8 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     socket.on('go:rooms-updated' as any, handleRoomsUpdated);
 
     return () => {
+      if (roomsDebounceTimer) clearTimeout(roomsDebounceTimer);
+      roomsAbortController?.abort();
       socket.off('go:joined-room' as any, handleJoinedRoom);
       socket.off('go:player-joined' as any, handlePlayerJoined);
       socket.off('go:player-left' as any, handlePlayerLeft);
@@ -776,6 +788,14 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (saved) joinRoom(saved);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthLoading, isConnected, state.roomId]);
+
+  // ─── Cleanup on unmount: sounds + leaveRoom timer ──────────
+  useEffect(() => {
+    return () => {
+      goSounds.dispose();
+      if (leaveRoomTimerRef.current) clearTimeout(leaveRoomTimerRef.current);
+    };
+  }, []);
 
   // ─── Auto-cleanup stale reactions (>5s) ─────────────────────
   useEffect(() => {
@@ -886,12 +906,15 @@ export const GoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     });
   }, [getPlayerId, getPlayerName, isAuthenticated]);
 
+  const leaveRoomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const leaveRoom = useCallback(() => {
     const socket = socketService.getSocket();
     if (!socket || !stateRef.current.roomId) return;
     socket.emit('go:leave-room' as any, { roomId: stateRef.current.roomId });
     dispatch({ type: 'LEAVE_ROOM' });
-    setTimeout(() => refreshRooms(), 300);
+    if (leaveRoomTimerRef.current) clearTimeout(leaveRoomTimerRef.current);
+    leaveRoomTimerRef.current = setTimeout(() => refreshRooms(), 300);
   }, [refreshRooms]);
 
   const startGame = useCallback(() => {
