@@ -862,7 +862,8 @@
     "roomCreated": "Đã tạo phòng!",
     "sessionDeleted": "Đã xóa phiên",
     "gameSessionStarted": "Phiên chơi đã bắt đầu!",
-    "matchSaveFailed": "Lưu trận đấu thất bại! Vui lòng thử lại."
+    "matchSaveFailed": "Lưu trận đấu thất bại! Dữ liệu đã được lưu tạm, sẽ tự đồng bộ khi vào lại.",
+    "matchRecovered": "Đã khôi phục dữ liệu trận đấu từ bản sao lưu!"
   },
   "tinhTuy": {
     "gameName": "Tinh Túy Đại Chiến",

@@ -862,7 +862,8 @@
     "roomCreated": "Room created!",
     "sessionDeleted": "Session deleted",
     "gameSessionStarted": "Game session started!",
-    "matchSaveFailed": "Failed to save match! Please try again."
+    "matchSaveFailed": "Failed to save match! Data saved locally, will sync on next visit.",
+    "matchRecovered": "Match data recovered from local backup!"
   },
   "tinhTuy": {
     "gameName": "Tinh Tuy Board Game",

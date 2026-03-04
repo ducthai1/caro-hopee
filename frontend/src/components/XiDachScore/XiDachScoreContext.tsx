@@ -110,6 +110,33 @@ const apiResponseToSession = (r: XiDachSessionResponse): XiDachSession => ({
 // ============== CONSTANTS ==============
 
 const CURRENT_SESSION_KEY = 'xi-dach-current-session';
+const SESSION_BACKUP_PREFIX = 'xi-dach-backup-'; // localStorage backup key prefix
+
+// ============== LOCAL BACKUP ==============
+// Saves session to localStorage as fallback when server save fails.
+// On next load, compares local backup vs server — pushes local if it has more matches.
+
+const saveLocalBackup = (session: XiDachSession) => {
+  try {
+    if (!session.sessionCode) return;
+    localStorage.setItem(
+      SESSION_BACKUP_PREFIX + session.sessionCode,
+      JSON.stringify({ matches: session.matches, players: session.players, updatedAt: session.updatedAt })
+    );
+  } catch { /* localStorage full or unavailable — ignore */ }
+};
+
+const getLocalBackup = (sessionCode: string): { matches: any[]; players: any[]; updatedAt: string } | null => {
+  try {
+    const raw = localStorage.getItem(SESSION_BACKUP_PREFIX + sessionCode);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+};
+
+const clearLocalBackup = (sessionCode: string) => {
+  try { localStorage.removeItem(SESSION_BACKUP_PREFIX + sessionCode); } catch { /* ignore */ }
+};
 
 // ============== INITIAL STATE ==============
 
@@ -190,6 +217,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const latestSessionRef = useRef<XiDachSession | null>(null);
 
   // Retry wrapper for critical saves — retries on failure with backoff
+  // On success: clears local backup. On total failure: saves to localStorage.
   const saveWithRetry = useCallback(async (
     sessionCode: string,
     data: any,
@@ -205,17 +233,23 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
           if (serverCount < expectedMatchCount) {
             console.warn(`[XiDach] Server returned ${serverCount} matches, sent ${expectedMatchCount}. Retrying...`);
             if (attempt < maxRetries) continue;
-            // Final attempt still wrong — notify user
+            // Server consistently returns fewer — save backup locally
+            if (data.matches) saveLocalBackup(data);
             getToast()?.error('toast.matchSaveFailed');
+            return;
           }
         }
-        return; // Success
+        // Success — clear any existing local backup
+        clearLocalBackup(sessionCode);
+        return;
       } catch (error) {
         console.error(`[XiDach] Save attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
         if (attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         } else {
-          throw error; // All retries exhausted
+          // All retries failed — save to localStorage as fallback
+          if (data.matches) saveLocalBackup(data);
+          throw error;
         }
       }
     }
@@ -264,9 +298,12 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [enqueueSave]);
 
   // Immediate save for critical operations (match add/edit/delete)
-  // Sends full session with retry + server verification
+  // Always saves to localStorage first (instant), then syncs to server with retry.
+  // If server fails, local backup ensures data survives reload.
   const immediateSave = useCallback((session: XiDachSession) => {
     if (!session.sessionCode) return;
+    // Always save local backup first — guarantees data survival
+    saveLocalBackup(session);
     // Cancel any pending debounced save — immediateSave includes all data
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -310,6 +347,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [state.currentSessionId]);
 
   // Auto-fetch session on reload (when we have sessionId but no session data)
+  // Also checks localStorage backup — if local has more matches than server, syncs up.
   const initialSessionId = useRef(state.currentSessionId);
   useEffect(() => {
     const fetchSavedSession = async () => {
@@ -318,7 +356,30 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
           const response = await xiDachApi.getSession(sessionId);
-          const session = apiResponseToSession(response);
+          let session = apiResponseToSession(response);
+
+          // Check localStorage backup — recover lost matches if local has more
+          const backup = getLocalBackup(sessionId);
+          if (backup && backup.matches.length > session.matches.length) {
+            console.warn(
+              `[XiDach] Local backup has ${backup.matches.length} matches, server has ${session.matches.length}. Syncing...`
+            );
+            // Merge: use local matches + players (they have correct scores)
+            session = { ...session, matches: backup.matches, players: backup.players };
+            // Push recovered data to server
+            try {
+              await xiDachApi.updateSession(sessionId, session);
+              clearLocalBackup(sessionId);
+              getToast()?.success('toast.matchRecovered');
+            } catch {
+              // Keep local backup for next attempt
+              console.error('[XiDach] Failed to sync backup to server');
+            }
+          } else {
+            // Server is up to date — clear any stale backup
+            clearLocalBackup(sessionId);
+          }
+
           dispatch({ type: 'ADD_SESSION', payload: session });
           dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });
         } catch (err) {
