@@ -861,7 +861,8 @@
     "undoRejected": "Undo request rejected",
     "roomCreated": "Room created!",
     "sessionDeleted": "Session deleted",
-    "gameSessionStarted": "Game session started!"
+    "gameSessionStarted": "Game session started!",
+    "matchSaveFailed": "Failed to save match! Please try again."
   },
   "tinhTuy": {
     "gameName": "Tinh Tuy Board Game",

@@ -183,49 +183,79 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [state, dispatch] = useReducer(xiDachReducer, initialState);
   const [pendingDealerRotation, setPendingDealerRotation] = useState<PendingDealerRotation | null>(null);
 
-  // Refs for debounced API sync
+  // Refs for serialized save queue — prevents race conditions where
+  // out-of-order HTTP responses overwrite newer data with stale data
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingSaveRef = useRef<XiDachSession | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSessionRef = useRef<XiDachSession | null>(null);
 
-  // Sync to API (debounced) - only for sessions with sessionCode
-  const debouncedSave = useCallback((session: XiDachSession) => {
-    if (!session.sessionCode) return;
-    pendingSaveRef.current = session;
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      if (pendingSaveRef.current?.sessionCode) {
-        xiDachApi.updateSession(pendingSaveRef.current.sessionCode, pendingSaveRef.current).catch(console.error);
-        pendingSaveRef.current = null;
-      }
-    }, SAVE_DEBOUNCE_MS);
+  // Enqueue a save operation — ensures saves execute sequentially (FIFO)
+  // Each save waits for the previous one to complete before sending
+  const enqueueSave = useCallback((sessionCode: string, data: any, isCritical: boolean) => {
+    saveQueueRef.current = saveQueueRef.current
+      .then(() => xiDachApi.updateSession(sessionCode, data))
+      .then(() => {
+        // Save succeeded — no action needed
+      })
+      .catch((error) => {
+        console.error('[XiDach] Save failed:', error);
+        if (isCritical) {
+          getToast()?.error('toast.matchSaveFailed');
+        }
+      });
   }, []);
 
-  // Immediate API sync for critical operations (match end, game end)
+  // Debounced save for non-critical updates (settings, players, dealer)
+  // Only sends non-match fields to avoid overwriting match data
+  const debouncedSave = useCallback((session: XiDachSession) => {
+    if (!session.sessionCode) return;
+    latestSessionRef.current = session;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      const latest = latestSessionRef.current;
+      if (latest?.sessionCode) {
+        // Send only non-match fields — prevents stale match overwrites
+        enqueueSave(latest.sessionCode, {
+          name: latest.name,
+          players: latest.players,
+          currentDealerId: latest.currentDealerId,
+          settings: latest.settings,
+        }, false);
+        latestSessionRef.current = null;
+      }
+    }, SAVE_DEBOUNCE_MS);
+  }, [enqueueSave]);
+
+  // Immediate save for critical operations (match add/edit/delete)
+  // Sends full session and queues sequentially to prevent overwrites
   const immediateSave = useCallback((session: XiDachSession) => {
     if (!session.sessionCode) return;
+    // Cancel any pending debounced save — immediateSave includes all data
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
-    pendingSaveRef.current = null;
-    xiDachApi.updateSession(session.sessionCode, session).catch(console.error);
-  }, []);
+    latestSessionRef.current = null;
+    enqueueSave(session.sessionCode, session, true);
+  }, [enqueueSave]);
 
-  // Lightweight API sync for status-only updates (avoids sending large matches array)
+  // Lightweight save for status-only updates
   const saveStatusOnly = useCallback((session: XiDachSession) => {
     if (!session.sessionCode) return;
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
-    pendingSaveRef.current = null;
-    xiDachApi.updateSession(session.sessionCode, { status: session.status }).catch(console.error);
-  }, []);
+    latestSessionRef.current = null;
+    enqueueSave(session.sessionCode, { status: session.status }, false);
+  }, [enqueueSave]);
 
+  // Flush pending saves on unmount
   useEffect(() => () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    if (pendingSaveRef.current?.sessionCode) {
-      xiDachApi.updateSession(pendingSaveRef.current.sessionCode, pendingSaveRef.current).catch(() => {});
+    const latest = latestSessionRef.current;
+    if (latest?.sessionCode) {
+      xiDachApi.updateSession(latest.sessionCode, latest).catch(() => {});
     }
   }, []);
 

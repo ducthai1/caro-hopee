@@ -861,7 +861,8 @@
     "undoRejected": "Yêu cầu đi lại bị từ chối",
     "roomCreated": "Đã tạo phòng!",
     "sessionDeleted": "Đã xóa phiên",
-    "gameSessionStarted": "Phiên chơi đã bắt đầu!"
+    "gameSessionStarted": "Phiên chơi đã bắt đầu!",
+    "matchSaveFailed": "Lưu trận đấu thất bại! Vui lòng thử lại."
   },
   "tinhTuy": {
     "gameName": "Tinh Túy Đại Chiến",
