@@ -103,9 +103,21 @@ const apiResponseToSession = (r: XiDachSessionResponse): XiDachSession => ({
   currentDealerId: r.currentDealerId,
   settings: { ...DEFAULT_XI_DACH_SETTINGS, ...(r.settings || {}) },
   status: r.status,
+  version: r.version,
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
 });
+
+/** Merge local and server matches by ID union. Local takes priority for edits. */
+const mergeMatches = (localMatches: XiDachMatch[], serverMatches: XiDachMatch[]): XiDachMatch[] => {
+  const map = new Map<string, XiDachMatch>();
+  // Server first (base)
+  for (const m of serverMatches) map.set(m.id, m);
+  // Local overwrites (takes priority for edits)
+  for (const m of localMatches) map.set(m.id, m);
+  // Sort by matchNumber
+  return Array.from(map.values()).sort((a, b) => a.matchNumber - b.matchNumber);
+};
 
 // ============== CONSTANTS ==============
 
@@ -215,6 +227,9 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSessionRef = useRef<XiDachSession | null>(null);
+  // Track latest known server version — updated after every successful save.
+  // Ensures queued saves always use fresh version, not stale captured value.
+  const latestVersionRef = useRef<number | undefined>(undefined);
 
   // Retry wrapper for critical saves — retries on failure with backoff
   // On success: clears local backup. On total failure: saves to localStorage.
@@ -224,9 +239,15 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     expectedMatchCount: number | null,
     maxRetries = 2,
   ): Promise<void> => {
+    let saveData = { ...data };
+    // Use latest known version from ref (not the stale captured value)
+    // This prevents 409s when multiple saves queue up — each uses fresh version
+    if (saveData.version !== undefined && latestVersionRef.current !== undefined) {
+      saveData.version = latestVersionRef.current;
+    }
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const response = await xiDachApi.updateSession(sessionCode, data);
+        const response = await xiDachApi.updateSession(sessionCode, saveData);
         // Verify server saved all matches (only when sending full session)
         if (expectedMatchCount !== null && response.matches) {
           const serverCount = response.matches.length;
@@ -234,21 +255,44 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
             console.warn(`[XiDach] Server returned ${serverCount} matches, sent ${expectedMatchCount}. Retrying...`);
             if (attempt < maxRetries) continue;
             // Server consistently returns fewer — save backup locally
-            if (data.matches) saveLocalBackup(data);
+            if (saveData.matches) saveLocalBackup(saveData);
             getToast()?.error('toast.matchSaveFailed');
             return;
           }
         }
-        // Success — clear any existing local backup
+        // Success — update version ref + local state + clear backup
+        if (typeof response.version === 'number') {
+          latestVersionRef.current = response.version;
+          dispatch({ type: 'UPDATE_SESSION', payload: apiResponseToSession(response) });
+        }
         clearLocalBackup(sessionCode);
         return;
-      } catch (error) {
+      } catch (error: any) {
+        // Handle 409 version conflict — merge matches and retry
+        if (error?.response?.status === 409 && saveData.matches) {
+          const { serverVersion, serverMatchCount } = error.response.data || {};
+          console.warn(
+            `[XiDach] Version conflict — server v${serverVersion} (${serverMatchCount} matches). Merging...`
+          );
+          try {
+            // Fetch latest server state
+            const serverSession = await xiDachApi.getSession(sessionCode);
+            const merged = mergeMatches(saveData.matches, serverSession.matches || []);
+            // Retry with merged data + server's current version
+            saveData = { ...saveData, matches: merged, version: serverSession.version };
+            latestVersionRef.current = serverSession.version;
+            expectedMatchCount = merged.length;
+            continue; // retry with merged data
+          } catch (fetchErr) {
+            console.error('[XiDach] Failed to fetch server state for merge:', fetchErr);
+          }
+        }
         console.error(`[XiDach] Save attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
         if (attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         } else {
           // All retries failed — save to localStorage as fallback
-          if (data.matches) saveLocalBackup(data);
+          if (saveData.matches) saveLocalBackup(saveData);
           throw error;
         }
       }
@@ -310,7 +354,12 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
       saveTimeoutRef.current = null;
     }
     latestSessionRef.current = null;
-    enqueueSave(session.sessionCode, session, true, session.matches.length);
+    // Include version for optimistic locking (only when present)
+    const saveData: any = { ...session };
+    if (typeof session.version === 'number') {
+      saveData.version = session.version;
+    }
+    enqueueSave(session.sessionCode, saveData, true, session.matches.length);
   }, [enqueueSave]);
 
   // Lightweight save for status-only updates
@@ -324,12 +373,18 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
     enqueueSave(session.sessionCode, { status: session.status }, false);
   }, [enqueueSave]);
 
-  // Flush pending saves on unmount
+  // Flush pending saves on unmount — best-effort, no version locking
+  // (send only non-match fields to avoid overwriting match data on unmount)
   useEffect(() => () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     const latest = latestSessionRef.current;
     if (latest?.sessionCode) {
-      xiDachApi.updateSession(latest.sessionCode, latest).catch(() => {});
+      xiDachApi.updateSession(latest.sessionCode, {
+        name: latest.name,
+        players: latest.players,
+        currentDealerId: latest.currentDealerId,
+        settings: latest.settings,
+      }).catch(() => {});
     }
   }, []);
 
@@ -380,6 +435,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
             clearLocalBackup(sessionId);
           }
 
+          if (typeof session.version === 'number') latestVersionRef.current = session.version;
           dispatch({ type: 'ADD_SESSION', payload: session });
           dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });
         } catch (err) {
@@ -429,6 +485,7 @@ export const XiDachScoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setSessionFromApi = useCallback((apiResponse: XiDachSessionResponse) => {
     const session = apiResponseToSession(apiResponse);
+    if (typeof session.version === 'number') latestVersionRef.current = session.version;
     dispatch({ type: 'ADD_SESSION', payload: session });
     dispatch({ type: 'SET_CURRENT_SESSION', payload: session.id });
     dispatch({ type: 'SET_VIEW_MODE', payload: session.status === 'ended' ? 'summary' : 'playing' });

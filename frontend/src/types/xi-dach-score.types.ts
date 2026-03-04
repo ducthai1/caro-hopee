@@ -87,6 +87,7 @@ export interface XiDachSession {
   currentDealerId: string | null;
   settings: XiDachSettings;
   status: XiDachSessionStatus;
+  version?: number;                   // Optimistic locking version
   createdAt: string;                  // ISO string
   updatedAt: string;                  // ISO string
 }

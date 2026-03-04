@@ -103,6 +103,7 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
       currentDealerId: session.currentDealerId,
       settings: session.settings,
       status: session.status,
+      version: session.version,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
     });
@@ -160,6 +161,7 @@ export const getSession = async (req: Request, res: Response): Promise<void> => 
       currentDealerId: session.currentDealerId,
       settings: session.settings,
       status: session.status,
+      version: session.version,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
     });
@@ -216,6 +218,7 @@ export const joinSession = async (req: Request, res: Response): Promise<void> =>
       currentDealerId: session.currentDealerId,
       settings: session.settings,
       status: session.status,
+      version: session.version,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
     });
@@ -232,6 +235,7 @@ export const updateSession = async (req: Request, res: Response): Promise<void> 
   try {
     const { sessionCode } = req.params;
     const updates = req.body;
+    const clientVersion = typeof updates.version === 'number' ? updates.version : undefined;
 
     // Fields that can be updated
     const allowedUpdates = [
@@ -250,16 +254,42 @@ export const updateSession = async (req: Request, res: Response): Promise<void> 
       }
     }
 
+    // Build query — add version filter for optimistic locking when client sends it
+    const query: Record<string, any> = { sessionCode: sessionCode.toUpperCase() };
+    if (clientVersion !== undefined) {
+      query.version = clientVersion;
+    }
+
     const session = await XiDachSession.findOneAndUpdate(
-      { sessionCode: sessionCode.toUpperCase() },
-      { $set: updateData },
+      query,
+      { $set: updateData, $inc: { version: 1 } },
       { new: true }
     );
 
     if (!session) {
+      // Version mismatch — check if session exists at all
+      if (clientVersion !== undefined) {
+        const existing = await XiDachSession.findOne({ sessionCode: sessionCode.toUpperCase() });
+        if (existing) {
+          console.warn(
+            `[xiDach.updateSession] Version conflict — sessionCode: ${sessionCode}, clientVersion: ${clientVersion}, serverVersion: ${existing.version}, serverMatchCount: ${existing.matches.length}`
+          );
+          res.status(409).json({
+            message: 'Version conflict',
+            serverVersion: existing.version,
+            serverMatchCount: existing.matches.length,
+          });
+          return;
+        }
+      }
       res.status(404).json({ message: 'Session not found' });
       return;
     }
+
+    const matchCount = session.matches.length;
+    console.log(
+      `[xiDach.updateSession] Saved — sessionCode: ${sessionCode}, version: ${session.version}, matchCount: ${matchCount}`
+    );
 
     // Emit socket event for session update
     io.to(`xi-dach-${sessionCode.toUpperCase()}`).emit('xi-dach-session-updated', {
@@ -269,6 +299,7 @@ export const updateSession = async (req: Request, res: Response): Promise<void> 
       currentDealerId: session.currentDealerId,
       settings: session.settings,
       status: session.status,
+      version: session.version,
       updatedAt: session.updatedAt.toISOString(),
     });
 
@@ -282,6 +313,7 @@ export const updateSession = async (req: Request, res: Response): Promise<void> 
       currentDealerId: session.currentDealerId,
       settings: session.settings,
       status: session.status,
+      version: session.version,
       createdAt: session.createdAt.toISOString(),
       updatedAt: session.updatedAt.toISOString(),
     });
@@ -412,6 +444,7 @@ export const getSessions = async (req: Request, res: Response): Promise<void> =>
         playerCount: s.players.filter((p) => p.isActive).length,
         matchCount: s.matches.length,
         status: s.status,
+        version: s.version,
         creatorId: s.creatorId ? s.creatorId.toString() : null,
         creatorGuestId: s.creatorGuestId || null,
         createdAt: s.createdAt.toISOString(),

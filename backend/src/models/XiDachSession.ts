@@ -59,6 +59,7 @@ export interface IXiDachSession extends Document {
   currentDealerId: string | null;
   settings: IXiDachSettings;
   status: XiDachSessionStatus;
+  version: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -161,6 +162,10 @@ const XiDachSessionSchema: Schema = new Schema({
       autoRotateDealer: false,
       autoRotateAfter: 1,
     }),
+  },
+  version: {
+    type: Number,
+    default: 0,
   },
   status: {
     type: String,

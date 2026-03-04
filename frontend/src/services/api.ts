@@ -368,6 +368,7 @@ export interface XiDachSessionResponse {
   currentDealerId: string | null;
   settings: any;
   status: 'setup' | 'playing' | 'paused' | 'ended';
+  version: number;
   createdAt: string;
   updatedAt: string;
 }
