@@ -126,6 +126,11 @@ const XiDachSessionSchema: Schema = new Schema({
     default: null,
     select: false, // Don't return password by default
   },
+  plainPassword: {
+    type: String,
+    default: null,
+    select: false, // Admin-only: stored for DB management, never returned via API
+  },
   creatorId: {
     type: Schema.Types.ObjectId,
     ref: 'User',

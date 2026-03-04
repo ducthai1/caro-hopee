@@ -5,8 +5,23 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import XiDachSession from '../models/XiDachSession';
+import User from '../models/User';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { io } from '../server';
+
+// Check if request is from an admin user (returns true if admin, false otherwise)
+const isRequestFromAdmin = async (req: Request): Promise<boolean> => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return false;
+    const { verifyToken } = await import('../utils/jwt');
+    const decoded = verifyToken(token);
+    const user = await User.findById(decoded.userId).select('role');
+    return user?.role === 'admin';
+  } catch {
+    return false;
+  }
+};
 
 // Generate unique 6-character session code
 const generateSessionCode = async (): Promise<string> => {
@@ -60,6 +75,7 @@ export const createSession = async (req: Request, res: Response): Promise<void> 
       sessionCode,
       name: name || `Session ${sessionCode}`,
       password: hashedPassword,
+      plainPassword: password || null,
       creatorId: finalUserId || null,
       creatorGuestId: finalUserId ? null : guestId || null,
       settings: settings || {},
@@ -113,8 +129,11 @@ export const getSession = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Check password if set
-    if (session.password) {
+    // Admin users bypass password check
+    const isAdmin = await isRequestFromAdmin(req);
+
+    // Check password if set (skip for admin)
+    if (session.password && !isAdmin) {
       if (!password) {
         res.status(401).json({
           message: 'Password required',
@@ -167,8 +186,11 @@ export const joinSession = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Check password if set
-    if (session.password) {
+    // Admin users bypass password check
+    const isAdmin = await isRequestFromAdmin(req);
+
+    // Check password if set (skip for admin)
+    if (session.password && !isAdmin) {
       if (!password) {
         res.status(401).json({
           message: 'Password required',
@@ -284,7 +306,7 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
 
     const session = await XiDachSession.findOneAndUpdate(
       { sessionCode: sessionCode.toUpperCase() },
-      { $set: { password: hashedPassword } },
+      { $set: { password: hashedPassword, plainPassword: (password && password.length >= 4) ? password : null } },
       { new: true }
     );
 
